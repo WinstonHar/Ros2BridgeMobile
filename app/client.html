@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ROS 2 JS Bridge Client</title>
+    <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+</head>
+<body>
+<script>
+    // Connect to Kotlin WebSocket server
+    const ws = new WebSocket("ws://localhost:8080/chat");
+
+    // Connect to rosbridge
+    const ros = new ROSLIB.Ros({
+      url: "ws://localhost:9090"
+    });
+
+    let chatterTopic; // Declare topic variable outside
+
+    ros.on('connection', function() {
+      console.log('Connected to rosbridge');
+
+      // Create and advertise the ROS topic once connected
+      chatterTopic = new ROSLIB.Topic({
+        ros: ros,
+        name: "/android_chatter",
+        messageType: "std_msgs/String"
+      });
+
+      // It's good practice to advertise the topic explicitly,
+      // though roslib.js often handles this implicitly on the first publish.
+      // However, some rosbridge server versions might be stricter.
+      chatterTopic.advertise();
+      console.log('Advertised /android_chatter topic');
+    });
+
+    ws.onmessage = function(event) {
+      if (!chatterTopic) {
+        console.error("ROS topic '/android_chatter' is not yet advertised. Wait for rosbridge connection.");
+        return;
+      }
+
+      // Validate and create a message
+      const msgData = event.data || "Default message"; // Ensure event.data is not empty
+      const msg = new ROSLIB.Message({
+        data: msgData
+      });
+
+      // Publish the message on the existing topic instance
+      chatterTopic.publish(msg);
+      console.log(`Published message: ${JSON.stringify(msg)}`);
+    };
+
+    ros.on('error', function(error) {
+      console.error('Error connecting to rosbridge:', error);
+    });
+    ros.on('close', function() {
+      console.log('Connection to rosbridge closed');
+      if (chatterTopic) {
+        // Optional: unadvertise the topic when the connection closes
+        chatterTopic.unadvertise();
+        console.log('Unadvertised /android_chatter topic');
+      }
+    });
+</script>
+</body>
+</html>
