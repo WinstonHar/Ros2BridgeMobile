@@ -1,0 +1,829 @@
+package com.example.testros2jsbridge
+
+import android.content.Context
+import android.hardware.input.InputManager
+import androidx.fragment.app.activityViewModels
+import android.os.Bundle
+import android.view.*
+import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.fragment.app.Fragment
+
+/*
+    This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
+*/
+
+class ControllerSupportFragment : Fragment() {
+    private val joystickResendIntervalMs = 100L
+    private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var joystickResendActive = false
+    private var lastJoystickMappings: List<JoystickMapping>? = null
+    private var lastJoystickDevice: InputDevice? = null
+    private var lastJoystickEvent: MotionEvent? = null
+    private val joystickResendRunnable = object : Runnable {
+        /*
+            input:    None
+            output:   None
+            remarks:  Periodically resends joystick input if active
+        */
+        override fun run() {
+            val mappings = lastJoystickMappings
+            val dev = lastJoystickDevice
+            val event = lastJoystickEvent
+            if (mappings != null && dev != null && event != null) {
+                for (mapping in mappings) {
+                    processJoystickInput(event, dev, -1, mapping, forceSend = true)
+                }
+                joystickResendHandler.postDelayed(this, joystickResendIntervalMs)
+            } else {
+                joystickResendActive = false
+            }
+        }
+    }
+
+    /*
+        input:    ...fields for joystick mapping...
+        output:   None
+        remarks:  Data class representing a joystick mapping configuration
+    */
+    data class JoystickMapping(
+        var displayName: String = "Left Stick",
+        var topic: String = "/cmd_vel",
+        var type: String = "geometry_msgs/msg/Twist",
+        var axisX: Int = MotionEvent.AXIS_X,
+        var axisY: Int = MotionEvent.AXIS_Y,
+        var max: Float = 1.0f,
+        var step: Float = 0.2f,
+        var deadzone: Float = 0.1f
+    )
+
+    private val PREFS_JOYSTICK_MAPPING = "joystick_mapping_prefs"
+
+    /*
+        input:    mappings - List of JoystickMapping
+        output:   None
+        remarks:  Saves joystick mappings to SharedPreferences
+    */
+    private fun saveJoystickMappings(mappings: List<JoystickMapping>) {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPING, Context.MODE_PRIVATE)
+        val arr = org.json.JSONArray()
+        for (m in mappings) {
+            val obj = org.json.JSONObject()
+            obj.put("displayName", m.displayName)
+            obj.put("topic", m.topic)
+            obj.put("type", m.type)
+            obj.put("axisX", m.axisX)
+            obj.put("axisY", m.axisY)
+            obj.put("max", m.max)
+            obj.put("step", m.step)
+            obj.put("deadzone", m.deadzone)
+            arr.put(obj)
+        }
+        prefs.edit().putString("mappings", arr.toString()).apply()
+    }
+
+    /*
+        input:    None
+        output:   MutableList of JoystickMapping
+        remarks:  Loads joystick mappings from SharedPreferences
+    */
+    private fun loadJoystickMappings(): MutableList<JoystickMapping> {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPING, Context.MODE_PRIVATE)
+        val json = prefs.getString("mappings", null)
+        val list = mutableListOf<JoystickMapping>()
+        if (!json.isNullOrEmpty()) {
+            try {
+                val arr = org.json.JSONArray(json)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    list.add(
+                        JoystickMapping(
+                            displayName = obj.optString("displayName", "Left Stick"),
+                            topic = obj.optString("topic", "/cmd_vel"),
+                            type = obj.optString("type", "geometry_msgs/msg/Twist"),
+                            axisX = obj.optInt("axisX", MotionEvent.AXIS_X),
+                            axisY = obj.optInt("axisY", MotionEvent.AXIS_Y),
+                            max = obj.optDouble("max", 1.0).toFloat(),
+                            step = obj.optDouble("step", 0.2).toFloat(),
+                            deadzone = obj.optDouble("deadzone", 0.1).toFloat()
+                        )
+                    )
+                }
+            } catch (_: Exception) {}
+        } else {
+            // Default: left and right stick
+            list.add(JoystickMapping("Left Stick", "/cmd_vel", "geometry_msgs/msg/Twist", MotionEvent.AXIS_X, MotionEvent.AXIS_Y, 1.0f, 0.2f, 0.1f))
+            list.add(JoystickMapping("Right Stick", "/cmd_vel2", "geometry_msgs/msg/Twist", MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ, 1.0f, 0.2f, 0.1f))
+        }
+        return list
+    }
+
+    /*
+        input:    root - View
+        output:   None
+        remarks:  Sets up the UI for joystick mapping configuration
+    */
+    private fun setupJoystickMappingUI(root: View) {
+        val container = root.findViewById<android.widget.LinearLayout?>(R.id.joystick_mapping_container)
+            ?: return
+        container.removeAllViews()
+        val mappings = loadJoystickMappings()
+        for ((idx, mapping) in mappings.withIndex()) {
+            val group = android.widget.LinearLayout(requireContext())
+            group.orientation = android.widget.LinearLayout.VERTICAL
+            group.setPadding(8, 16, 8, 16)
+            val title = TextView(requireContext())
+            title.text = mapping.displayName
+            title.textSize = 16f
+            group.addView(title)
+
+            // Topic
+            val topicInput = android.widget.EditText(requireContext())
+            topicInput.hint = "Topic"
+            topicInput.setText(mapping.topic)
+            group.addView(topicInput)
+
+            // Type
+            val typeInput = android.widget.EditText(requireContext())
+            typeInput.hint = "Type (e.g. geometry_msgs/msg/Twist)"
+            typeInput.setText(mapping.type)
+            group.addView(typeInput)
+
+            // Max
+            val maxInput = android.widget.EditText(requireContext())
+            maxInput.hint = "Max value (e.g. 1.0)"
+            maxInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            maxInput.setText(mapping.max.toString())
+            group.addView(maxInput)
+
+            // Step
+            val stepInput = android.widget.EditText(requireContext())
+            stepInput.hint = "Step (e.g. 0.2)"
+            stepInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            stepInput.setText(mapping.step.toString())
+            group.addView(stepInput)
+
+            // Deadzone
+            val deadzoneInput = android.widget.EditText(requireContext())
+            deadzoneInput.hint = "Deadzone (e.g. 0.1)"
+            deadzoneInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            deadzoneInput.setText(mapping.deadzone.toString())
+            group.addView(deadzoneInput)
+
+            // Save button
+            val saveBtn = android.widget.Button(requireContext())
+            saveBtn.text = "Save"
+            saveBtn.setOnClickListener {
+                mapping.topic = topicInput.text.toString()
+                mapping.type = typeInput.text.toString()
+                mapping.max = maxInput.text.toString().toFloatOrNull() ?: 1.0f
+                mapping.step = stepInput.text.toString().toFloatOrNull() ?: 0.2f
+                mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull() ?: 0.1f
+                saveJoystickMappings(mappings)
+                android.widget.Toast.makeText(requireContext(), "Joystick mapping saved", android.widget.Toast.LENGTH_SHORT).show()
+            }
+            group.addView(saveBtn)
+            container.addView(group)
+        }
+    }
+
+    private val rosViewModel: RosViewModel by activityViewModels()
+    private lateinit var controllerListText: TextView
+
+    /*
+        input:    inflater - LayoutInflater, container - ViewGroup?, savedInstanceState - Bundle?
+        output:   View?
+        remarks:  Inflates the fragment view and sets up controller support UI
+    */
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_controller_support, container, false)
+        controllerListText = view.findViewById(R.id.controllerListText)
+        updateControllerList()
+        setupControllerMappingUI(view)
+        setupPanelToggleUI(view)
+        setupJoystickMappingUI(view)
+        return view
+    }
+
+    /*
+        input:    root - View
+        output:   None
+        remarks:  Sets up the UI for mapping app actions to controller buttons
+    */
+    private fun setupControllerMappingUI(root: View) {
+        var appActions = loadAvailableAppActions()
+        val appActionsAdapter = AppActionsAdapter(appActions)
+        val appActionsList = root.findViewById<RecyclerView>(R.id.list_app_actions)
+        appActionsList.layoutManager = LinearLayoutManager(requireContext())
+        appActionsList.adapter = appActionsAdapter
+
+        // Detect controller buttons
+        val controllerButtons = getControllerButtonList()
+        val buttonAssignments = loadButtonAssignments(controllerButtons)
+        lateinit var controllerButtonsAdapter: ControllerButtonsAdapter
+        val controllerButtonsList = root.findViewById<RecyclerView>(R.id.list_controller_buttons)
+        controllerButtonsAdapter = ControllerButtonsAdapter(controllerButtons, buttonAssignments, appActions) { btnName ->
+            // Always reload app actions to get the latest msg values
+            appActions = loadAvailableAppActions()
+            android.app.AlertDialog.Builder(requireContext())
+                .setTitle("Assign App Action to $btnName")
+                .setItems(appActions.map { it.displayName }.toTypedArray()) { _, which ->
+                    val selectedAction = appActions[which]
+                    val newAssignments = buttonAssignments.toMutableMap()
+                    newAssignments[btnName] = selectedAction
+                    saveButtonAssignments(newAssignments)
+                    buttonAssignments.clear(); buttonAssignments.putAll(newAssignments)
+                    controllerButtonsAdapter.notifyDataSetChanged()
+                }
+                .setNegativeButton("Unassign") { _, _ ->
+                    val newAssignments = buttonAssignments.toMutableMap()
+                    newAssignments.remove(btnName)
+                    saveButtonAssignments(newAssignments)
+                    buttonAssignments.clear(); buttonAssignments.putAll(newAssignments)
+                    controllerButtonsAdapter.notifyDataSetChanged()
+                }
+                .show()
+        }
+        controllerButtonsList.layoutManager = LinearLayoutManager(requireContext())
+        controllerButtonsList.adapter = controllerButtonsAdapter
+    }
+
+    // Custom panel expand/collapse logic for App Actions
+    private var isPanelVisible = true
+
+    /*
+        input:    root - View
+        output:   None
+        remarks:  Sets up the UI for toggling the visibility of the app actions panel
+     */
+    private fun setupPanelToggleUI(root: View) {
+        val panel = root.findViewById<View>(R.id.panel_app_actions)
+        val toggleBtn = root.findViewById<TextView>(R.id.btn_toggle_panel)
+
+        fun updatePanelState() {
+            panel.visibility = if (isPanelVisible) View.VISIBLE else View.GONE
+            toggleBtn.text = if (isPanelVisible) "<" else ">"
+        }
+
+        toggleBtn.setOnClickListener {
+            isPanelVisible = !isPanelVisible
+            updatePanelState()
+        }
+        updatePanelState()
+    }
+
+    /*
+        input:    text - String
+        output:   String
+        remarks:  Converts a string to a verticalized version (one char per line)
+    */
+    private fun verticalize(text: String): String = text.toCharArray().joinToString("\n")
+
+    /*
+        input:    actions - List<AppAction>
+        output:   None
+        remarks:  RecyclerView adapter for app actions
+    */
+    inner class AppActionsAdapter(private val actions: List<AppAction>) : RecyclerView.Adapter<AppActionsAdapter.ActionViewHolder>() {
+        inner class ActionViewHolder(val nameView: TextView, val detailsView: TextView, val container: View) : RecyclerView.ViewHolder(container)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ActionViewHolder {
+            // Create a vertical LinearLayout with two TextViews
+            val context = parent.context
+            val layout = android.widget.LinearLayout(context)
+            layout.orientation = android.widget.LinearLayout.VERTICAL
+            layout.setPadding(16, 16, 16, 16)
+            // Name (main text)
+            val nameView = TextView(context)
+            nameView.textSize = 16f
+            nameView.setTextColor(android.graphics.Color.BLACK)
+            // Details (type/values)
+            val detailsView = TextView(context)
+            detailsView.textSize = 13f
+            detailsView.setTextColor(android.graphics.Color.DKGRAY)
+            detailsView.setLineSpacing(0f, 1.1f)
+            // Enable wrapping and max width for detailsView
+            detailsView.setSingleLine(false)
+            detailsView.ellipsize = null
+            // Set max width to half of the screen width
+            val displayMetrics = context.resources.displayMetrics
+            val halfWidthPx = (displayMetrics.widthPixels * 0.4).toInt()
+            detailsView.maxWidth = halfWidthPx
+            // Add views
+            layout.addView(nameView)
+            layout.addView(detailsView)
+            return ActionViewHolder(nameView, detailsView, layout)
+        }
+        override fun onBindViewHolder(holder: ActionViewHolder, position: Int) {
+            val action = actions[position]
+            holder.nameView.text = action.displayName
+            // Compose details: each label on its own line, show actual user-set msg
+            val details = buildString {
+                if (action.type.isNotEmpty()) {
+                    append("Type: ").append(action.type).append('\n')
+                }
+                if (action.topic.isNotEmpty()) {
+                    append("Topic: ").append(action.topic).append('\n')
+                }
+                if (action.source.isNotEmpty()) {
+                    append("Source: ").append(action.source).append('\n')
+                }
+                append("Msg: ").append(if (action.msg.isNotEmpty()) action.msg else "<not set>")
+            }.trimEnd('\n')
+            holder.detailsView.text = details
+        }
+        override fun getItemCount() = actions.size
+    }
+
+    /*
+        input:    onItemClick - (String) -> Unit
+        output:   None
+        remarks:  RecyclerView adapter for controller buttons
+    */
+    inner class ControllerButtonsAdapter(
+        private val buttons: List<String>,
+        private val assignments: MutableMap<String, AppAction>,
+        private val appActions: List<AppAction>,
+        private val onItemClick: (String) -> Unit
+    ) : RecyclerView.Adapter<ControllerButtonsAdapter.ButtonViewHolder>() {
+        inner class ButtonViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ButtonViewHolder {
+            val tv = TextView(parent.context)
+            tv.textSize = 16f
+            tv.setPadding(16, 16, 16, 16)
+            tv.maxLines = 2
+            tv.ellipsize = android.text.TextUtils.TruncateAt.END
+            // Enable auto-size for dynamic horizontal fill
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                tv, 12, 22, 1, android.util.TypedValue.COMPLEX_UNIT_SP
+            )
+            tv.layoutParams = RecyclerView.LayoutParams(
+                RecyclerView.LayoutParams.MATCH_PARENT,
+                RecyclerView.LayoutParams.WRAP_CONTENT
+            )
+            return ButtonViewHolder(tv)
+        }
+        override fun onBindViewHolder(holder: ButtonViewHolder, position: Int) {
+            val btnName = buttons[position]
+            val action = assignments[btnName]
+            holder.textView.text = if (action != null) "$btnName → ${action.displayName}" else btnName
+            holder.textView.setOnClickListener { onItemClick(btnName) }
+        }
+        override fun getItemCount() = buttons.size
+    }
+
+    /*
+        input:    None
+        output:   List<AppAction>
+        remarks:  Loads available app actions from SharedPreferences
+    */
+    private fun loadAvailableAppActions(): List<AppAction> {
+        val actions = mutableListOf<AppAction>()
+        // Load from SliderButtonFragment
+        val prefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
+        val json = prefs.getString("saved_slider_buttons", null)
+        android.util.Log.d("ControllerSupport", "Loaded slider_buttons_prefs:saved_slider_buttons: $json")
+        if (!json.isNullOrEmpty()) {
+            try {
+                val arr = org.json.JSONArray(json)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val name = obj.optString("name", obj.optString("topic", ""))
+                    val topic = obj.optString("topic", "")
+                    val type = obj.optString("type", "")
+                    val msg = obj.optString("msg", "")
+                    actions.add(AppAction(name, topic, type, "Slider", msg))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ControllerSupport", "Error loading slider_buttons_prefs:saved_slider_buttons", e)
+            }
+        }
+        // Load from GeometryStdMsgFragment
+        val geoPrefs = requireContext().getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
+        val geoJson = geoPrefs.getString("geometry_buttons", null)
+        android.util.Log.d("ControllerSupport", "Loaded geometry_reusable_buttons:geometry_buttons: $geoJson")
+        if (!geoJson.isNullOrEmpty()) {
+            try {
+                val arr = org.json.JSONArray(geoJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val name = obj.optString("label", obj.optString("topic", ""))
+                    val topic = obj.optString("topic", "")
+                    val type = obj.optString("type", "")
+                    // Read both "msg" and fallback to "message" if "msg" is missing
+                    val msg = obj.optString("msg", obj.optString("message", ""))
+                    actions.add(AppAction(name, topic, type, "Geometry", msg))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ControllerSupport", "Error loading geometry_reusable_buttons:geometry_buttons", e)
+            }
+        }
+        // Load from CustomPublisherFragment (std_msgs)
+        try {
+            val prefs = requireContext().getSharedPreferences("custom_publishers_prefs", Context.MODE_PRIVATE)
+            val json = prefs.getString("custom_publishers", null)
+            android.util.Log.d("ControllerSupport", "Loaded custom_publishers_prefs:custom_publishers: $json")
+            if (!json.isNullOrEmpty()) {
+                val arr = com.google.gson.JsonParser.parseString(json).asJsonArray
+                for (el in arr) {
+                    val obj = el.asJsonObject
+                    val name = obj["label"]?.asString ?: obj["topic"]?.asString ?: ""
+                    val topic = obj["topic"]?.asString ?: ""
+                    val type = obj["type"]?.asString ?: ""
+                    val msg = if (obj.has("msg") && !obj["msg"].isJsonNull) {
+                        obj["msg"].asString
+                    } else {
+                        ""
+                    }
+                    actions.add(AppAction(name, topic, type, "Standard Message", msg))
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ControllerSupport", "Error loading custom_publishers_prefs:custom_publishers", e)
+        }
+        android.util.Log.d("ControllerSupport", "App actions loaded: $actions")
+        return actions
+    }
+
+    /*
+        input:    None
+        output:   List<String>
+        remarks:  Returns a list of common controller button names
+    */
+    private fun getControllerButtonList(): List<String> = listOf(
+        "Button A", "Button B", "Button X", "Button Y",
+        "DPad Up", "DPad Down", "DPad Left", "DPad Right",
+        "L1", "R1", "L2", "R2", "Start", "Select"
+    )
+
+    private val PREFS_CONTROLLER_ASSIGN = "controller_button_assignments"
+
+    /*
+        input:    assignments - Map<String, AppAction>
+        output:   None
+        remarks:  Saves controller button assignments to SharedPreferences
+    */
+    private fun saveButtonAssignments(assignments: Map<String, AppAction>) {
+        val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_ASSIGN, Context.MODE_PRIVATE)
+        val arr = org.json.JSONArray()
+        for ((btn, action) in assignments) {
+            val obj = org.json.JSONObject()
+            obj.put("button", btn)
+            obj.put("name", action.displayName)
+            obj.put("topic", action.topic)
+            obj.put("type", action.type)
+            obj.put("source", action.source)
+            obj.put("msg", action.msg)
+            arr.put(obj)
+        }
+        prefs.edit().putString("assignments", arr.toString()).apply()
+    }
+
+    /*
+        input:    controllerButtons - List<String>
+        output:   MutableMap<String, AppAction>
+        remarks:  Loads controller button assignments from SharedPreferences
+    */
+    private fun loadButtonAssignments(controllerButtons: List<String>): MutableMap<String, AppAction> {
+        val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_ASSIGN, Context.MODE_PRIVATE)
+        val json = prefs.getString("assignments", null)
+        val map = mutableMapOf<String, AppAction>()
+        if (!json.isNullOrEmpty()) {
+            try {
+                val arr = org.json.JSONArray(json)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    val btn = obj.getString("button")
+                    val name = obj.getString("name")
+                    val topic = obj.getString("topic")
+                    val type = obj.getString("type")
+                    val source = obj.optString("source", "")
+                    val msg = obj.optString("msg", "")
+                    if (btn in controllerButtons) {
+                        map[btn] = AppAction(name, topic, type, source, msg)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return map
+    }
+
+    /*
+        input:    displayName, topic, type, source, msg
+        output:   None
+        remarks:  Data class for app actions
+    */
+    data class AppAction(val displayName: String, val topic: String, val type: String, val source: String, val msg: String = "")
+
+    /*
+        input:    None
+        output:   None
+        remarks:  Updates the list of connected controllers in the UI
+    */
+    fun updateControllerList() {
+        val inputManager = requireContext().getSystemService(Context.INPUT_SERVICE) as InputManager
+        val deviceIds: IntArray = inputManager.inputDeviceIds
+        val controllers = mutableListOf<InputDevice>()
+        for (i in deviceIds.indices) {
+            val id = deviceIds[i]
+            val dev = InputDevice.getDevice(id)
+            if (dev != null && isGameController(dev)) {
+                controllers.add(dev)
+            }
+        }
+        val sb = StringBuilder("Connected controllers:\n")
+        if (controllers.isEmpty()) {
+            sb.append("None detected.")
+        } else {
+            for (dev in controllers) {
+                sb.append("- ").append(dev.name).append(" (id=").append(dev.id).append(")\n")
+            }
+        }
+        controllerListText.text = sb.toString()
+    }
+
+    /*
+        input:    device - InputDevice
+        output:   Boolean
+        remarks:  Checks if the device is a game controller
+    */
+    private fun isGameController(device: InputDevice): Boolean {
+        val sources = device.sources
+        return (sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
+               (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
+    }
+
+    /*
+        input:    event - KeyEvent
+        output:   Boolean
+        remarks:  Handles controller key events and dispatches to mapped actions
+    */
+    fun onControllerKeyEvent(event: KeyEvent): Boolean {
+        val actionStr = when (event.action) {
+            KeyEvent.ACTION_DOWN -> "DOWN"
+            KeyEvent.ACTION_UP -> "UP"
+            else -> "OTHER"
+        }
+        val btnName = keyCodeToButtonName(event.keyCode)
+        val msg = "Key $actionStr: code=${event.keyCode} (${KeyEvent.keyCodeToString(event.keyCode)}) from device ${event.device?.name}\n"
+        appendEventLog(msg)
+
+        // Only handle button presses (not releases or others)
+        if (actionStr == "DOWN" && btnName != null) {
+            // Load assignments and dispatch if mapped
+            val assignments = loadButtonAssignments(getControllerButtonList())
+            val mappedAction = assignments[btnName]
+            if (mappedAction != null) {
+                triggerAppAction(mappedAction)
+                return true // handled
+            }
+        }
+        return false // not handled or not mapped
+    }
+
+    /*
+        input:    keyCode - Int
+        output:   String?
+        remarks:  Maps Android keyCode to button names
+    */
+    private fun keyCodeToButtonName(keyCode: Int): String? {
+        return when (keyCode) {
+            KeyEvent.KEYCODE_BUTTON_A -> "Button A"
+            KeyEvent.KEYCODE_BUTTON_B -> "Button B"
+            KeyEvent.KEYCODE_BUTTON_X -> "Button X"
+            KeyEvent.KEYCODE_BUTTON_Y -> "Button Y"
+            KeyEvent.KEYCODE_DPAD_UP -> "DPad Up"
+            KeyEvent.KEYCODE_DPAD_DOWN -> "DPad Down"
+            KeyEvent.KEYCODE_DPAD_LEFT -> "DPad Left"
+            KeyEvent.KEYCODE_DPAD_RIGHT -> "DPad Right"
+            KeyEvent.KEYCODE_BUTTON_L1 -> "L1"
+            KeyEvent.KEYCODE_BUTTON_R1 -> "R1"
+            KeyEvent.KEYCODE_BUTTON_L2 -> "L2"
+            KeyEvent.KEYCODE_BUTTON_R2 -> "R2"
+            KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> "Start"
+            KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BACK -> "Select"
+            else -> null
+        }
+    }
+
+    /*
+        input:    action - AppAction
+        output:   None
+        remarks:  Dispatches the mapped app action (publishing logic)
+    */
+    private fun triggerAppAction(action: AppAction) {
+        // Dispatch based on action.source and type, using RosViewModel
+        when (action.source) {
+            "Slider" -> {
+                val rosType = when (action.type) {
+                    "Bool" -> "std_msgs/msg/Bool"
+                    "Float32" -> "std_msgs/msg/Float32"
+                    "Float64" -> "std_msgs/msg/Float64"
+                    "Int16" -> "std_msgs/msg/Int16"
+                    "Int32" -> "std_msgs/msg/Int32"
+                    "Int64" -> "std_msgs/msg/Int64"
+                    "Int8" -> "std_msgs/msg/Int8"
+                    "UInt16" -> "std_msgs/msg/UInt16"
+                    "UInt32" -> "std_msgs/msg/UInt32"
+                    "UInt64" -> "std_msgs/msg/UInt64"
+                    "UInt8" -> "std_msgs/msg/UInt8"
+                    else -> "std_msgs/msg/Float32"
+                }
+                rosViewModel.advertiseTopic(action.topic, rosType)
+                val msg = if (action.msg.isNotEmpty()) {
+                    action.msg
+                } else {
+                    when (action.type) {
+                        "Bool" -> "{\"data\": true}"
+                        "Float32", "Float64" -> "{\"data\": 1.0}"
+                        "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": 1}"
+                        else -> "{\"data\": 1.0}"
+                    }
+                }
+                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+            }
+            "Geometry" -> {
+                // Ensure fully qualified type string
+                val rosType = if (action.type.contains("/")) action.type else "geometry_msgs/msg/${action.type}"
+                rosViewModel.advertiseTopic(action.topic, rosType)
+                val msg = if (action.msg.isNotEmpty()) {
+                    action.msg
+                } else {
+                    when (rosType) {
+                        "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                        "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
+                        else -> "{}"
+                    }
+                }
+                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+            }
+            "Standard Message" -> {
+                // Ensure fully qualified type string
+                val rosType = if (action.type.contains("/")) action.type else "std_msgs/msg/${action.type}"
+                rosViewModel.advertiseTopic(action.topic, rosType)
+                val msg = if (action.msg.isNotEmpty()) {
+                    action.msg
+                } else {
+                    when (rosType) {
+                        "std_msgs/msg/String" -> "{\"data\": \"pressed\"}"
+                        "std_msgs/msg/Bool" -> "{\"data\": true}"
+                        else -> "{\"data\": 1}"
+                    }
+                }
+                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+            }
+            else -> {
+                android.util.Log.d("ControllerSupport", "[Unknown] $action")
+            }
+        }
+    }
+
+    /*
+        input:    event - MotionEvent
+        output:   Boolean
+        remarks:  Handles controller joystick/motion events
+    */
+    fun onControllerMotionEvent(event: MotionEvent): Boolean {
+        val dev = event.device ?: return false
+        var handled = false
+        // Joystick mappings
+        val mappings = loadJoystickMappings()
+        if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK && event.action == MotionEvent.ACTION_MOVE) {
+            for (mapping in mappings) {
+                // Process historical and current positions
+                for (i in 0 until event.historySize) {
+                    processJoystickInput(event, dev, i, mapping)
+                }
+                processJoystickInput(event, dev, -1, mapping)
+                handled = true
+            }
+            // Start periodic resend
+            lastJoystickMappings = mappings
+            lastJoystickDevice = dev
+            lastJoystickEvent = MotionEvent.obtain(event)
+            if (!joystickResendActive) {
+                joystickResendActive = true
+                joystickResendHandler.postDelayed(joystickResendRunnable, joystickResendIntervalMs)
+            }
+        } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+            // Stop periodic resend
+            joystickResendHandler.removeCallbacks(joystickResendRunnable)
+            joystickResendActive = false
+            lastJoystickMappings = null
+            lastJoystickDevice = null
+            lastJoystickEvent = null
+        }
+        // Log axes for debug
+        val axes = listOf(
+            MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z,
+            MotionEvent.AXIS_RX, MotionEvent.AXIS_RY, MotionEvent.AXIS_RZ,
+            MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_RTRIGGER
+        )
+        val sb = StringBuilder("Motion: ${dev.name} (id=${dev.id})\n")
+        for (axis in axes) {
+            val v = event.getAxisValue(axis)
+            if (v != 0f) {
+                sb.append("  ${MotionEvent.axisToString(axis)}: $v\n")
+            }
+        }
+        appendEventLog(sb.toString())
+        return handled
+    }
+
+    /*
+        input:    event - MotionEvent, device - InputDevice, axis - Int, historyPos - Int, mapping - JoystickMapping
+        output:   Float
+        remarks:  Gets the centered axis value for joystick input
+    */
+    private fun getCenteredAxis(event: MotionEvent, device: InputDevice, axis: Int, historyPos: Int, mapping: JoystickMapping): Float {
+        val range = device.getMotionRange(axis, event.source) ?: return 0f
+        val value = if (historyPos < 0) event.getAxisValue(axis) else event.getHistoricalAxisValue(axis, historyPos)
+        // Normalize to [-1, 1] based on physical range
+        val flat = range.flat
+        val min = range.min + flat
+        val max = range.max - flat
+        val normalized = when {
+            value > 0f -> value / max
+            value < 0f -> value / -min
+            else -> 0f
+        }
+        // Now scale to [-mapping.max, mapping.max]
+        val scaled = normalized * mapping.max
+        // Apply deadzone
+        return if (Math.abs(scaled) > mapping.deadzone) scaled else 0f
+    }
+
+    private var lastJoystickSent: MutableMap<String, Pair<Float, Float>> = mutableMapOf()
+
+    /*
+        input:    event - MotionEvent, device - InputDevice, historyPos - Int, mapping - JoystickMapping, forceSend - Boolean
+        output:   None
+        remarks:  Processes joystick input and publishes messages if needed
+    */
+    private fun processJoystickInput(event: MotionEvent, device: InputDevice, historyPos: Int, mapping: JoystickMapping, forceSend: Boolean = false) {
+        val x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
+        val y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
+        // Quantize to step (step is in user units, between deadzone and max)
+        val quantX = if (x != 0f) Math.signum(x) * (Math.ceil(((Math.abs(x) - mapping.deadzone).toDouble() / mapping.step.toDouble())).toInt() * mapping.step + mapping.deadzone) else 0f
+        val quantY = if (y != 0f) Math.signum(y) * (Math.ceil(((Math.abs(y) - mapping.deadzone).toDouble() / mapping.step.toDouble())).toInt() * mapping.step + mapping.deadzone) else 0f
+        // Clamp to max
+        val clampedX = quantX.coerceIn(-mapping.max, mapping.max)
+        val clampedY = quantY.coerceIn(-mapping.max, mapping.max)
+        val last = lastJoystickSent[mapping.displayName]
+
+        // Only send stop if previously nonzero and now truly centered (not just in deadzone)
+        // Always ensure mapping.type is fully qualified
+        val rosType = if (mapping.type.contains("/")) mapping.type else "geometry_msgs/msg/${mapping.type}"
+        if (clampedX == 0f && clampedY == 0f) {
+            if (last != null && (last.first != 0f || last.second != 0f)) {
+                lastJoystickSent[mapping.displayName] = 0f to 0f
+                val msg = when (rosType) {
+                    "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                    "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
+                    else -> "{}"
+                }
+                rosViewModel.advertiseTopic(mapping.topic, rosType)
+                rosViewModel.publishCustomRawMessage(mapping.topic, rosType, msg)
+            }
+            // Do not keep sending stop if already at zero
+            return
+        }
+
+        // Only send if changed or forceSend is true, and not in deadzone
+        if (forceSend || last == null || last.first != clampedX || last.second != clampedY) {
+            lastJoystickSent[mapping.displayName] = clampedX to clampedY
+            val msg = when (rosType) {
+                "geometry_msgs/msg/Twist" -> "{" +
+                        "\"linear\": {\"x\": ${-clampedY}, \"y\": 0.0, \"z\": 0.0}," +
+                        "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $clampedX}" +
+                        "}"
+                "geometry_msgs/msg/Vector3" -> "{\"x\":$clampedX,\"y\":0.0,\"z\":${-clampedY}}"
+                else -> "{}"
+            }
+            rosViewModel.advertiseTopic(mapping.topic, rosType)
+            rosViewModel.publishCustomRawMessage(mapping.topic, rosType, msg)
+        }
+    }
+
+    /*
+        input:    msg - String
+        output:   None
+        remarks:  Appends a message to the event log (no-op in this version)
+    */
+    private fun appendEventLog(msg: String) {
+        // No-op: event log UI is not present in this version
+    }
+
+    /*
+        input:    None
+        output:   None
+        remarks:  Updates controller list on resume
+    */
+    override fun onResume() {
+        super.onResume()
+        updateControllerList()
+    }
+}

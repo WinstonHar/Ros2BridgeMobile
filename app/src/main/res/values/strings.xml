@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Ros2 Bridge</string>
+
+    <string name="hint_ip_address">ROS Bridge IP Address (e.g., 192.168.1.100)</string>
+    <string name="button_connect">Connect</string>
+    <string name="button_advertise">Advertise</string>
+    <string name="button_disconnect">Disconnect</string>
+    <string name="status_label_initial">Status: Not Connected</string>
+
+    <string name="status_label">Status: %1$s</string>
+    <string name="ros_message_label">ROS Message: %1$s\n</string>
+
+    <string name="hint_custom_ros_message">Enter ROS Message</string>
+    <string name="default_ip_address">0.0.0.0</string>
+    <string name="default_custom_message">Default message</string>
+    <string name="button_publish_custom_message">Publish Custom Message</string>
+
+    <string name="dropdown_action_hint">Select Action</string>
+    <string name="dropdown_default_activity">Default</string>
+    <string name="dropdown_custom_publisher">Custom Standard Messages</string>
+    <string name="dropdown_slider_buttons">Slider Buttons</string>
+
+    <string name="hint_topic_name">Topic Name</string>
+    <string name="hint_message_content">Message Content</string>
+    <string name="button_add">Add</string>
+
+
+</resources>
