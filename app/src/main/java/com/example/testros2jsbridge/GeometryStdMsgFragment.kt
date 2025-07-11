@@ -20,6 +20,10 @@ import kotlinx.coroutines.launch
 */
 
 class GeometryStdMsgFragment : Fragment() {
+    private val PERSIST_PREFS = "geometry_std_msg_prefs"
+    private val KEY_TOPIC = "topic"
+    private val KEY_TYPE = "type"
+    private val KEY_FIELDS = "fields_json"
     /*
         input:    type - String, layout - LinearLayout
         output:   Null if valid, or error message String if invalid
@@ -230,8 +234,9 @@ class GeometryStdMsgFragment : Fragment() {
         topicLayout.hint = "Topic Name"
         topicEditText = TextInputEditText(requireContext())
         topicEditText.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        // No default topic
-        topicEditText.setText("/")
+        // Restore topic if present
+        val prefs = requireContext().getSharedPreferences(PERSIST_PREFS, Context.MODE_PRIVATE)
+        topicEditText.setText(prefs.getString(KEY_TOPIC, "/"))
         topicLayout.addView(topicEditText)
         parentLayout.addView(topicLayout, 0)
 
@@ -246,13 +251,114 @@ class GeometryStdMsgFragment : Fragment() {
             setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
 
+        // Restore type selection if present
+        val savedType = prefs.getString(KEY_TYPE, geometryTypes[0])
+        val savedTypeIndex = geometryTypes.indexOf(savedType).takeIf { it >= 0 } ?: 0
+        spinnerType.setSelection(savedTypeIndex)
+
+        // Restore dynamic field values if present
+        val savedFieldsJson = prefs.getString(KEY_FIELDS, null)
+        var lastType = geometryTypes[savedTypeIndex]
+        fun saveFieldsToPrefs(type: String, layout: LinearLayout) {
+            val map = mutableMapOf<String, String>()
+            for (i in 0 until layout.childCount) {
+                val child = layout.getChildAt(i)
+                if (child is TextInputLayout && child.childCount > 0 && child.getChildAt(0) is EditText) {
+                    val edit = child.getChildAt(0) as EditText
+                    val tag = edit.tag as? String ?: continue
+                    map[tag] = edit.text?.toString() ?: ""
+                } else if (child is LinearLayout) {
+                    // Recursively check for nested fields
+                    for (j in 0 until child.childCount) {
+                        val sub = child.getChildAt(j)
+                        if (sub is TextInputLayout && sub.childCount > 0 && sub.getChildAt(0) is EditText) {
+                            val edit = sub.getChildAt(0) as EditText
+                            val tag = edit.tag as? String ?: continue
+                            map[tag] = edit.text?.toString() ?: ""
+                        }
+                    }
+                }
+            }
+            prefs.edit().putString(KEY_FIELDS, gson.toJson(map)).apply()
+        }
+
+        fun restoreFieldsFromPrefs(layout: LinearLayout, json: String?) {
+            if (json == null) return
+            val map: Map<String, String> = try { gson.fromJson(json, object : TypeToken<Map<String, String>>() {}.type) } catch (_: Exception) { emptyMap() }
+            for (i in 0 until layout.childCount) {
+                val child = layout.getChildAt(i)
+                if (child is TextInputLayout && child.childCount > 0 && child.getChildAt(0) is EditText) {
+                    val edit = child.getChildAt(0) as EditText
+                    val tag = edit.tag as? String ?: continue
+                    edit.setText(map[tag] ?: "")
+                } else if (child is LinearLayout) {
+                    for (j in 0 until child.childCount) {
+                        val sub = child.getChildAt(j)
+                        if (sub is TextInputLayout && sub.childCount > 0 && sub.getChildAt(0) is EditText) {
+                            val edit = sub.getChildAt(0) as EditText
+                            val tag = edit.tag as? String ?: continue
+                            edit.setText(map[tag] ?: "")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Build initial fields and restore values
+        buildFieldsForType(lastType, dynamicFieldsLayout, inflater)
+        restoreFieldsFromPrefs(dynamicFieldsLayout, savedFieldsJson)
+
+        // Save topic and type on change
+        topicEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                prefs.edit().putString(KEY_TOPIC, s?.toString() ?: "").apply()
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
         spinnerType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view_: View?, position: Int, id: Long) {
                 val selectedType = geometryTypes[position]
-                buildFieldsForType(selectedType, dynamicFieldsLayout, inflater)
+                if (selectedType != lastType) {
+                    // Clear fields when type changes
+                    buildFieldsForType(selectedType, dynamicFieldsLayout, inflater)
+                    prefs.edit().putString(KEY_TYPE, selectedType).remove(KEY_FIELDS).apply()
+                    lastType = selectedType
+                } else {
+                    // Restore fields if type is the same
+                    buildFieldsForType(selectedType, dynamicFieldsLayout, inflater)
+                    restoreFieldsFromPrefs(dynamicFieldsLayout, prefs.getString(KEY_FIELDS, null))
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
+
+        // Save dynamic field values on change
+        val fieldWatcher = object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                saveFieldsToPrefs(lastType, dynamicFieldsLayout)
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        }
+        // Attach watcher to all EditTexts in dynamicFieldsLayout
+        fun attachWatcher(layout: LinearLayout) {
+            for (i in 0 until layout.childCount) {
+                val child = layout.getChildAt(i)
+                if (child is TextInputLayout && child.childCount > 0 && child.getChildAt(0) is EditText) {
+                    (child.getChildAt(0) as EditText).addTextChangedListener(fieldWatcher)
+                } else if (child is LinearLayout) {
+                    for (j in 0 until child.childCount) {
+                        val sub = child.getChildAt(j)
+                        if (sub is TextInputLayout && sub.childCount > 0 && sub.getChildAt(0) is EditText) {
+                            (sub.getChildAt(0) as EditText).addTextChangedListener(fieldWatcher)
+                        }
+                    }
+                }
+            }
+        }
+        attachWatcher(dynamicFieldsLayout)
 
         // Load persistent reusable buttons
         loadSavedButtons()
@@ -291,25 +397,107 @@ class GeometryStdMsgFragment : Fragment() {
                 topicEditText.error = "Topic required"
                 return@setOnClickListener
             }
-            val message = buildMessageFromFields(selectedType, dynamicFieldsLayout)
-            val labelInput = EditText(requireContext())
-            labelInput.hint = "Label for this message"
-            val dialog = android.app.AlertDialog.Builder(requireContext())
-                .setTitle("Save Message Button")
-                .setView(labelInput)
-                .setPositiveButton("Save") { _, _ ->
-                    val label = labelInput.text.toString().ifBlank { selectedType }
-                    savedMessages.add(ReusableMsgButton(label, topic, selectedType, message))
-                    saveButtonsToPrefs()
-                    refreshSavedButtons()
-                }
-                .setNegativeButton("Cancel", null)
-                .create()
-            dialog.show()
+            // Fill empty fields with 0.0 (float) or 0 (int) for the saved message only
+            try {
+                val filledMessage = buildMessageWithDefaults(selectedType, dynamicFieldsLayout)
+                val labelInput = EditText(requireContext())
+                labelInput.hint = "Label for this message"
+                val dialog = android.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Save Message Button")
+                    .setView(labelInput)
+                    .setPositiveButton("Save") { _, _ ->
+                        val label = labelInput.text.toString().ifBlank { selectedType }
+                        savedMessages.add(ReusableMsgButton(label, topic, selectedType, filledMessage))
+                        saveButtonsToPrefs()
+                        refreshSavedButtons()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .create()
+                dialog.show()
+            } catch (e: IllegalArgumentException) {
+                android.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Invalid Field Value")
+                    .setMessage(e.message)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
         }
 
-        // Build initial fields
-        buildFieldsForType(geometryTypes[0], dynamicFieldsLayout, inflater)
+    // Helper to build message with default 0.0/0 for empty fields (for saving only)
+    fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
+        // Helper to get value or default for float/int
+        fun getOrDefault(tag: String, isFloat: Boolean): String {
+            val editText = layout.findViewWithTag<EditText>(tag)
+            val value = editText?.text?.toString()?.trim()
+            if (value.isNullOrEmpty()) {
+                return if (isFloat) "0.0" else "0"
+            }
+            if (isFloat) {
+                // Only allow valid float (including decimals)
+                val d = value!!.toDoubleOrNull()
+                if (d == null) throw IllegalArgumentException("Field '$tag' must be a float value.")
+                return value
+            } else {
+                // Only allow valid int (no decimals)
+                if (value!!.contains('.')) throw IllegalArgumentException("Field '$tag' must be an integer value (no decimal point).")
+                val l = value.toLongOrNull()
+                if (l == null) throw IllegalArgumentException("Field '$tag' must be an integer value.")
+                return value
+            }
+        }
+        fun vector3(prefix: String = ""): String =
+            "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+            "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+            "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true)
+        fun quaternion(prefix: String = ""): String =
+            "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+            "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+            "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true) + "," +
+            "\"w\":" + getOrDefault(if (prefix.isEmpty()) "w" else "${prefix}_w", true)
+        fun header(): String =
+            "\"frame_id\":\"" + getOrDefault("header_frame_id", false) + "\""
+        fun point32Array(label: String = "points"): String =
+            (0 until 3).joinToString(",") { i ->
+                "{\"x\":" + getOrDefault("${label}_${i}_x", true) + ",\"y\":" + getOrDefault("${label}_${i}_y", true) + ",\"z\":" + getOrDefault("${label}_${i}_z", true) + "}"
+            }
+        fun poseArray(label: String = "poses"): String =
+            (0 until 2).joinToString(",") { i ->
+                "{\"position\":{${vector3("${label}[$i] position")}},\"orientation\":{${quaternion("${label}[$i] orientation")}}}"
+            }
+        fun covarianceArray(label: String = "covariance"): String =
+            (0 until 36).joinToString(",") { getOrDefault("$label$it", true) }
+        return when (type) {
+            "Accel" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
+            "AccelStamped" -> "{\"header\":{${header()}},\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
+            "AccelWithCovariance" -> "{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+            "AccelWithCovarianceStamped" -> "{\"header\":{${header()}},\"accel\":{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}}"
+            "Inertia" -> "{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}"
+            "InertiaStamped" -> "{\"header\":{${header()}},\"inertia\":{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}}"
+            "Point" -> "{${vector3()}}"
+            "Point32" -> "{\"x\":" + getOrDefault("x (float32)", true) + ",\"y\":" + getOrDefault("y (float32)", true) + ",\"z\":" + getOrDefault("z (float32)", true) + "}"
+            "PointStamped" -> "{\"header\":{${header()}},\"point\":{${vector3()}}}"
+            "Polygon" -> "{\"points\":[${point32Array()}]}"
+            "PolygonStamped" -> "{\"header\":{${header()}},\"polygon\":{\"points\":[${point32Array()}]}}"
+            "Pose" -> "{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}"
+            "PoseArray" -> "{\"header\":{${header()}},\"poses\":[${poseArray()}]}"
+            "PoseStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}}"
+            "PoseWithCovariance" -> "{\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
+            "PoseWithCovarianceStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
+            "Quaternion" -> "{${quaternion()}}"
+            "QuaternionStamped" -> "{\"header\":{${header()}},\"quaternion\":{${quaternion("quaternion")}}}"
+            "Transform" -> "{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}"
+            "TransformStamped" -> "{\"header\":{${header()}},\"child_frame_id\":\"" + getOrDefault("child_frame_id", false) + "\",\"transform\":{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}}"
+            "Twist" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
+            "TwistStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
+            "TwistWithCovariance" -> "{\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+            "TwistWithCovarianceStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+            "Vector3" -> "{${vector3()}}"
+            "Vector3Stamped" -> "{\"header\":{${header()}},\"vector\":{${vector3("vector")}}}"
+            "Wrench" -> "{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}"
+            "WrenchStamped" -> "{\"header\":{${header()}},\"wrench\":{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}}"
+            else -> "{}"
+        }
+    }
 
         return view
     }
@@ -323,50 +511,50 @@ class GeometryStdMsgFragment : Fragment() {
         layout.removeAllViews()
         when (type) {
             "Accel" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
             }
             "AccelStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
             }
             "AccelWithCovariance" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "AccelWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "Inertia" -> {
-                layout.addView(createFloatField(inflater, layout, "m (mass)"))
-                layout.addView(createVector3Fields(inflater, layout, "com"))
-                layout.addView(createFloatField(inflater, layout, "ixx"))
-                layout.addView(createFloatField(inflater, layout, "ixy"))
-                layout.addView(createFloatField(inflater, layout, "ixz"))
-                layout.addView(createFloatField(inflater, layout, "iyy"))
-                layout.addView(createFloatField(inflater, layout, "iyz"))
-                layout.addView(createFloatField(inflater, layout, "izz"))
+                layout.addView(createFloatField(inflater, layout, "m (mass, float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "com (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixx (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixy (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "iyy (float64)"))
+                layout.addView(createFloatField(inflater, layout, "iyz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "izz (float64)"))
             }
             "InertiaStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createFloatField(inflater, layout, "m (mass)"))
-                layout.addView(createVector3Fields(inflater, layout, "com"))
-                layout.addView(createFloatField(inflater, layout, "ixx"))
-                layout.addView(createFloatField(inflater, layout, "ixy"))
-                layout.addView(createFloatField(inflater, layout, "ixz"))
-                layout.addView(createFloatField(inflater, layout, "iyy"))
-                layout.addView(createFloatField(inflater, layout, "iyz"))
-                layout.addView(createFloatField(inflater, layout, "izz"))
+                layout.addView(createFloatField(inflater, layout, "m (mass, float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "com (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixx (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixy (float64)"))
+                layout.addView(createFloatField(inflater, layout, "ixz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "iyy (float64)"))
+                layout.addView(createFloatField(inflater, layout, "iyz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "izz (float64)"))
             }
             "Point" -> {
-                layout.addView(createFloatField(inflater, layout, "x"))
-                layout.addView(createFloatField(inflater, layout, "y"))
-                layout.addView(createFloatField(inflater, layout, "z"))
+                layout.addView(createFloatField(inflater, layout, "x (float64)"))
+                layout.addView(createFloatField(inflater, layout, "y (float64)"))
+                layout.addView(createFloatField(inflater, layout, "z (float64)"))
             }
             "Point32" -> {
                 layout.addView(createFloatField(inflater, layout, "x (float32)"))
@@ -375,96 +563,96 @@ class GeometryStdMsgFragment : Fragment() {
             }
             "PointStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createFloatField(inflater, layout, "x"))
-                layout.addView(createFloatField(inflater, layout, "y"))
-                layout.addView(createFloatField(inflater, layout, "z"))
+                layout.addView(createFloatField(inflater, layout, "x (float64)"))
+                layout.addView(createFloatField(inflater, layout, "y (float64)"))
+                layout.addView(createFloatField(inflater, layout, "z (float64)"))
             }
             "Polygon" -> {
-                layout.addView(createPoint32ArrayFields(inflater, layout, "points"))
+                layout.addView(createPoint32ArrayFields(inflater, layout, "points (float32)"))
             }
             "PolygonStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPoint32ArrayFields(inflater, layout, "points"))
+                layout.addView(createPoint32ArrayFields(inflater, layout, "points (float32)"))
             }
             "Pose" -> {
-                layout.addView(createPointFields(inflater, layout, "position"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
+                layout.addView(createPointFields(inflater, layout, "position (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
             }
             "PoseArray" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPoseArrayFields(inflater, layout, "poses"))
+                layout.addView(createPoseArrayFields(inflater, layout, "poses (float64)"))
             }
             "PoseStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPointFields(inflater, layout, "position"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
+                layout.addView(createPointFields(inflater, layout, "position (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
             }
             "PoseWithCovariance" -> {
-                layout.addView(createPointFields(inflater, layout, "position"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createPointFields(inflater, layout, "position (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "PoseWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPointFields(inflater, layout, "position"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createPointFields(inflater, layout, "position (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "Quaternion" -> {
-                layout.addView(createFloatField(inflater, layout, "x"))
-                layout.addView(createFloatField(inflater, layout, "y"))
-                layout.addView(createFloatField(inflater, layout, "z"))
-                layout.addView(createFloatField(inflater, layout, "w"))
+                layout.addView(createFloatField(inflater, layout, "x (float64)"))
+                layout.addView(createFloatField(inflater, layout, "y (float64)"))
+                layout.addView(createFloatField(inflater, layout, "z (float64)"))
+                layout.addView(createFloatField(inflater, layout, "w (float64)"))
             }
             "QuaternionStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createQuaternionFields(inflater, layout, "quaternion"))
+                layout.addView(createQuaternionFields(inflater, layout, "quaternion (float64)"))
             }
             "Transform" -> {
-                layout.addView(createVector3Fields(inflater, layout, "translation"))
-                layout.addView(createQuaternionFields(inflater, layout, "rotation"))
+                layout.addView(createVector3Fields(inflater, layout, "translation (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "rotation (float64)"))
             }
             "TransformStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createStringField(inflater, layout, "child_frame_id"))
-                layout.addView(createVector3Fields(inflater, layout, "translation"))
-                layout.addView(createQuaternionFields(inflater, layout, "rotation"))
+                layout.addView(createStringField(inflater, layout, "child_frame_id (string)"))
+                layout.addView(createVector3Fields(inflater, layout, "translation (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "rotation (float64)"))
             }
             "Twist" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
             }
             "TwistStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
             }
             "TwistWithCovariance" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "TwistWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear"))
-                layout.addView(createVector3Fields(inflater, layout, "angular"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
+                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
             }
             "Vector3" -> {
-                layout.addView(createVector3Fields(inflater, layout, ""))
+                layout.addView(createVector3Fields(inflater, layout, "(float64)"))
             }
             "Vector3Stamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "vector"))
+                layout.addView(createVector3Fields(inflater, layout, "vector (float64)"))
             }
             "Wrench" -> {
-                layout.addView(createVector3Fields(inflater, layout, "force"))
-                layout.addView(createVector3Fields(inflater, layout, "torque"))
+                layout.addView(createVector3Fields(inflater, layout, "force (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "torque (float64)"))
             }
             "WrenchStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "force"))
-                layout.addView(createVector3Fields(inflater, layout, "torque"))
+                layout.addView(createVector3Fields(inflater, layout, "force (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "torque (float64)"))
             }
         }
     }
@@ -714,73 +902,42 @@ class GeometryStdMsgFragment : Fragment() {
         output:   String (JSON message for the given geometry_msgs type)
         remarks:  Serializes the input fields into a JSON string for the selected geometry_msgs type. Includes inner helpers for each message structure.
     */
-    private fun buildMessageFromFields(type: String, layout: LinearLayout): String {
-        /*
-            input:    prefix - String (optional)
-            output:   String (JSON for Vector3 fields)
-            remarks:  Helper to serialize x, y, z fields as JSON
-        */
+    // Generic message builder to reduce redundancy
+    fun buildMessage(
+        type: String,
+        layout: LinearLayout,
+        valueProvider: (tag: String, isFloat: Boolean) -> String
+    ): String {
         fun vector3(prefix: String = ""): String =
-            "\"x\":" + getValue(layout, if (prefix.isEmpty()) "x" else "${prefix}_x") + "," +
-            "\"y\":" + getValue(layout, if (prefix.isEmpty()) "y" else "${prefix}_y") + "," +
-            "\"z\":" + getValue(layout, if (prefix.isEmpty()) "z" else "${prefix}_z")
-
-        /*
-            input:    prefix - String (optional)
-            output:   String (JSON for Quaternion fields)
-            remarks:  Helper to serialize x, y, z, w fields as JSON
-        */
+            "\"x\":" + valueProvider(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+            "\"y\":" + valueProvider(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+            "\"z\":" + valueProvider(if (prefix.isEmpty()) "z" else "${prefix}_z", true)
         fun quaternion(prefix: String = ""): String =
-            "\"x\":" + getValue(layout, if (prefix.isEmpty()) "x" else "${prefix}_x") + "," +
-            "\"y\":" + getValue(layout, if (prefix.isEmpty()) "y" else "${prefix}_y") + "," +
-            "\"z\":" + getValue(layout, if (prefix.isEmpty()) "z" else "${prefix}_z") + "," +
-            "\"w\":" + getValue(layout, if (prefix.isEmpty()) "w" else "${prefix}_w")
-
-        /*
-            input:    None
-            output:   String (JSON for header field)
-            remarks:  Helper to serialize the header's frame_id field
-        */
+            "\"x\":" + valueProvider(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+            "\"y\":" + valueProvider(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+            "\"z\":" + valueProvider(if (prefix.isEmpty()) "z" else "${prefix}_z", true) + "," +
+            "\"w\":" + valueProvider(if (prefix.isEmpty()) "w" else "${prefix}_w", true)
         fun header(): String =
-            "\"frame_id\":\"" + getValue(layout, "header_frame_id") + "\""
-
-        /*
-            input:    label - String (default "points")
-            output:   String (JSON array for Point32 fields)
-            remarks:  Helper to serialize an array of 3 Point32s
-        */
+            "\"frame_id\":\"" + valueProvider("header_frame_id", false) + "\""
         fun point32Array(label: String = "points"): String =
             (0 until 3).joinToString(",") { i ->
-                "{\"x\":" + getValue(layout, "${label}_${i}_x") + ",\"y\":" + getValue(layout, "${label}_${i}_y") + ",\"z\":" + getValue(layout, "${label}_${i}_z") + "}"
+                "{\"x\":" + valueProvider("${label}_${i}_x", true) + ",\"y\":" + valueProvider("${label}_${i}_y", true) + ",\"z\":" + valueProvider("${label}_${i}_z", true) + "}"
             }
-
-        /*
-            input:    label - String (default "poses")
-            output:   String (JSON array for Pose fields)
-            remarks:  Helper to serialize an array of 2 Poses (position and orientation)
-        */
         fun poseArray(label: String = "poses"): String =
             (0 until 2).joinToString(",") { i ->
                 "{\"position\":{${vector3("${label}[$i] position")}},\"orientation\":{${quaternion("${label}[$i] orientation")}}}"
             }
-
-        /*
-            input:    label - String (default "covariance")
-            output:   String (comma-separated values for covariance array)
-            remarks:  Helper to serialize a 36-element covariance array
-        */
         fun covarianceArray(label: String = "covariance"): String =
-            (0 until 36).joinToString(",") { getValue(layout, "$label$it") }
-
+            (0 until 36).joinToString(",") { valueProvider("$label$it", true) }
         return when (type) {
             "Accel" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
             "AccelStamped" -> "{\"header\":{${header()}},\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
             "AccelWithCovariance" -> "{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
             "AccelWithCovarianceStamped" -> "{\"header\":{${header()}},\"accel\":{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}}"
-            "Inertia" -> "{\"m\":" + getValue(layout, "m (mass)") + ",\"com\":{${vector3("com")}},\"ixx\":" + getValue(layout, "ixx") + ",\"ixy\":" + getValue(layout, "ixy") + ",\"ixz\":" + getValue(layout, "ixz") + ",\"iyy\":" + getValue(layout, "iyy") + ",\"iyz\":" + getValue(layout, "iyz") + ",\"izz\":" + getValue(layout, "izz") + "}"
-            "InertiaStamped" -> "{\"header\":{${header()}},\"inertia\":{\"m\":" + getValue(layout, "m (mass)") + ",\"com\":{${vector3("com")}},\"ixx\":" + getValue(layout, "ixx") + ",\"ixy\":" + getValue(layout, "ixy") + ",\"ixz\":" + getValue(layout, "ixz") + ",\"iyy\":" + getValue(layout, "iyy") + ",\"iyz\":" + getValue(layout, "iyz") + ",\"izz\":" + getValue(layout, "izz") + "}}"
+            "Inertia" -> "{\"m\":" + valueProvider("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + valueProvider("ixx", true) + ",\"ixy\":" + valueProvider("ixy", true) + ",\"ixz\":" + valueProvider("ixz", true) + ",\"iyy\":" + valueProvider("iyy", true) + ",\"iyz\":" + valueProvider("iyz", true) + ",\"izz\":" + valueProvider("izz", true) + "}"
+            "InertiaStamped" -> "{\"header\":{${header()}},\"inertia\":{\"m\":" + valueProvider("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + valueProvider("ixx", true) + ",\"ixy\":" + valueProvider("ixy", true) + ",\"ixz\":" + valueProvider("ixz", true) + ",\"iyy\":" + valueProvider("iyy", true) + ",\"iyz\":" + valueProvider("iyz", true) + ",\"izz\":" + valueProvider("izz", true) + "}}"
             "Point" -> "{${vector3()}}"
-            "Point32" -> "{\"x\":" + getValue(layout, "x (float32)") + ",\"y\":" + getValue(layout, "y (float32)") + ",\"z\":" + getValue(layout, "z (float32)") + "}"
+            "Point32" -> "{\"x\":" + valueProvider("x (float32)", true) + ",\"y\":" + valueProvider("y (float32)", true) + ",\"z\":" + valueProvider("z (float32)", true) + "}"
             "PointStamped" -> "{\"header\":{${header()}},\"point\":{${vector3()}}}"
             "Polygon" -> "{\"points\":[${point32Array()}]}"
             "PolygonStamped" -> "{\"header\":{${header()}},\"polygon\":{\"points\":[${point32Array()}]}}"
@@ -792,7 +949,7 @@ class GeometryStdMsgFragment : Fragment() {
             "Quaternion" -> "{${quaternion()}}"
             "QuaternionStamped" -> "{\"header\":{${header()}},\"quaternion\":{${quaternion("quaternion")}}}"
             "Transform" -> "{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}"
-            "TransformStamped" -> "{\"header\":{${header()}},\"child_frame_id\":\"" + getValue(layout, "child_frame_id") + "\",\"transform\":{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}}"
+            "TransformStamped" -> "{\"header\":{${header()}},\"child_frame_id\":\"" + valueProvider("child_frame_id", false) + "\",\"transform\":{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}}"
             "Twist" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
             "TwistStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
             "TwistWithCovariance" -> "{\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
@@ -803,5 +960,20 @@ class GeometryStdMsgFragment : Fragment() {
             "WrenchStamped" -> "{\"header\":{${header()}},\"wrench\":{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}}"
             else -> "{}"
         }
+    }
+
+    private fun buildMessageFromFields(type: String, layout: LinearLayout): String {
+        return buildMessage(type, layout) { tag, isFloat -> getValue(layout, tag) }
+    }
+
+    private fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
+        fun getOrDefault(tag: String, isFloat: Boolean): String {
+            val editText = layout.findViewWithTag<EditText>(tag)
+            val value = editText?.text?.toString()?.trim()
+            return if (value.isNullOrEmpty()) {
+                if (isFloat) "0.0" else "0"
+            } else value
+        }
+        return buildMessage(type, layout, ::getOrDefault)
     }
 }
