@@ -16,6 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+import com.example.testros2jsbridge.CustomProtocolsViewModel
+
 /*
     ImportCustomProtocolsFragment scans the msgs folder for .msg, .srv, and .action files and displays them in three sections with checkboxes.
     User selections are managed via a ViewModel and can be used elsewhere in the app.
@@ -226,57 +228,62 @@ class ImportCustomProtocolsFragment : Fragment() {
         container.addView(typeView)
         container.addView(importView)
 
-        // Helper to parse .msg, .srv, .action files
-        // Now returns Triple<type, name, value?> for fixed fields
-        fun parseFieldsFromAsset(importPath: String, type: CustomProtocolsViewModel.ProtocolType): List<Triple<String, String, String?>> {
-            val fields = mutableListOf<Triple<String, String, String?>>()
+        // Helper to parse .msg, .srv, .action files and split by section
+        fun parseFieldsBySection(importPath: String, type: CustomProtocolsViewModel.ProtocolType): Map<String, List<Triple<String, String, String?>>> {
+            val sections = mutableMapOf<String, MutableList<Triple<String, String, String?>>>()
+            var currentSection = when (type) {
+                CustomProtocolsViewModel.ProtocolType.SRV -> "request"
+                CustomProtocolsViewModel.ProtocolType.ACTION -> "goal"
+                else -> "msg"
+            }
             context.assets.open(importPath).bufferedReader().useLines { lines ->
-                if (type == CustomProtocolsViewModel.ProtocolType.SRV) {
-                    var isResponse = false
-                    lines.forEach { line ->
-                        val clean = line.trim()
-                        if (clean.startsWith("#")) return@forEach
-                        if (clean == "---") { isResponse = true; return@forEach }
-                        if (clean.isEmpty()) return@forEach
-                        val parts = clean.split(Regex("\\s+"))
-                        if (parts.size >= 2) {
-                            val label = if (isResponse) "response" else "request"
-                            // Check for constant (fixed) value
-                            if (parts.size >= 4 && parts[2] == "=") {
-                                fields.add(Triple("$label:${parts[0]}", parts[1], parts[3]))
-                            } else {
-                                fields.add(Triple("$label:${parts[0]}", parts[1], null))
-                            }
+                lines.forEach { line ->
+                    val clean = line.trim()
+                    if (clean.startsWith("#")) return@forEach
+                    if (clean == "---") {
+                        currentSection = when (currentSection) {
+                            "request" -> "response"
+                            "goal" -> "result"
+                            "result" -> "feedback"
+                            else -> "other"
                         }
+                        return@forEach
                     }
-                } else {
-                    lines.forEach { line ->
-                        val clean = line.trim()
-                        if (clean.isEmpty() || clean.startsWith("#")) return@forEach
-                        val parts = clean.split(Regex("\\s+"))
-                        if (parts.size >= 2) {
-                            // Check for constant (fixed) value
-                            if (parts.size >= 4 && parts[2] == "=") {
-                                fields.add(Triple(parts[0], parts[1], parts[3]))
-                            } else {
-                                fields.add(Triple(parts[0], parts[1], null))
-                            }
+                    if (clean.isEmpty()) return@forEach
+                    val parts = clean.split(Regex("\\s+"))
+                    if (parts.size >= 2) {
+                        // Check for constant (fixed) value
+                        if (parts.size >= 4 && parts[2] == "=") {
+                            sections.getOrPut(currentSection) { mutableListOf() }
+                                .add(Triple(parts[0], parts[1], parts[3]))
+                        } else {
+                            sections.getOrPut(currentSection) { mutableListOf() }
+                                .add(Triple(parts[0], parts[1], null))
                         }
                     }
                 }
             }
-            return fields
+            return sections
         }
 
-        val fields = when (proto.type) {
-            CustomProtocolsViewModel.ProtocolType.MSG -> parseFieldsFromAsset(proto.importPath, proto.type)
-            CustomProtocolsViewModel.ProtocolType.SRV -> parseFieldsFromAsset(proto.importPath, proto.type)
-            CustomProtocolsViewModel.ProtocolType.ACTION -> parseFieldsFromAsset(proto.importPath, proto.type)
+        val sectionFields: Map<String, List<Triple<String, String, String?>>> = when (proto.type) {
+            CustomProtocolsViewModel.ProtocolType.MSG -> mapOf("msg" to (parseFieldsBySection(proto.importPath, proto.type)["msg"] ?: emptyList()))
+            CustomProtocolsViewModel.ProtocolType.SRV -> parseFieldsBySection(proto.importPath, proto.type)
+            CustomProtocolsViewModel.ProtocolType.ACTION -> parseFieldsBySection(proto.importPath, proto.type)
+            else -> emptyMap()
         }
 
-        // Separate fillable and fixed fields
-        val fillableFields = fields.filter { (_, name, _) -> name.matches(Regex("[a-z0-9_]+")) }
-        val fixedFields = fields.filter { (_, name, _) -> name.matches(Regex("[A-Z0-9_]+")) }
+        // For MSG, all fields are fillable
+        // For SRV, only request fields are fillable
+        // For ACTION, only goal fields are fillable
+        val fillableFields: List<Triple<String, String, String?>> = when (proto.type) {
+            CustomProtocolsViewModel.ProtocolType.MSG -> sectionFields["msg"] ?: emptyList()
+            CustomProtocolsViewModel.ProtocolType.SRV -> sectionFields["request"] ?: emptyList()
+            CustomProtocolsViewModel.ProtocolType.ACTION -> sectionFields["goal"] ?: emptyList()
+            else -> emptyList()
+        }
+        val fixedFields: List<Triple<String, String, String?>> = fillableFields.filter { (_, name, _) -> name.matches(Regex("[A-Z0-9_]+")) }
+        val editableFields: List<Triple<String, String, String?>> = fillableFields.filter { (_, name, _) -> name.matches(Regex("[a-z0-9_]+")) }
 
         // Add topic field (configurable, prefilled with /rawtopic)
         val topicLayout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -290,8 +297,9 @@ class ImportCustomProtocolsFragment : Fragment() {
         topicLayout.addView(topicInput)
         container.addView(topicLayout)
 
-        // Show fillable fields as editable
-        fillableFields.forEach { (type, name, value) ->
+        // Show editable fields as editable
+        for (triple in editableFields) {
+            val (type, name, value) = triple
             val layout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
             val label = TextView(context).apply { text = "$type $name" }
             val input = android.widget.EditText(context).apply { hint = name; tag = name }
@@ -300,7 +308,8 @@ class ImportCustomProtocolsFragment : Fragment() {
             container.addView(layout)
         }
         // Show fixed fields as non-editable, display their constant value if present
-        fixedFields.forEach { (type, name, value) ->
+        for (triple in fixedFields) {
+            val (type, name, value) = triple
             val layout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
             val label = TextView(context).apply { text = "$type $name (fixed)" }
             val input = android.widget.EditText(context).apply {
@@ -363,12 +372,9 @@ class ImportCustomProtocolsFragment : Fragment() {
                     text = action.label
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
                     setOnClickListener {
-                        // Publish the custom protocol action using the same logic as ControllerSupportFragment
-                        // Use configured topic if present, else fallback to /proto.name
                         val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
                         val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
                         val type = action.proto.type.name
-                        // Use full ROS 2 type string (e.g. ryan_msgs/msg/AvatarEmotion)
                         val rosType = when (action.proto.type) {
                             CustomProtocolsViewModel.ProtocolType.MSG -> "$rosRoot/msg/${action.proto.name}"
                             CustomProtocolsViewModel.ProtocolType.SRV -> "$rosRoot/srv/${action.proto.name}"
@@ -379,8 +385,29 @@ class ImportCustomProtocolsFragment : Fragment() {
                         // Output numbers as numbers, not as strings
                         val msgJson = action.fieldValues.entries.filter { it.key != "__topic__" }
                             .joinToString(", ", "{", "}") { (k, v) -> "\"$k\": $v" }
-                        rosViewModel.advertiseTopic(topic, rosType)
-                        rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+
+                        when (action.proto.type) {
+                            CustomProtocolsViewModel.ProtocolType.MSG -> {
+                                rosViewModel.advertiseTopic(topic, rosType)
+                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                            }
+                            CustomProtocolsViewModel.ProtocolType.SRV -> {
+                                // Only send request (not response)
+                                rosViewModel.advertiseTopic(topic, rosType)
+                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                                // TODO: Listen for response and log to JSON (future)
+                            }
+                            CustomProtocolsViewModel.ProtocolType.ACTION -> {
+                                // Only send goal (not result/feedback)
+                                rosViewModel.advertiseTopic(topic, rosType)
+                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                                // TODO: Listen for result/feedback and log to JSON (future)
+                            }
+                            else -> {
+                                rosViewModel.advertiseTopic(topic, rosType)
+                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                            }
+                        }
                     }
                 }
                 val removeBtn = android.widget.Button(requireContext()).apply {
