@@ -1,7 +1,8 @@
 package com.example.testros2jsbridge
 
 import android.util.Log
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.testros2jsbridge.RosbridgeConnectionManager
 import kotlinx.coroutines.flow.*
@@ -24,7 +25,7 @@ import kotlinx.serialization.json.put
     Acts as the main ViewModel for all ROS2-related operations, including message history and dropdown selection.
 */
 
-class RosViewModel : ViewModel(), RosbridgeConnectionManager.Listener {
+class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
     /*
         input:    topicName - String, messageType - String, rawJson - String
         output:   None
@@ -262,6 +263,78 @@ class RosViewModel : ViewModel(), RosbridgeConnectionManager.Listener {
         Log.d("RosViewModel", "onCleared called, disconnecting if active.")
         disconnect()
         RosbridgeConnectionManager.removeListener(this)
+    }
+
+    // Data class for custom protocol actions
+    data class CustomProtocolAction(
+        val label: String,
+        val proto: CustomProtocolsViewModel.ProtocolFile,
+        val fieldValues: Map<String, String>
+    )
+
+    private val _customProtocolActions = MutableStateFlow<List<CustomProtocolAction>>(emptyList())
+    val customProtocolActions: StateFlow<List<CustomProtocolAction>> = _customProtocolActions
+
+    fun addCustomProtocolAction(action: CustomProtocolAction) {
+        _customProtocolActions.value = _customProtocolActions.value + action
+        saveCustomProtocolActionsToPrefs()
+    }
+    fun removeCustomProtocolAction(index: Int) {
+        val list = _customProtocolActions.value.toMutableList()
+        if (index in list.indices) {
+            list.removeAt(index)
+            _customProtocolActions.value = list
+            saveCustomProtocolActionsToPrefs()
+        }
+    }
+    fun setCustomProtocolActions(list: List<CustomProtocolAction>) {
+        _customProtocolActions.value = list
+        saveCustomProtocolActionsToPrefs()
+    }
+
+    // Persistence for custom protocol actions
+    private val CUSTOM_PROTOCOL_ACTIONS_PREFS = "custom_protocol_actions"
+    private fun saveCustomProtocolActionsToPrefs() {
+        val prefs = getApplication<Application>().getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
+        val arr = org.json.JSONArray()
+        for (action in _customProtocolActions.value) {
+            val obj = org.json.JSONObject()
+            obj.put("label", action.label)
+            obj.put("proto_name", action.proto.name)
+            obj.put("proto_type", action.proto.type.name)
+            obj.put("proto_importPath", action.proto.importPath)
+            val fieldsObj = org.json.JSONObject()
+            for ((k, v) in action.fieldValues) fieldsObj.put(k, v)
+            obj.put("fields", fieldsObj)
+            arr.put(obj)
+        }
+        prefs.edit().putString("custom_protocol_actions", arr.toString()).apply()
+    }
+    fun loadCustomProtocolActionsFromPrefs() {
+        val prefs = getApplication<Application>().getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
+        val json = prefs.getString("custom_protocol_actions", null)
+        if (json.isNullOrBlank()) return
+        try {
+            val arr = org.json.JSONArray(json)
+            val loaded = mutableListOf<CustomProtocolAction>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val label = obj.optString("label", "")
+                val protoName = obj.optString("proto_name", "")
+                val protoType = obj.optString("proto_type", "MSG")
+                val protoImportPath = obj.optString("proto_importPath", "")
+                val fieldsObj = obj.optJSONObject("fields") ?: org.json.JSONObject()
+                val fields = mutableMapOf<String, String>()
+                val keys = fieldsObj.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    fields[k] = fieldsObj.optString(k, "")
+                }
+                val proto = CustomProtocolsViewModel.ProtocolFile(protoName, protoImportPath, CustomProtocolsViewModel.ProtocolType.valueOf(protoType))
+                loaded.add(CustomProtocolAction(label, proto, fields))
+            }
+            _customProtocolActions.value = loaded
+        } catch (_: Exception) { }
     }
 
     // RosbridgeConnectionManager.Listener implementation

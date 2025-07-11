@@ -167,7 +167,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.dropdown_custom_publisher),
             "Geometry Standard Messages",
             getString(R.string.dropdown_slider_buttons),
-            "Controller Input Device"
+            "Controller Input Device",
+            "Import Custom Protocols"
         )
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions)
@@ -225,6 +226,7 @@ class MainActivity : AppCompatActivity() {
             2 -> showFragment(GeometryStdMsgFragment())
             3 -> showFragment(SliderButtonFragment())
             4 -> showFragment(ControllerSupportFragment())
+            5 -> showFragment(ImportCustomProtocolsFragment())
         }
     }
 

@@ -9,6 +9,23 @@ import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withContext
+
+// Utility to catch and log Android resource errors gracefully
+private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", block: () -> Unit) {
+    try {
+        block()
+    } catch (e: android.content.res.Resources.NotFoundException) {
+        android.util.Log.e(tag, "Resource not found: ${e.message}")
+    } catch (e: java.io.IOException) {
+        android.util.Log.e(tag, "I/O error accessing APK or resource: ${e.message}")
+    } catch (e: Exception) {
+        android.util.Log.e(tag, "Unexpected error: ${e.message}", e)
+    }
+}
 
 /*
     This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
@@ -21,12 +38,13 @@ class ControllerSupportFragment : Fragment() {
     private var lastJoystickMappings: List<JoystickMapping>? = null
     private var lastJoystickDevice: InputDevice? = null
     private var lastJoystickEvent: MotionEvent? = null
+    // --- Custom Protocol Actions integration ---
+    private var customProtocolAppActions: List<AppAction> = emptyList()
+    private lateinit var appActionsAdapter: AppActionsAdapter
+    private lateinit var appActionsList: RecyclerView
+
+    // Correct anonymous Runnable for joystick resend
     private val joystickResendRunnable = object : Runnable {
-        /*
-            input:    None
-            output:   None
-            remarks:  Periodically resends joystick input if active
-        */
         override fun run() {
             val mappings = lastJoystickMappings
             val dev = lastJoystickDevice
@@ -119,72 +137,80 @@ class ControllerSupportFragment : Fragment() {
         return list
     }
 
-    /*
-        input:    root - View
-        output:   None
-        remarks:  Sets up the UI for joystick mapping configuration
-    */
+    // Optimized: Loads joystick mappings off the main thread and updates UI on the main thread
     private fun setupJoystickMappingUI(root: View) {
         val container = root.findViewById<android.widget.LinearLayout?>(R.id.joystick_mapping_container)
             ?: return
         container.removeAllViews()
-        val mappings = loadJoystickMappings()
-        for ((idx, mapping) in mappings.withIndex()) {
-            val group = android.widget.LinearLayout(requireContext())
-            group.orientation = android.widget.LinearLayout.VERTICAL
-            group.setPadding(8, 16, 8, 16)
-            val title = TextView(requireContext())
-            title.text = mapping.displayName
-            title.textSize = 16f
-            group.addView(title)
-
-            // Topic
-            val topicInput = android.widget.EditText(requireContext())
-            topicInput.hint = "Topic"
-            topicInput.setText(mapping.topic)
-            group.addView(topicInput)
-
-            // Type
-            val typeInput = android.widget.EditText(requireContext())
-            typeInput.hint = "Type (e.g. geometry_msgs/msg/Twist)"
-            typeInput.setText(mapping.type)
-            group.addView(typeInput)
-
-            // Max
-            val maxInput = android.widget.EditText(requireContext())
-            maxInput.hint = "Max value (e.g. 1.0)"
-            maxInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-            maxInput.setText(mapping.max.toString())
-            group.addView(maxInput)
-
-            // Step
-            val stepInput = android.widget.EditText(requireContext())
-            stepInput.hint = "Step (e.g. 0.2)"
-            stepInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-            stepInput.setText(mapping.step.toString())
-            group.addView(stepInput)
-
-            // Deadzone
-            val deadzoneInput = android.widget.EditText(requireContext())
-            deadzoneInput.hint = "Deadzone (e.g. 0.1)"
-            deadzoneInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-            deadzoneInput.setText(mapping.deadzone.toString())
-            group.addView(deadzoneInput)
-
-            // Save button
-            val saveBtn = android.widget.Button(requireContext())
-            saveBtn.text = "Save"
-            saveBtn.setOnClickListener {
-                mapping.topic = topicInput.text.toString()
-                mapping.type = typeInput.text.toString()
-                mapping.max = maxInput.text.toString().toFloatOrNull() ?: 1.0f
-                mapping.step = stepInput.text.toString().toFloatOrNull() ?: 0.2f
-                mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull() ?: 0.1f
-                saveJoystickMappings(mappings)
-                android.widget.Toast.makeText(requireContext(), "Joystick mapping saved", android.widget.Toast.LENGTH_SHORT).show()
+        // Use coroutine to load mappings in background
+        viewLifecycleOwner.lifecycleScope.launch {
+            val mappings = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                loadJoystickMappings()
             }
-            group.addView(saveBtn)
-            container.addView(group)
+            // Now update UI on main thread
+            for ((idx, mapping) in mappings.withIndex()) {
+                val group = android.widget.LinearLayout(requireContext())
+                group.orientation = android.widget.LinearLayout.VERTICAL
+                group.setPadding(8, 16, 8, 16)
+                val title = TextView(requireContext())
+                title.text = mapping.displayName
+                title.textSize = 16f
+                group.addView(title)
+
+                // Topic
+                val topicInput = android.widget.EditText(requireContext())
+                topicInput.hint = "Topic"
+                topicInput.setText(mapping.topic)
+                group.addView(topicInput)
+
+                // Type
+                val typeInput = android.widget.EditText(requireContext())
+                typeInput.hint = "Type (e.g. geometry_msgs/msg/Twist)"
+                typeInput.setText(mapping.type)
+                group.addView(typeInput)
+
+                // Max
+                val maxInput = android.widget.EditText(requireContext())
+                maxInput.hint = "Max value (e.g. 1.0)"
+                maxInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                maxInput.setText(mapping.max.toString())
+                group.addView(maxInput)
+
+                // Step
+                val stepInput = android.widget.EditText(requireContext())
+                stepInput.hint = "Step (e.g. 0.2)"
+                stepInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                stepInput.setText(mapping.step.toString())
+                group.addView(stepInput)
+
+                // Deadzone
+                val deadzoneInput = android.widget.EditText(requireContext())
+                deadzoneInput.hint = "Deadzone (e.g. 0.1)"
+                deadzoneInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                deadzoneInput.setText(mapping.deadzone.toString())
+                group.addView(deadzoneInput)
+
+                // Save button
+                val saveBtn = android.widget.Button(requireContext())
+                saveBtn.text = "Save"
+                saveBtn.setOnClickListener {
+                    // Save on background thread
+                    viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                        mapping.topic = topicInput.text.toString()
+                        mapping.type = typeInput.text.toString()
+                        mapping.max = maxInput.text.toString().toFloatOrNull() ?: 1.0f
+                        mapping.step = stepInput.text.toString().toFloatOrNull() ?: 0.2f
+                        mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull() ?: 0.1f
+                        saveJoystickMappings(mappings)
+                        // Show toast on main thread
+                        withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            android.widget.Toast.makeText(requireContext(), "Joystick mapping saved", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                group.addView(saveBtn)
+                container.addView(group)
+            }
         }
     }
 
@@ -200,12 +226,77 @@ class ControllerSupportFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_controller_support, container, false)
-        controllerListText = view.findViewById(R.id.controllerListText)
-        updateControllerList()
-        setupControllerMappingUI(view)
-        setupPanelToggleUI(view)
-        setupJoystickMappingUI(view)
+        val view = try {
+            inflater.inflate(R.layout.fragment_controller_support, container, false)
+        } catch (e: Exception) {
+            android.util.Log.e("ControllerSupport", "Failed to inflate layout: ${e.message}", e)
+            // Optionally, return a fallback view or null
+            return null
+        }
+        runWithResourceErrorCatching {
+            controllerListText = view.findViewById(R.id.controllerListText)
+            updateControllerList()
+            setupPanelToggleUI(view)
+            setupJoystickMappingUI(view)
+
+            // Setup app actions list and adapter
+            appActionsList = view.findViewById(R.id.list_app_actions)
+            appActionsList.layoutManager = LinearLayoutManager(requireContext())
+            appActionsAdapter = AppActionsAdapter(mutableListOf())
+            appActionsList.adapter = appActionsAdapter
+
+            // Observe custom protocol actions and update app actions list
+            viewLifecycleOwner.lifecycleScope.launch {
+                rosViewModel.customProtocolActions.collectLatest { customActions ->
+                    customProtocolAppActions = customActions.map { action ->
+                        // --- Match ImportCustomProtocolsFragment logic exactly ---
+                        // Topic: use __topic__ if present, else fallback to /proto.name, always with leading slash
+                        val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
+                        val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
+
+                        // Type: use full ROS 2 type string (e.g. ryan_msgs/msg/AvatarEmotion)
+                        val rosType = when (action.proto.type.name) {
+                            "MSG" -> "ryan_msgs/msg/${action.proto.name}"
+                            "SRV" -> "ryan_msgs/srv/${action.proto.name}"
+                            "ACTION" -> "ryan_msgs/action/${action.proto.name}"
+                            else -> action.proto.name
+                        }
+
+                        // Msg: output numbers as numbers, booleans as booleans, skip __topic__
+                        val msgFields = action.fieldValues.filter { it.key != "__topic__" }
+                        val msgJson = buildString {
+                            append("{")
+                            msgFields.entries.forEachIndexed { idx, (k, v) ->
+                                append("\"").append(k).append("\": ")
+                                // Try to output as number or boolean, else as string
+                                val asLong = v.toLongOrNull()
+                                val asDouble = v.toDoubleOrNull()
+                                val isBool = v.equals("true", true) || v.equals("false", true)
+                                when {
+                                    isBool -> append(v.toBoolean())
+                                    asLong != null && v == asLong.toString() -> append(asLong)
+                                    asDouble != null && v == asDouble.toString() -> append(asDouble)
+                                    else -> append('"').append(v).append('"')
+                                }
+                                if (idx != msgFields.size - 1) append(", ")
+                            }
+                            append("}")
+                        }
+
+                        AppAction(
+                            displayName = action.label,
+                            topic = topic,
+                            type = rosType,
+                            source = "Custom Protocol",
+                            msg = msgJson
+                        )
+                    }
+                    updateAppActions()
+                }
+            }
+            updateAppActions()
+            setupControllerMappingUI(view)
+        }
         return view
     }
 
@@ -215,24 +306,18 @@ class ControllerSupportFragment : Fragment() {
         remarks:  Sets up the UI for mapping app actions to controller buttons
     */
     private fun setupControllerMappingUI(root: View) {
-        var appActions = loadAvailableAppActions()
-        val appActionsAdapter = AppActionsAdapter(appActions)
-        val appActionsList = root.findViewById<RecyclerView>(R.id.list_app_actions)
-        appActionsList.layoutManager = LinearLayoutManager(requireContext())
-        appActionsList.adapter = appActionsAdapter
-
         // Detect controller buttons
         val controllerButtons = getControllerButtonList()
         val buttonAssignments = loadButtonAssignments(controllerButtons)
         lateinit var controllerButtonsAdapter: ControllerButtonsAdapter
         val controllerButtonsList = root.findViewById<RecyclerView>(R.id.list_controller_buttons)
-        controllerButtonsAdapter = ControllerButtonsAdapter(controllerButtons, buttonAssignments, appActions) { btnName ->
+        controllerButtonsAdapter = ControllerButtonsAdapter(controllerButtons, buttonAssignments, appActionsAdapter.actions) { btnName ->
             // Always reload app actions to get the latest msg values
-            appActions = loadAvailableAppActions()
+            updateAppActions()
             android.app.AlertDialog.Builder(requireContext())
                 .setTitle("Assign App Action to $btnName")
-                .setItems(appActions.map { it.displayName }.toTypedArray()) { _, which ->
-                    val selectedAction = appActions[which]
+                .setItems(appActionsAdapter.actions.map { it.displayName }.toTypedArray()) { _, which ->
+                    val selectedAction = appActionsAdapter.actions[which]
                     val newAssignments = buttonAssignments.toMutableMap()
                     newAssignments[btnName] = selectedAction
                     saveButtonAssignments(newAssignments)
@@ -250,6 +335,16 @@ class ControllerSupportFragment : Fragment() {
         }
         controllerButtonsList.layoutManager = LinearLayoutManager(requireContext())
         controllerButtonsList.adapter = controllerButtonsAdapter
+    }
+
+    // Helper to update the app actions adapter with built-in and custom protocol actions
+    private fun updateAppActions() {
+        val allActions = loadAvailableAppActions() + customProtocolAppActions
+        if (::appActionsAdapter.isInitialized) {
+            appActionsAdapter.actions.clear()
+            appActionsAdapter.actions.addAll(allActions)
+            appActionsAdapter.notifyDataSetChanged()
+        }
     }
 
     // Custom panel expand/collapse logic for App Actions
@@ -288,7 +383,7 @@ class ControllerSupportFragment : Fragment() {
         output:   None
         remarks:  RecyclerView adapter for app actions
     */
-    inner class AppActionsAdapter(private val actions: List<AppAction>) : RecyclerView.Adapter<AppActionsAdapter.ActionViewHolder>() {
+    inner class AppActionsAdapter(val actions: MutableList<AppAction>) : RecyclerView.Adapter<AppActionsAdapter.ActionViewHolder>() {
         inner class ActionViewHolder(val nameView: TextView, val detailsView: TextView, val container: View) : RecyclerView.ViewHolder(container)
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ActionViewHolder {
             // Create a vertical LinearLayout with two TextViews
@@ -632,7 +727,6 @@ class ControllerSupportFragment : Fragment() {
                     "UInt8" -> "std_msgs/msg/UInt8"
                     else -> "std_msgs/msg/Float32"
                 }
-                rosViewModel.advertiseTopic(action.topic, rosType)
                 val msg = if (action.msg.isNotEmpty()) {
                     action.msg
                 } else {
@@ -643,12 +737,10 @@ class ControllerSupportFragment : Fragment() {
                         else -> "{\"data\": 1.0}"
                     }
                 }
-                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+                publishRosAction(action.topic, rosType, msg)
             }
             "Geometry" -> {
-                // Ensure fully qualified type string
                 val rosType = if (action.type.contains("/")) action.type else "geometry_msgs/msg/${action.type}"
-                rosViewModel.advertiseTopic(action.topic, rosType)
                 val msg = if (action.msg.isNotEmpty()) {
                     action.msg
                 } else {
@@ -658,12 +750,10 @@ class ControllerSupportFragment : Fragment() {
                         else -> "{}"
                     }
                 }
-                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+                publishRosAction(action.topic, rosType, msg)
             }
             "Standard Message" -> {
-                // Ensure fully qualified type string
                 val rosType = if (action.type.contains("/")) action.type else "std_msgs/msg/${action.type}"
-                rosViewModel.advertiseTopic(action.topic, rosType)
                 val msg = if (action.msg.isNotEmpty()) {
                     action.msg
                 } else {
@@ -673,12 +763,23 @@ class ControllerSupportFragment : Fragment() {
                         else -> "{\"data\": 1}"
                     }
                 }
-                rosViewModel.publishCustomRawMessage(action.topic, rosType, msg)
+                publishRosAction(action.topic, rosType, msg)
+            }
+            "Custom Protocol" -> {
+                val rosType = if (action.type.contains("/")) action.type else action.type
+                val msg = if (action.msg.isNotEmpty()) action.msg else "{}"
+                publishRosAction(action.topic, rosType, msg)
             }
             else -> {
                 android.util.Log.d("ControllerSupport", "[Unknown] $action")
             }
         }
+    }
+
+    // Helper to reduce code duplication for publishing
+    private fun publishRosAction(topic: String, rosType: String, msg: String) {
+        rosViewModel.advertiseTopic(topic, rosType)
+        rosViewModel.publishCustomRawMessage(topic, rosType, msg)
     }
 
     /*
