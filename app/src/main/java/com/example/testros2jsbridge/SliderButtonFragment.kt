@@ -16,6 +16,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import com.google.android.material.slider.Slider
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,6 +29,25 @@ import org.json.JSONObject
 */
 
 class SliderButtonFragment : Fragment() {
+    /*
+        Centralized function to update ViewModel sliders from savedButtons
+    */
+    private fun updateViewModelSliders() {
+        val validSliders = savedButtons.filter { it.type.isNotBlank() && it.topic.isNotBlank() }
+            .map { btn ->
+                SliderControllerViewModel.SliderState(
+                    name = btn.name ?: btn.topic,
+                    topic = btn.topic,
+                    type = btn.type,
+                    min = btn.min,
+                    max = btn.max,
+                    step = btn.step,
+                    value = btn.value
+                )
+            }
+        sliderControllerViewModel.setSliders(validSliders)
+    }
+
     /*
         input:    type - String representing the ROS message type
         output:   Boolean indicating if the type is an integer type
@@ -59,6 +81,8 @@ class SliderButtonFragment : Fragment() {
         for (btn in savedButtons) {
             addSavedSliderButton(layout, btn)
         }
+        // Also update ViewModel sliders so app actions stay in sync
+        updateViewModelSliders()
     }
 
     /*
@@ -66,6 +90,9 @@ class SliderButtonFragment : Fragment() {
         output:   None
         remarks:  Adds a saved slider button to the UI with publish and delete functionality
     */
+    // Map to keep track of UI sliders by topic (or name if available)
+    private val sliderMap = mutableMapOf<String, Slider>()
+
     private fun addSavedSliderButton(layout: LinearLayout, config: SliderButtonConfig) {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
@@ -90,6 +117,10 @@ class SliderButtonFragment : Fragment() {
             value = if (isIntegerType(config.type)) config.value.toLong().toFloat() else config.value
             setLabelFormatter { v -> if (isIntegerType(config.type)) v.toLong().toString() else v.toString() }
         }
+        // Store reference for live updates
+        val sliderKey = config.name ?: config.topic
+        sliderMap[sliderKey] = slider
+
         val valueLabel = TextView(requireContext()).apply {
             text = if (isIntegerType(config.type)) config.value.toLong().toString() else config.value.toString()
             textSize = 16f
@@ -104,6 +135,7 @@ class SliderButtonFragment : Fragment() {
                 valueLabel.text = v.toString()
                 config.value = v
             }
+            updateViewModelSliders()
         }
         val publishBtn = Button(requireContext()).apply {
             text = "Publish"
@@ -192,9 +224,6 @@ class SliderButtonFragment : Fragment() {
             setSelection(types.indexOf(config.type).coerceAtLeast(0))
         }
         val slider = Slider(requireContext())
-        fun isIntegerType(type: String): Boolean =
-            type in listOf("Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8")
-
         fun updateSliderForType(type: String) {
             if (isIntegerType(type)) {
                 val userStep = stepEdit.text.toString().toFloatOrNull()?.takeIf { it >= 1f } ?: 1f
@@ -223,11 +252,30 @@ class SliderButtonFragment : Fragment() {
             if (isIntegerType(config.type)) {
                 val intVal = v.toLong()
                 valueLabel.text = intVal.toString()
-                config.value = intVal.toFloat()
-                slider.value = intVal.toFloat() // snap
+                if (config.value != intVal.toFloat()) {
+                    config.value = intVal.toFloat()
+                }
+                if (slider.value != intVal.toFloat()) {
+                    slider.value = intVal.toFloat() // snap
+                }
             } else {
                 valueLabel.text = v.toString()
-                config.value = v
+                if (config.value != v) {
+                    config.value = v
+                }
+            }
+        }
+        // Observe ViewModel sliders and update this UI slider if its value changes externally
+        viewLifecycleOwner?.lifecycleScope?.launch {
+            viewLifecycleOwner?.lifecycle?.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                sliderControllerViewModel.sliders.collect { sliderStates ->
+                    val key = config.name ?: config.topic
+                    val state = sliderStates.find { it.name == key || it.topic == config.topic }
+                    if (state != null && slider.value != state.value) {
+                        slider.value = state.value
+                        valueLabel.text = if (isIntegerType(config.type)) state.value.toLong().toString() else state.value.toString()
+                    }
+                }
             }
         }
         val updateSliderRange = fun() {
@@ -266,28 +314,30 @@ class SliderButtonFragment : Fragment() {
             if (!valid) {
                 return
             }
+            // Update config first
+            config.min = min
+            config.max = max
+            config.step = step
+            // Update slider range and step
             slider.valueFrom = min
             slider.valueTo = max
             val userStep = if (isIntegerType(type)) {
                 step.takeIf { it >= 1f } ?: 1f
             } else step
             slider.stepSize = userStep
-            val snapped = min + (((slider.value - min) / userStep).toInt() * userStep)
-            slider.value = snapped.coerceIn(min, max)
-            config.value = slider.value
-            config.min = min
-            config.max = max
-            config.step = step
             updateSliderForType(type)
+            // Snap value to new range/step
+            val snapped = min + (((slider.value - min) / userStep).toInt() * userStep)
+            val clamped = snapped.coerceIn(min, max)
+            slider.value = clamped
+            config.value = clamped
+            // Update label
             if (isIntegerType(type)) {
-                valueLabel.text = slider.value.toLong().toString()
+                valueLabel.text = clamped.toLong().toString()
             } else {
-                valueLabel.text = slider.value.toString()
+                valueLabel.text = clamped.toString()
             }
         }
-        minEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
-        maxEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
-        stepEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
         typeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                 config.type = parent.getItemAtPosition(position) as String
@@ -296,6 +346,11 @@ class SliderButtonFragment : Fragment() {
 
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
         }
+        // Also update slider when min, max, or step fields lose focus
+        minEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
+        maxEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
+        stepEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
+
         val publishBtn = Button(requireContext()).apply {
             text = "Publish"
             setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), R.color.purple_500))
@@ -373,6 +428,7 @@ class SliderButtonFragment : Fragment() {
         layout.addView(row, 0)
     }
     private val rosViewModel: RosViewModel by activityViewModels()
+    private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
 
     /*
         input:    ...fields for slider config...
@@ -460,6 +516,30 @@ class SliderButtonFragment : Fragment() {
         for (btn in savedButtons) {
             addSavedSliderButton(layout, btn)
         }
+
+        // No need to call setSliders here; refreshSavedButtonsUI handles it
+
         return view
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Observe ViewModel sliders and update UI sliders live
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                sliderControllerViewModel.sliders.collect { sliderStates ->
+                    for (sliderState in sliderStates) {
+                        val key = sliderState.name ?: sliderState.topic
+                        val uiSlider = sliderMap[key]
+                        if (uiSlider != null) {
+                            // Only update if value differs to avoid infinite loop
+                            if (uiSlider.value != sliderState.value) {
+                                uiSlider.value = sliderState.value
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

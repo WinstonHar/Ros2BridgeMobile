@@ -3,6 +3,7 @@ package com.example.testros2jsbridge
 import android.content.Context
 import android.hardware.input.InputManager
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
 import android.os.Bundle
 import android.view.*
 import android.widget.TextView
@@ -31,6 +32,7 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 }
 
 class ControllerSupportFragment : Fragment() {
+    private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
     private val joystickResendIntervalMs = 100L
     private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var joystickResendActive = false
@@ -293,6 +295,14 @@ class ControllerSupportFragment : Fragment() {
                     updateAppActions()
                 }
             }
+
+            // Observe slider changes and update app actions pane live
+            viewLifecycleOwner.lifecycleScope.launch {
+                sliderControllerViewModel.sliders.collectLatest {
+                    updateAppActions()
+                }
+            }
+
             updateAppActions()
             setupControllerMappingUI(view)
         }
@@ -476,24 +486,44 @@ class ControllerSupportFragment : Fragment() {
     */
     private fun loadAvailableAppActions(): List<AppAction> {
         val actions = mutableListOf<AppAction>()
-        // Load from SliderButtonFragment
+        // Load from SliderButtonFragment but do NOT add the base slider action ("Slider"), only add increment/decrement actions below
         val prefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
         val json = prefs.getString("saved_slider_buttons", null)
         android.util.Log.d("ControllerSupport", "Loaded slider_buttons_prefs:saved_slider_buttons: $json")
-        if (!json.isNullOrEmpty()) {
-            try {
-                val arr = org.json.JSONArray(json)
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    val name = obj.optString("name", obj.optString("topic", ""))
-                    val topic = obj.optString("topic", "")
-                    val type = obj.optString("type", "")
-                    val msg = obj.optString("msg", "")
-                    actions.add(AppAction(name, topic, type, "Slider", msg))
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("ControllerSupport", "Error loading slider_buttons_prefs:saved_slider_buttons", e)
-            }
+        // (Intentionally skip adding base slider actions here)
+        // Add increment/decrement actions for each slider in the shared ViewModel
+        val sliderStates = sliderControllerViewModel.sliders.value
+        for ((idx, slider) in sliderStates.withIndex()) {
+            // Increment preview
+            val incNext = (slider.value + slider.step).coerceAtMost(slider.max)
+            val incMsg = if (slider.value < slider.max)
+                "${slider.value} + ${slider.step}"
+            else
+                "${slider.value}"
+            actions.add(
+                AppAction(
+                    displayName = "Increment ${slider.name}",
+                    topic = slider.topic,
+                    type = slider.type,
+                    source = "SliderIncrement",
+                    msg = incMsg
+                )
+            )
+            // Decrement preview
+            val decNext = (slider.value - slider.step).coerceAtLeast(slider.min)
+            val decMsg = if (slider.value > slider.min)
+                "${slider.value} - ${slider.step}"
+            else
+                "${slider.value}"
+            actions.add(
+                AppAction(
+                    displayName = "Decrement ${slider.name}",
+                    topic = slider.topic,
+                    type = slider.type,
+                    source = "SliderDecrement",
+                    msg = decMsg
+                )
+            )
         }
         // Load from GeometryStdMsgFragment
         val geoPrefs = requireContext().getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
@@ -665,8 +695,45 @@ class ControllerSupportFragment : Fragment() {
         val msg = "Key $actionStr: code=${event.keyCode} (${KeyEvent.keyCodeToString(event.keyCode)}) from device ${event.device?.name}\n"
         appendEventLog(msg)
 
-        // Only handle button presses (not releases or others)
+        // --- Slider integration: DPad Left/Right to decrement/increment selected slider ---
         if (actionStr == "DOWN" && btnName != null) {
+            // Map DPad Left/Right to slider decrement/increment
+            if (btnName == "DPad Left" || btnName == "DPad Right") {
+                val slider = sliderControllerViewModel.getSelectedSlider()
+                if (slider != null) {
+                    if (btnName == "DPad Left") {
+                        sliderControllerViewModel.decrementSelectedSlider()
+                    } else {
+                        sliderControllerViewModel.incrementSelectedSlider()
+                    }
+                    // After update, publish the new value as a ROS message
+                    val updatedSlider = sliderControllerViewModel.getSelectedSlider()
+                    if (updatedSlider != null) {
+                        val rosType = when (updatedSlider.type) {
+                            "Bool" -> "std_msgs/msg/Bool"
+                            "Float32" -> "std_msgs/msg/Float32"
+                            "Float64" -> "std_msgs/msg/Float64"
+                            "Int16" -> "std_msgs/msg/Int16"
+                            "Int32" -> "std_msgs/msg/Int32"
+                            "Int64" -> "std_msgs/msg/Int64"
+                            "Int8" -> "std_msgs/msg/Int8"
+                            "UInt16" -> "std_msgs/msg/UInt16"
+                            "UInt32" -> "std_msgs/msg/UInt32"
+                            "UInt64" -> "std_msgs/msg/UInt64"
+                            "UInt8" -> "std_msgs/msg/UInt8"
+                            else -> "std_msgs/msg/Float32"
+                        }
+                        val msg = when (updatedSlider.type) {
+                            "Bool" -> "{\"data\": ${if (updatedSlider.value != 0f) "true" else "false"}}"
+                            "Float32", "Float64" -> "{\"data\": ${updatedSlider.value}}"
+                            "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": ${updatedSlider.value.toLong()}}"
+                            else -> "{\"data\": ${updatedSlider.value}}"
+                        }
+                        publishRosAction(updatedSlider.topic, rosType, msg)
+                    }
+                    return true // handled
+                }
+            }
             // Load assignments and dispatch if mapped
             val assignments = loadButtonAssignments(getControllerButtonList())
             val mappedAction = assignments[btnName]
@@ -737,6 +804,60 @@ class ControllerSupportFragment : Fragment() {
                     }
                 }
                 publishRosAction(action.topic, rosType, msg)
+            }
+            "SliderIncrement" -> {
+                val idx = action.msg.toIntOrNull() ?: return
+                sliderControllerViewModel.selectSlider(idx)
+                sliderControllerViewModel.incrementSelectedSlider()
+                val slider = sliderControllerViewModel.getSelectedSlider() ?: return
+                val rosType = when (slider.type) {
+                    "Bool" -> "std_msgs/msg/Bool"
+                    "Float32" -> "std_msgs/msg/Float32"
+                    "Float64" -> "std_msgs/msg/Float64"
+                    "Int16" -> "std_msgs/msg/Int16"
+                    "Int32" -> "std_msgs/msg/Int32"
+                    "Int64" -> "std_msgs/msg/Int64"
+                    "Int8" -> "std_msgs/msg/Int8"
+                    "UInt16" -> "std_msgs/msg/UInt16"
+                    "UInt32" -> "std_msgs/msg/UInt32"
+                    "UInt64" -> "std_msgs/msg/UInt64"
+                    "UInt8" -> "std_msgs/msg/UInt8"
+                    else -> "std_msgs/msg/Float32"
+                }
+                val msg = when (slider.type) {
+                    "Bool" -> "{\"data\": ${if (slider.value != 0f) "true" else "false"}}"
+                    "Float32", "Float64" -> "{\"data\": ${slider.value}}"
+                    "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": ${slider.value.toLong()}}"
+                    else -> "{\"data\": ${slider.value}}"
+                }
+                publishRosAction(slider.topic, rosType, msg)
+            }
+            "SliderDecrement" -> {
+                val idx = action.msg.toIntOrNull() ?: return
+                sliderControllerViewModel.selectSlider(idx)
+                sliderControllerViewModel.decrementSelectedSlider()
+                val slider = sliderControllerViewModel.getSelectedSlider() ?: return
+                val rosType = when (slider.type) {
+                    "Bool" -> "std_msgs/msg/Bool"
+                    "Float32" -> "std_msgs/msg/Float32"
+                    "Float64" -> "std_msgs/msg/Float64"
+                    "Int16" -> "std_msgs/msg/Int16"
+                    "Int32" -> "std_msgs/msg/Int32"
+                    "Int64" -> "std_msgs/msg/Int64"
+                    "Int8" -> "std_msgs/msg/Int8"
+                    "UInt16" -> "std_msgs/msg/UInt16"
+                    "UInt32" -> "std_msgs/msg/UInt32"
+                    "UInt64" -> "std_msgs/msg/UInt64"
+                    "UInt8" -> "std_msgs/msg/UInt8"
+                    else -> "std_msgs/msg/Float32"
+                }
+                val msg = when (slider.type) {
+                    "Bool" -> "{\"data\": ${if (slider.value != 0f) "true" else "false"}}"
+                    "Float32", "Float64" -> "{\"data\": ${slider.value}}"
+                    "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": ${slider.value.toLong()}}"
+                    else -> "{\"data\": ${slider.value}}"
+                }
+                publishRosAction(slider.topic, rosType, msg)
             }
             "Geometry" -> {
                 val rosType = if (action.type.contains("/")) action.type else "geometry_msgs/msg/${action.type}"
