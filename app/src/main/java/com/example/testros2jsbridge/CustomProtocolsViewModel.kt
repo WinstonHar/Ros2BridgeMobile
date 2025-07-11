@@ -14,6 +14,8 @@ import android.content.Context
 */
 
 class CustomProtocolsViewModel(application: Application) : AndroidViewModel(application) {
+    private val PREFS_NAME = "custom_protocols_prefs"
+    private val PREFS_SELECTED_KEY = "selected_import_paths"
     data class ProtocolFile(val name: String, val importPath: String, val type: ProtocolType)
     enum class ProtocolType { MSG, SRV, ACTION }
 
@@ -24,8 +26,22 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
     private val _actions = MutableStateFlow<List<ProtocolFile>>(emptyList())
     val actions: StateFlow<List<ProtocolFile>> = _actions
 
-    private val _selected = MutableStateFlow<Set<String>>(emptySet())
+    private val _selected = MutableStateFlow<Set<String>>(loadSelectedFromPrefs())
     val selected: StateFlow<Set<String>> = _selected
+    private fun getPrefs(): android.content.SharedPreferences {
+        return getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    private fun loadSelectedFromPrefs(): Set<String> {
+        val prefs = getPrefs()
+        val set = prefs.getStringSet(PREFS_SELECTED_KEY, null)
+        return set ?: emptySet()
+    }
+
+    private fun saveSelectedToPrefs(selected: Set<String>) {
+        val prefs = getPrefs()
+        prefs.edit().putStringSet(PREFS_SELECTED_KEY, selected).apply()
+    }
 
     // Call this to scan the msgs folder in assets
     fun scanMsgsAssets(context: Context) {
@@ -56,7 +72,7 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
                     }
                 }
             } catch (e: Exception) {
-                // Handle error if needed
+                //handle errors?
             }
             _messages.value = msgList
             _services.value = srvList
@@ -67,7 +83,7 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
 
     fun setSelected(selected: Set<String>) {
         _selected.value = selected
+        saveSelectedToPrefs(selected)
     }
 
-    // relImport no longer needed for assets
 }

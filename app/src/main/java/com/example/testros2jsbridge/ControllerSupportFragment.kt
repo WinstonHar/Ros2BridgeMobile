@@ -14,7 +14,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
-// Utility to catch and log Android resource errors gracefully
+/*
+    This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
+*/
+
 private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", block: () -> Unit) {
     try {
         block()
@@ -27,10 +30,6 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
     }
 }
 
-/*
-    This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
-*/
-
 class ControllerSupportFragment : Fragment() {
     private val joystickResendIntervalMs = 100L
     private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -38,12 +37,10 @@ class ControllerSupportFragment : Fragment() {
     private var lastJoystickMappings: List<JoystickMapping>? = null
     private var lastJoystickDevice: InputDevice? = null
     private var lastJoystickEvent: MotionEvent? = null
-    // --- Custom Protocol Actions integration ---
     private var customProtocolAppActions: List<AppAction> = emptyList()
     private lateinit var appActionsAdapter: AppActionsAdapter
     private lateinit var appActionsList: RecyclerView
 
-    // Correct anonymous Runnable for joystick resend
     private val joystickResendRunnable = object : Runnable {
         override fun run() {
             val mappings = lastJoystickMappings
@@ -66,14 +63,14 @@ class ControllerSupportFragment : Fragment() {
         remarks:  Data class representing a joystick mapping configuration
     */
     data class JoystickMapping(
-        var displayName: String = "Left Stick",
-        var topic: String = "/cmd_vel",
-        var type: String = "geometry_msgs/msg/Twist",
+        var displayName: String? = null,
+        var topic: String? = null,
+        var type: String? = null,
         var axisX: Int = MotionEvent.AXIS_X,
         var axisY: Int = MotionEvent.AXIS_Y,
-        var max: Float = 1.0f,
-        var step: Float = 0.2f,
-        var deadzone: Float = 0.1f
+        var max: Float? = null,
+        var step: Float? = null,
+        var deadzone: Float? = null
     )
 
     private val PREFS_JOYSTICK_MAPPING = "joystick_mapping_prefs"
@@ -122,17 +119,19 @@ class ControllerSupportFragment : Fragment() {
                             type = obj.optString("type", "geometry_msgs/msg/Twist"),
                             axisX = obj.optInt("axisX", MotionEvent.AXIS_X),
                             axisY = obj.optInt("axisY", MotionEvent.AXIS_Y),
-                            max = obj.optDouble("max", 1.0).toFloat(),
-                            step = obj.optDouble("step", 0.2).toFloat(),
-                            deadzone = obj.optDouble("deadzone", 0.1).toFloat()
+                            max = obj.optDouble("max", Double.NaN).let { if (it.isNaN()) null else it.toFloat() },
+                            step = obj.optDouble("step", Double.NaN).let { if (it.isNaN()) null else it.toFloat() },
+                            deadzone = obj.optDouble("deadzone", Double.NaN).let { if (it.isNaN()) null else it.toFloat() }
                         )
                     )
                 }
             } catch (_: Exception) {}
         } else {
-            // Default: left and right stick
-            list.add(JoystickMapping("Left Stick", "/cmd_vel", "geometry_msgs/msg/Twist", MotionEvent.AXIS_X, MotionEvent.AXIS_Y, 1.0f, 0.2f, 0.1f))
-            list.add(JoystickMapping("Right Stick", "/cmd_vel2", "geometry_msgs/msg/Twist", MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ, 1.0f, 0.2f, 0.1f))
+            list.add(JoystickMapping("Left Stick"))
+            list.add(JoystickMapping("Right Stick"))
+            // Default: left and right stick, removed to show hints instead
+            // list.add(JoystickMapping("Left Stick", "/cmd_vel", "geometry_msgs/msg/Twist", MotionEvent.AXIS_X, MotionEvent.AXIS_Y, 0.0, 0.0, 0.0))
+            // list.add(JoystickMapping("Right Stick", "/cmd_vel2", "geometry_msgs/msg/Twist", MotionEvent.AXIS_Z, MotionEvent.AXIS_RZ, 0.0, 0.0, 0.0))
         }
         return list
     }
@@ -160,34 +159,34 @@ class ControllerSupportFragment : Fragment() {
                 // Topic
                 val topicInput = android.widget.EditText(requireContext())
                 topicInput.hint = "Topic"
-                topicInput.setText(mapping.topic)
+                topicInput.setText(mapping.topic ?: "")
                 group.addView(topicInput)
 
                 // Type
                 val typeInput = android.widget.EditText(requireContext())
                 typeInput.hint = "Type (e.g. geometry_msgs/msg/Twist)"
-                typeInput.setText(mapping.type)
+                typeInput.setText(mapping.type ?: "")
                 group.addView(typeInput)
 
                 // Max
                 val maxInput = android.widget.EditText(requireContext())
                 maxInput.hint = "Max value (e.g. 1.0)"
                 maxInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-                maxInput.setText(mapping.max.toString())
+                maxInput.setText(mapping.max?.toString() ?: "")
                 group.addView(maxInput)
 
                 // Step
                 val stepInput = android.widget.EditText(requireContext())
                 stepInput.hint = "Step (e.g. 0.2)"
                 stepInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-                stepInput.setText(mapping.step.toString())
+                stepInput.setText(mapping.step?.toString() ?: "")
                 group.addView(stepInput)
 
                 // Deadzone
                 val deadzoneInput = android.widget.EditText(requireContext())
                 deadzoneInput.hint = "Deadzone (e.g. 0.1)"
                 deadzoneInput.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-                deadzoneInput.setText(mapping.deadzone.toString())
+                deadzoneInput.setText(mapping.deadzone?.toString() ?: "")
                 group.addView(deadzoneInput)
 
                 // Save button
@@ -196,11 +195,11 @@ class ControllerSupportFragment : Fragment() {
                 saveBtn.setOnClickListener {
                     // Save on background thread
                     viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                        mapping.topic = topicInput.text.toString()
-                        mapping.type = typeInput.text.toString()
-                        mapping.max = maxInput.text.toString().toFloatOrNull() ?: 1.0f
-                        mapping.step = stepInput.text.toString().toFloatOrNull() ?: 0.2f
-                        mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull() ?: 0.1f
+                        mapping.topic = topicInput.text.toString().ifEmpty { null }
+                        mapping.type = typeInput.text.toString().ifEmpty { null }
+                        mapping.max = maxInput.text.toString().toFloatOrNull()
+                        mapping.step = stepInput.text.toString().toFloatOrNull()
+                        mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull()
                         saveJoystickMappings(mappings)
                         // Show toast on main thread
                         withContext(kotlinx.coroutines.Dispatchers.Main) {
@@ -682,7 +681,7 @@ class ControllerSupportFragment : Fragment() {
     /*
         input:    keyCode - Int
         output:   String?
-        remarks:  Maps Android keyCode to button names
+        remarks:  Maps Android keyCode to button names, follows xbox layout
     */
     private fun keyCodeToButtonName(keyCode: Int): String? {
         return when (keyCode) {
@@ -852,9 +851,11 @@ class ControllerSupportFragment : Fragment() {
             else -> 0f
         }
         // Now scale to [-mapping.max, mapping.max]
-        val scaled = normalized * mapping.max
+        val maxAxis = mapping.max ?: 1.0f
+        val deadzoneAxis = mapping.deadzone ?: 0.1f
+        val scaled = normalized * maxAxis
         // Apply deadzone
-        return if (Math.abs(scaled) > mapping.deadzone) scaled else 0f
+        return if (Math.abs(scaled) > deadzoneAxis) scaled else 0f
     }
 
     private var lastJoystickSent: MutableMap<String, Pair<Float, Float>> = mutableMapOf()
@@ -867,27 +868,32 @@ class ControllerSupportFragment : Fragment() {
     private fun processJoystickInput(event: MotionEvent, device: InputDevice, historyPos: Int, mapping: JoystickMapping, forceSend: Boolean = false) {
         val x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
         val y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
+        val maxValue = mapping.max ?: 1.0f
+        val stepValue = mapping.step ?: 0.2f
+        val deadzoneValue = mapping.deadzone ?: 0.1f
         // Quantize to step (step is in user units, between deadzone and max)
-        val quantX = if (x != 0f) Math.signum(x) * (Math.ceil(((Math.abs(x) - mapping.deadzone).toDouble() / mapping.step.toDouble())).toInt() * mapping.step + mapping.deadzone) else 0f
-        val quantY = if (y != 0f) Math.signum(y) * (Math.ceil(((Math.abs(y) - mapping.deadzone).toDouble() / mapping.step.toDouble())).toInt() * mapping.step + mapping.deadzone) else 0f
+        val quantX = if (x != 0f) Math.signum(x) * (Math.ceil(((Math.abs(x) - deadzoneValue).toDouble() / stepValue.toDouble())).toInt() * stepValue + deadzoneValue) else 0f
+        val quantY = if (y != 0f) Math.signum(y) * (Math.ceil(((Math.abs(y) - deadzoneValue).toDouble() / stepValue.toDouble())).toInt() * stepValue + deadzoneValue) else 0f
         // Clamp to max
-        val clampedX = quantX.coerceIn(-mapping.max, mapping.max)
-        val clampedY = quantY.coerceIn(-mapping.max, mapping.max)
-        val last = lastJoystickSent[mapping.displayName]
+        val clampedX = quantX.coerceIn(-maxValue, maxValue)
+        val clampedY = quantY.coerceIn(-maxValue, maxValue)
+        val displayNameKey = mapping.displayName ?: ""
+        val last = lastJoystickSent[displayNameKey]
 
         // Only send stop if previously nonzero and now truly centered (not just in deadzone)
         // Always ensure mapping.type is fully qualified
-        val rosType = if (mapping.type.contains("/")) mapping.type else "geometry_msgs/msg/${mapping.type}"
+        val rosType = if ((mapping.type ?: "").contains("/")) mapping.type ?: "geometry_msgs/msg/Twist" else "geometry_msgs/msg/${mapping.type ?: "Twist"}"
+        val topic = mapping.topic ?: "/cmd_vel"
         if (clampedX == 0f && clampedY == 0f) {
             if (last != null && (last.first != 0f || last.second != 0f)) {
-                lastJoystickSent[mapping.displayName] = 0f to 0f
+                lastJoystickSent[displayNameKey] = 0f to 0f
                 val msg = when (rosType) {
                     "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
                     "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
                     else -> "{}"
                 }
-                rosViewModel.advertiseTopic(mapping.topic, rosType)
-                rosViewModel.publishCustomRawMessage(mapping.topic, rosType, msg)
+                rosViewModel.advertiseTopic(topic, rosType)
+                rosViewModel.publishCustomRawMessage(topic, rosType, msg)
             }
             // Do not keep sending stop if already at zero
             return
@@ -895,7 +901,7 @@ class ControllerSupportFragment : Fragment() {
 
         // Only send if changed or forceSend is true, and not in deadzone
         if (forceSend || last == null || last.first != clampedX || last.second != clampedY) {
-            lastJoystickSent[mapping.displayName] = clampedX to clampedY
+            lastJoystickSent[displayNameKey] = clampedX to clampedY
             val msg = when (rosType) {
                 "geometry_msgs/msg/Twist" -> "{" +
                         "\"linear\": {\"x\": ${-clampedY}, \"y\": 0.0, \"z\": 0.0}," +
@@ -904,8 +910,8 @@ class ControllerSupportFragment : Fragment() {
                 "geometry_msgs/msg/Vector3" -> "{\"x\":$clampedX,\"y\":0.0,\"z\":${-clampedY}}"
                 else -> "{}"
             }
-            rosViewModel.advertiseTopic(mapping.topic, rosType)
-            rosViewModel.publishCustomRawMessage(mapping.topic, rosType, msg)
+            rosViewModel.advertiseTopic(topic, rosType)
+            rosViewModel.publishCustomRawMessage(topic, rosType, msg)
         }
     }
 

@@ -55,11 +55,32 @@ class ImportCustomProtocolsFragment : Fragment() {
         // Add to root layout (replace with your layout logic)
         val scroll = ScrollView(context)
         val vertical = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        // --- Add ROS root package input at the top ---
+        val rosRootLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        val rosRootLabel = TextView(context).apply { text = "ROS Root Package: "; textSize = 16f }
+        val rosRootInput = android.widget.EditText(context).apply {
+            hint = "ryan_msgs"
+            setText(requireActivity().getPreferences(Context.MODE_PRIVATE).getString("ros_root_package", "ryan_msgs"))
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        rosRootLayout.addView(rosRootLabel)
+        rosRootLayout.addView(rosRootInput)
+        vertical.addView(rosRootLayout)
+
         vertical.addView(actionSection)
         vertical.addView(msgSection)
         vertical.addView(srvSection)
         scroll.addView(vertical)
         (root as ViewGroup).addView(scroll)
+
+        // Save root package on change
+        rosRootInput.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                val value = rosRootInput.text.toString().ifBlank { "ryan_msgs" }
+                requireActivity().getPreferences(Context.MODE_PRIVATE).edit().putString("ros_root_package", value).apply()
+            }
+        }
 
         // Scan msgs folder in assets on open
         viewModel.scanMsgsAssets(requireContext())
@@ -332,6 +353,7 @@ class ImportCustomProtocolsFragment : Fragment() {
     private fun refreshSavedActions(actions: List<RosViewModel.CustomProtocolAction>) {
         savedActionsLayout?.let { layout ->
             layout.removeAllViews()
+            val rosRoot = requireActivity().getPreferences(Context.MODE_PRIVATE).getString("ros_root_package", "ryan_msgs") ?: "ryan_msgs"
             for ((index, action) in actions.withIndex()) {
                 val row = LinearLayout(requireContext()).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -348,9 +370,9 @@ class ImportCustomProtocolsFragment : Fragment() {
                         val type = action.proto.type.name
                         // Use full ROS 2 type string (e.g. ryan_msgs/msg/AvatarEmotion)
                         val rosType = when (action.proto.type) {
-                            CustomProtocolsViewModel.ProtocolType.MSG -> "ryan_msgs/msg/${action.proto.name}"
-                            CustomProtocolsViewModel.ProtocolType.SRV -> "ryan_msgs/srv/${action.proto.name}"
-                            CustomProtocolsViewModel.ProtocolType.ACTION -> "ryan_msgs/action/${action.proto.name}"
+                            CustomProtocolsViewModel.ProtocolType.MSG -> "$rosRoot/msg/${action.proto.name}"
+                            CustomProtocolsViewModel.ProtocolType.SRV -> "$rosRoot/srv/${action.proto.name}"
+                            CustomProtocolsViewModel.ProtocolType.ACTION -> "$rosRoot/action/${action.proto.name}"
                             else -> action.proto.name
                         }
                         // Compose message from fieldValues as JSON (simple flat map), skip __topic__

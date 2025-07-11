@@ -98,6 +98,21 @@ Specific instructions for using controller input for remote robot movement.
   <br/><em>Controller Input Tab-Controller Joystick Assignment</em>
 </div>
 
+**Custom Protocol Support**
+Now pre compile you can add custom messages. These are located in the root > app > src > main > assets > msgs folder.
+In the msgs folder the structure must be as below to be registed in the UI automatically.
+Msgs >
+ -- action
+ -- msg
+ -- srv
+
+The "action" folder should contain .action files
+The "msg" folder should contain .msg files
+The "srv" folder should contain .srv files
+
+After adding in files to the respective folders they will show in the UI in their respective categories in a checkbox list. From there users can select which ones they want to use in the application and set custom buttons with prefilled values to use on the controller. 
+Right now I have filters for text casing to exclude hint values. So only snake case variables in the files will be fillable while variables in all caps will be locked. This can be used to show what values correspond to different functions for fillable variables without writing external docs.
+
 ## Credits
 - Developed by WinstonHar
 - Uses [rosbridge_suite](https://github.com/RobotWebTools/rosbridge_suite) for ROS 2 communication
