@@ -537,6 +537,12 @@ class ImportCustomProtocolsFragment : Fragment() {
                     textSize = 14f
                     setPadding(8, 8, 8, 8)
                 }
+                // Always add the result/feedback display below the button row, never replacing the row
+                val resultLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                resultLayout.addView(resultDisplay)
+
                 btn.setOnClickListener {
                     if (rosViewModel.connectionStatus.value != "Connected") {
                         android.widget.Toast.makeText(requireContext(), "Not connected to rosbridge!", android.widget.Toast.LENGTH_SHORT).show()
@@ -589,6 +595,7 @@ class ImportCustomProtocolsFragment : Fragment() {
                                 fun appendToDisplay(label: String, msg: String?) {
                                     requireActivity().runOnUiThread {
                                         val safeMsg = if (msg.isNullOrBlank()) "(no data)" else msg
+                                        // Only append to the resultDisplay, never replace the row or buttons
                                         resultDisplay.append("[$label]:\n$safeMsg\n\n")
                                     }
                                 }
@@ -620,12 +627,6 @@ class ImportCustomProtocolsFragment : Fragment() {
                     }
                 }
                 row.addView(btn)
-                // Always add the result/feedback display below the button
-                val resultLayout = LinearLayout(requireContext()).apply {
-                    orientation = LinearLayout.VERTICAL
-                }
-                resultLayout.addView(resultDisplay)
-                row.addView(resultLayout)
                 val editBtn = android.widget.Button(requireContext()).apply {
                     text = "O"
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -684,7 +685,9 @@ class ImportCustomProtocolsFragment : Fragment() {
                 }
                 row.addView(editBtn)
                 row.addView(removeBtn)
+                // Add the result display layout as a separate row below the button row
                 layout.addView(row)
+                layout.addView(resultLayout)
             }
         }
     }
