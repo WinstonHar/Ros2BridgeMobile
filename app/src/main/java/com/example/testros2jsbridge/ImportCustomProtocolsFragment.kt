@@ -587,7 +587,13 @@ class ImportCustomProtocolsFragment : Fragment() {
                                     rosViewModel.advertiseService(topic, srvType)
                                     advertisedServices.add(topic)
                                 }
-                                rosViewModel.callCustomService(topic, srvType, msgJson)
+                                requireActivity().runOnUiThread { resultDisplay.text = "" } // Clear previous result
+                                rosViewModel.callCustomService(topic, srvType, msgJson) { resultMsg ->
+                                    requireActivity().runOnUiThread {
+                                        val safeMsg = if (resultMsg.isNullOrBlank()) "(no data)" else resultMsg
+                                        resultDisplay.append("[Service Result]:\n$safeMsg\n\n")
+                                    }
+                                }
                             }
                             CustomProtocolsViewModel.ProtocolType.ACTION -> {
                                 requireActivity().runOnUiThread { resultDisplay.text = "" } // Clear previous result
@@ -693,6 +699,7 @@ class ImportCustomProtocolsFragment : Fragment() {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 setOnClickListener {
                     rosViewModel.forceClearAllActionBusyLocks()
+                    rosViewModel.forceClearAllServiceBusyLocks()
                 }
                 contentDescription = "Force clear all busy locks"
             }

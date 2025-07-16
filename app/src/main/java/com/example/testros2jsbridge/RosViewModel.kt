@@ -36,6 +36,73 @@ import kotlinx.serialization.json.put
 */
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    // --- Robust Service Request Management ---
+    private val lastServiceRequestIdMap = mutableMapOf<String, String>() // serviceName -> last request id
+    private val lastServiceBusyMap = mutableMapOf<String, Boolean>() // serviceName -> busy
+    private val pendingServiceRequestMap = mutableMapOf<String, Triple<String, String, (String) -> Unit>>() // serviceName -> (serviceType, requestJson, onResult)
+
+    /**
+     * Force clear the busy lock and queue for all services. This allows new service requests to be sent even if any previous one is stuck.
+     */
+    fun forceClearAllServiceBusyLocks() {
+        lastServiceRequestIdMap.clear()
+        lastServiceBusyMap.clear()
+        pendingServiceRequestMap.clear()
+    }
+
+    /**
+     * Robustly send or queue a service request. If a previous request is active, queue the new one until the previous is done.
+     * @param serviceName The ROS2 service name (e.g. /my_service)
+     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
+     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
+     * @param onResult Callback with the result JSON string
+     */
+    fun sendOrQueueServiceRequest(
+        serviceName: String,
+        serviceType: String,
+        requestJson: String,
+        onResult: (String) -> Unit
+    ) {
+        val busy = lastServiceBusyMap[serviceName] ?: false
+        if (busy) {
+            // Queue the request
+            pendingServiceRequestMap[serviceName] = Triple(serviceType, requestJson, onResult)
+            Log.d("RosViewModel", "sendOrQueueServiceRequest: Service $serviceName busy, queuing new request.")
+            return
+        }
+        // Mark as busy
+        lastServiceBusyMap[serviceName] = true
+        val id = "service_call_${System.currentTimeMillis()}"
+        lastServiceRequestIdMap[serviceName] = id
+        // Register a one-time handler for the service response
+        topicHandlers[id] = { response ->
+            lastServiceBusyMap[serviceName] = false
+            onResult(response)
+            // If a pending request exists, send it now
+            if (pendingServiceRequestMap.containsKey(serviceName)) {
+                val (nextType, nextJson, nextCallback) = pendingServiceRequestMap.remove(serviceName)!!
+                sendOrQueueServiceRequest(serviceName, nextType, nextJson, nextCallback)
+            }
+        }
+        val jsonString = """
+            {"op": "call_service", "id": "$id", "service": "$serviceName", "type": "$serviceType", "args": $requestJson}
+        """.trimIndent()
+        RosbridgeConnectionManager.sendRaw(jsonString)
+        Log.d("RosViewModel", "Sent robust service call to '$serviceName': $requestJson")
+        // Timeout fallback: if no response in 10s, clear busy and try next
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(10000L)
+            if (lastServiceBusyMap[serviceName] == true && lastServiceRequestIdMap[serviceName] == id) {
+                Log.w("RosViewModel", "[SERVICE] Timeout waiting for response for $serviceName, clearing busy lock.")
+                lastServiceBusyMap[serviceName] = false
+                // If a pending request exists, send it now
+                if (pendingServiceRequestMap.containsKey(serviceName)) {
+                    val (nextType, nextJson, nextCallback) = pendingServiceRequestMap.remove(serviceName)!!
+                    sendOrQueueServiceRequest(serviceName, nextType, nextJson, nextCallback)
+                }
+            }
+        }
+    }
     /**
      * Force clear the busy lock and queue for all actions. This allows new actions to be sent even if any previous one is stuck.
      * Also clears lastGoalIdMap and lastGoalStatusMap to fully reset action state.
@@ -316,22 +383,34 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
      * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
      * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
      */
-    fun callCustomService(serviceName: String, serviceType: String, requestJson: String) {
+    /**
+     * Robustly call a ROS2 service via rosbridge_server, using the robust queue/busy logic.
+     * @param serviceName The ROS2 service name (e.g. /my_service)
+     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
+     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
+     * @param onResult Optional callback with the result JSON string
+     */
+    fun callCustomService(serviceName: String, serviceType: String, requestJson: String, onResult: ((String) -> Unit)? = null) {
         Log.d("RosViewModel", "callCustomService called: serviceName=$serviceName, serviceType=$serviceType, requestJson=$requestJson")
-        viewModelScope.launch {
-            if (!RosbridgeConnectionManager.isConnected) {
-                Log.w("RosViewModel", "Cannot call service: Not connected.")
-                return@launch
-            }
-            try {
-                val id = "service_call_${System.currentTimeMillis()}"
-                val jsonString = """
-                    {"op": "call_service", "id": "$id", "service": "$serviceName", "type": "$serviceType", "args": $requestJson}
-                """.trimIndent()
-                RosbridgeConnectionManager.sendRaw(jsonString)
-                Log.d("RosViewModel", "Sent call_service: $jsonString")
-            } catch (e: Exception) {
-                Log.e("RosViewModel", "callCustomService error for service '$serviceName'", e)
+        if (onResult != null) {
+            sendOrQueueServiceRequest(serviceName, serviceType, requestJson, onResult)
+        } else {
+            // Fallback: fire and forget (legacy usage)
+            viewModelScope.launch {
+                if (!RosbridgeConnectionManager.isConnected) {
+                    Log.w("RosViewModel", "Cannot call service: Not connected.")
+                    return@launch
+                }
+                try {
+                    val id = "service_call_${System.currentTimeMillis()}"
+                    val jsonString = """
+                        {"op": "call_service", "id": "$id", "service": "$serviceName", "type": "$serviceType", "args": $requestJson}
+                    """.trimIndent()
+                    RosbridgeConnectionManager.sendRaw(jsonString)
+                    Log.d("RosViewModel", "Sent call_service: $jsonString")
+                } catch (e: Exception) {
+                    Log.e("RosViewModel", "callCustomService error for service '$serviceName'", e)
+                }
             }
         }
     }
