@@ -102,6 +102,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // Always register rosViewModel as a listener for rosbridge connection events
+        RosbridgeConnectionManager.addListener(rosViewModel)
 
         ipAddressEditText = findViewById(R.id.edittext_ip_address)
         portEditText = findViewById(R.id.edittext_port)
@@ -365,6 +367,8 @@ class MainActivity : AppCompatActivity() {
     */
     override fun onDestroy() {
         rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
+        // Remove rosViewModel as a listener to avoid leaks
+        RosbridgeConnectionManager.removeListener(rosViewModel)
         super.onDestroy()
     }
 }

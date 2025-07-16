@@ -1,5 +1,15 @@
 package com.example.testros2jsbridge
 
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.intOrNull
+import java.util.UUID
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import android.util.Log
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -26,6 +36,329 @@ import kotlinx.serialization.json.put
 */
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    /**
+     * Request the result of an action goal via the get_result service.
+     * @param actionName The base action name, e.g. /pose_server/run_trajectory
+     * @param actionType The action type, e.g. ryan_msgs/action/RunPose
+     * @param goalUuid The UUID of the goal as a string
+     * @param onResult Callback with the result JSON string
+     */
+    fun getActionResultViaService(
+        actionName: String,
+        actionType: String,
+        goalUuid: String,
+        onResult: (String) -> Unit
+    ) {
+        val parts = actionType.split('/')
+        val pkg = parts[0]
+        val actionNameBase = parts[2]
+        val getResultService = "$actionName/_action/get_result"
+        val getResultType = "$pkg/action/${actionNameBase}_GetResult"
+        // Convert UUID string to 16-byte array for unique_identifier_msgs/UUID
+        val uuidBytes = try {
+            val u = UUID.fromString(goalUuid)
+            val bb = java.nio.ByteBuffer.wrap(ByteArray(16))
+            bb.putLong(u.mostSignificantBits)
+            bb.putLong(u.leastSignificantBits)
+            bb.array().joinToString(",", prefix = "[", postfix = "]") { it.toUByte().toString() }
+        } catch (e: Exception) {
+            (0..15).joinToString(",", prefix = "[", postfix = "]") { "0" }
+        }
+        val getResultRequest = buildJsonObject {
+            put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
+        }
+        // Register a one-time handler for the service response
+        val id = "service_call_${System.currentTimeMillis()}"
+        topicHandlers[id] = onResult
+        val jsonString = """
+            {"op": "call_service", "id": "$id", "service": "$getResultService", "type": "$getResultType", "args": $getResultRequest}
+        """.trimIndent()
+        RosbridgeConnectionManager.sendRaw(jsonString)
+        Log.d("RosViewModel", "Sent get_result service call to '$getResultService': $getResultRequest")
+    }
+
+    /**
+     * Main entry point: Robustly send an action goal. If a previous goal is active, cancel and queue the new goal until the previous is done.
+     * Use this method from UI or other logic to send action goals.
+     * @param actionName The base action name, e.g. /pose_server/run_trajectory
+     * @param actionType The action type, e.g. ryan_msgs/action/RunPose
+     * @param goalFields The goal fields as a JsonObject (e.g. {"names": [...]})
+     * @param goalUuid The goal UUID as a string (optional, will be generated if not provided)
+     */
+
+    // Internal: Send an action goal using the ROS2 action protocol (SendGoal service call via rosbridge)
+    private fun sendActionGoalViaService(actionName: String, actionType: String, goalFields: JsonObject, uuid: String): String? {
+        Log.d("RosViewModel", "sendActionGoalViaService called with actionName=$actionName, actionType=$actionType, uuid=$uuid, goalFields=$goalFields")
+        if (!RosbridgeConnectionManager.isConnected) {
+            Log.w("RosViewModel", "Cannot send action goal: Not connected.")
+            return null
+        }
+        try {
+            val parts = actionType.split('/')
+            val pkg = parts[0]
+            val actionNameBase = parts[2]
+            val sendGoalService = "$actionName/_action/send_goal"
+            val sendGoalType = "$pkg/action/${actionNameBase}_SendGoal" //bug from rosbridge
+            // Convert UUID string to 16-byte array for unique_identifier_msgs/UUID
+            val uuidBytes = try {
+                val u = UUID.fromString(uuid)
+                val bb = java.nio.ByteBuffer.wrap(ByteArray(16))
+                bb.putLong(u.mostSignificantBits)
+                bb.putLong(u.leastSignificantBits)
+                bb.array().joinToString(",", prefix = "[", postfix = "]") { it.toUByte().toString() }
+            } catch (e: Exception) {
+                (0..15).joinToString(",", prefix = "[", postfix = "]") { "0" }
+            }
+            val sendGoalRequest = buildJsonObject {
+                put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
+                put("goal", goalFields)
+            }
+            Log.d("RosViewModel", "Calling callCustomService for SendGoal: service=$sendGoalService, type=$sendGoalType, request=$sendGoalRequest")
+            callCustomService(sendGoalService, sendGoalType, sendGoalRequest.toString())
+            Log.d("RosViewModel", "Sent SendGoal service call to '$sendGoalService': $sendGoalRequest")
+            return uuid
+        } catch (e: Exception) {
+            Log.e("RosViewModel", "Failed to construct or send action goal (service)", e)
+            return null
+        }
+    }
+    // Per-topic action goal management for robust cancel/send
+    private val lastGoalIdMap = mutableMapOf<String, String>() // topic -> last goal UUID
+    private val lastGoalStatusMap = mutableMapOf<String, String>() // topic -> last goal status
+    private val pendingGoalMap = mutableMapOf<String, Triple<String, String, JsonObject>>() // topic -> (actionName, actionType, goalFields)
+    private val actionStatusFlows = mutableMapOf<String, MutableSharedFlow<Map<String, String>>>() // topic -> status flow
+
+    /**
+     * Robust: Call this with explicit goal UUID. If previous goal exists, cancel and wait for terminal state before sending new goal.
+     */
+    /**
+     * Send or queue an action goal. When the goal reaches a terminal state, call getActionResultViaService and invoke the provided onResult callback.
+     */
+    fun sendOrQueueActionGoal(
+        actionName: String,
+        actionType: String,
+        goalFields: JsonObject,
+        goalUuid: String = UUID.randomUUID().toString(),
+        onResult: ((String) -> Unit)? = null
+    ) {
+        val prevGoalId = lastGoalIdMap[actionName]
+        val prevGoalStatus = lastGoalStatusMap[actionName]
+        val handleTerminal: (String) -> Unit = { resultJson ->
+            Log.d("RosViewModel", "[ACTION] handleTerminal called for $actionName, result: $resultJson")
+            onResult?.invoke(resultJson)
+        }
+        if (prevGoalId != null && prevGoalStatus != null && prevGoalStatus != "SUCCEEDED" && prevGoalStatus != "CANCELED" && prevGoalStatus != "ABORTED" && prevGoalStatus != "REJECTED") {
+            Log.d("RosViewModel", "sendOrQueueActionGoal: Previous goal active, sending cancel for prevGoalId=$prevGoalId and queuing new goal.")
+            pendingGoalMap[actionName] = Triple(actionName, actionType, goalFields)
+            cancelActionGoal(actionName, actionType, prevGoalId)
+        } else {
+            Log.d("RosViewModel", "sendOrQueueActionGoal: No active goal, sending new goal immediately.")
+            val newGoalId = sendActionGoalViaService(actionName, actionType, goalFields, goalUuid)
+            lastGoalIdMap[actionName] = newGoalId ?: goalUuid
+            lastGoalStatusMap[actionName] = "PENDING"
+            var terminalHandled = false
+            val timeoutMillis = 10000L // 10 seconds
+            val statusHandler: (String) -> Unit = { statusMsg ->
+                val status = extractStatusForGoal(statusMsg, lastGoalIdMap[actionName])
+                Log.d("RosViewModel", "[ACTION] Status update for $actionName: $status (msg: $statusMsg)")
+                if (!terminalHandled && (status == "SUCCEEDED" || status == "CANCELED" || status == "ABORTED" || status == "REJECTED")) {
+                    terminalHandled = true
+                    Log.d("RosViewModel", "[ACTION] Terminal state reached for $actionName: $status, fetching result.")
+                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultJson ->
+                        handleTerminal(resultJson)
+                    }
+                }
+                handleStatusUpdate(statusMsg, actionName, actionType)
+            }
+            subscribeToActionStatus(actionName, statusHandler)
+            // Timeout fallback: if no terminal state in 10s, fetch result anyway
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(timeoutMillis)
+                if (!terminalHandled) {
+                    terminalHandled = true
+                    Log.w("RosViewModel", "[ACTION] Timeout waiting for terminal state for $actionName, fetching result anyway.")
+                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultJson ->
+                        handleTerminal(resultJson)
+                    }
+                }
+            }
+        }
+    }
+
+    // Handles status updates and sends pending goal if previous is done/canceled
+    private fun handleStatusUpdate(statusMsg: String, actionName: String, actionType: String) {
+        Log.d("RosViewModel", "handleStatusUpdate called for actionName=$actionName, statusMsg=$statusMsg")
+        val lastGoalId = lastGoalIdMap[actionName]
+        Log.d("RosViewModel", "handleStatusUpdate: lastGoalId=$lastGoalId")
+        val status = extractStatusForGoal(statusMsg, lastGoalId)
+        Log.d("RosViewModel", "handleStatusUpdate: extracted status for goalId=$lastGoalId is $status")
+        lastGoalStatusMap[actionName] = status ?: "UNKNOWN"
+        // Emit to flow for coroutine-based waiting
+        if (status != null) {
+            val flow = actionStatusFlows.getOrPut(actionName) { MutableSharedFlow(extraBufferCapacity = 8) }
+            flow.tryEmit(mapOf("goal_id" to (lastGoalId ?: ""), "status" to status))
+        }
+        if ((status == "CANCELED" || status == "SUCCEEDED" || status == "ABORTED" || status == "REJECTED") && pendingGoalMap.containsKey(actionName)) {
+            Log.d("RosViewModel", "handleStatusUpdate: Terminal state ($status) reached for $actionName, sending pending goal if any.")
+            val (nextActionName, nextActionType, nextGoalFields) = pendingGoalMap[actionName]!!
+            val newGoalUuid = UUID.randomUUID().toString()
+            val newGoalId = sendActionGoalViaService(nextActionName, nextActionType, nextGoalFields, newGoalUuid)
+            lastGoalIdMap[actionName] = newGoalId ?: newGoalUuid
+            lastGoalStatusMap[actionName] = "PENDING"
+            pendingGoalMap.remove(actionName)
+            subscribeToActionStatus(nextActionName) { statusMsg2 ->
+                handleStatusUpdate(statusMsg2, nextActionName, nextActionType)
+            }
+        }
+    }
+
+    /**
+     * Returns a SharedFlow of status updates for a given action topic, for coroutine-based waiting.
+     */
+    fun actionStatusFlow(actionName: String): SharedFlow<Map<String, String>> {
+        return actionStatusFlows.getOrPut(actionName) { MutableSharedFlow(extraBufferCapacity = 8) }
+    }
+
+    // Extracts the status for a specific goalId from the GoalStatusArray message
+    private fun extractStatusForGoal(statusMsg: String, goalId: String?): String? {
+        if (goalId == null) return null
+        try {
+            val jsonElem = Json.parseToJsonElement(statusMsg)
+            val statusArr = jsonElem.jsonObject["status_list"]?.jsonArray ?: return null
+            for (statusEntry in statusArr) {
+                val entryObj = statusEntry.jsonObject
+                val entryGoalId = entryObj["goal_info"]?.jsonObject?.get("goal_id")?.jsonObject?.get("uuid")?.toString()
+                // UUID is a byte array, so compare as string
+                if (entryGoalId != null && goalId == entryGoalId) {
+                    val statusCode = entryObj["status"]?.jsonPrimitive?.intOrNull
+                    // Map status code to string
+                    return when (statusCode) {
+                        2 -> "ACTIVE"
+                        3 -> "PREEMPTED"
+                        4 -> "SUCCEEDED"
+                        5 -> "ABORTED"
+                        6 -> "REJECTED"
+                        7 -> "PREEMPTING"
+                        8 -> "RECALLING"
+                        9 -> "RECALLED"
+                        10 -> "LOST"
+                        0 -> "PENDING"
+                        1 -> "CANCELED"
+                        else -> null
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    // Callbacks for connection events (to be set by Fragment/Activity)
+    var onRosbridgeDisconnected: (() -> Unit)? = null
+    // Map to store topic handlers for message routing
+    private val topicHandlers = mutableMapOf<String, (String) -> Unit>()
+    /**
+     * Advertise a ROS2 service via rosbridge_server.
+     * @param serviceName The ROS2 service name (e.g. /my_service)
+     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
+     */
+    fun advertiseService(serviceName: String, serviceType: String) {
+        viewModelScope.launch {
+            if (!RosbridgeConnectionManager.isConnected) {
+                Log.w("RosViewModel", "Cannot advertise service: Not connected.")
+                return@launch
+            }
+            try {
+                val id = "advertise_service_${System.currentTimeMillis()}"
+                val jsonString = """
+                    {"op": "advertise_service", "id": "$id", "service": "$serviceName", "type": "$serviceType"}
+                """.trimIndent()
+                RosbridgeConnectionManager.sendRaw(jsonString)
+                Log.d("RosViewModel", "Sent advertise_service: $jsonString")
+            } catch (e: Exception) {
+                Log.e("RosViewModel", "advertiseService error for service '$serviceName'", e)
+            }
+        }
+    }
+
+    /**
+     * Call a ROS2 service via rosbridge_server.
+     * @param serviceName The ROS2 service name (e.g. /my_service)
+     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
+     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
+     */
+    fun callCustomService(serviceName: String, serviceType: String, requestJson: String) {
+        Log.d("RosViewModel", "callCustomService called: serviceName=$serviceName, serviceType=$serviceType, requestJson=$requestJson")
+        viewModelScope.launch {
+            if (!RosbridgeConnectionManager.isConnected) {
+                Log.w("RosViewModel", "Cannot call service: Not connected.")
+                return@launch
+            }
+            try {
+                val id = "service_call_${System.currentTimeMillis()}"
+                val jsonString = """
+                    {"op": "call_service", "id": "$id", "service": "$serviceName", "type": "$serviceType", "args": $requestJson}
+                """.trimIndent()
+                RosbridgeConnectionManager.sendRaw(jsonString)
+                Log.d("RosViewModel", "Sent call_service: $jsonString")
+            } catch (e: Exception) {
+                Log.e("RosViewModel", "callCustomService error for service '$serviceName'", e)
+            }
+        }
+    }
+
+    // Removed sendActionGoalClassic overloads. Use sendOrQueueActionGoal as the main entry point for sending action goals.
+
+    fun subscribeToActionFeedback(actionName: String, actionType: String, onMessage: (String) -> Unit) {
+        val feedbackTopic = "$actionName/feedback"
+        val parts = actionType.split('/')
+        val pkg = parts[0]
+        val actionNameBase = parts[2]
+        val feedbackType = "$pkg/action/${actionNameBase}_Feedback"
+        subscribeToTopic(feedbackTopic, feedbackType, onMessage)
+    }
+
+    fun subscribeToActionStatus(actionName: String, onMessage: (String) -> Unit) {
+        val statusTopic = "$actionName/status"
+        val statusType = "action_msgs/action/GoalStatusArray"
+        subscribeToTopic(statusTopic, statusType, onMessage)
+    }
+
+    // Removed subscribeToActionResult. Use getActionResultViaService for result retrieval.
+
+    fun cancelActionGoal(actionName: String, actionType: String, uuid: String) {
+        val cancelTopic = "$actionName/cancel"
+        val cancelType = "action_msgs/msg/GoalInfo"
+        advertiseTopic(cancelTopic, cancelType)
+        val now = System.currentTimeMillis()
+        val sec = (now / 1000).toInt()
+        val nanosec = ((now % 1000) * 1_000_000).toInt()
+        // Convert UUID string to 16-byte array for unique_identifier_msgs/UUID
+        val uuidBytes = try {
+            val u = UUID.fromString(uuid)
+            val bb = java.nio.ByteBuffer.wrap(ByteArray(16))
+            bb.putLong(u.mostSignificantBits)
+            bb.putLong(u.leastSignificantBits)
+            bb.array().joinToString(",", prefix = "[", postfix = "]") { it.toUByte().toString() }
+        } catch (e: Exception) {
+            (0..15).joinToString(",", prefix = "[", postfix = "]") { "0" }
+        }
+        val cancelMsg = """
+            {"stamp": {"sec": $sec, "nanosec": $nanosec}, "goal_id": {"uuid": $uuidBytes}}
+        """.trimIndent()
+        publishCustomRawMessage(cancelTopic, cancelType, cancelMsg)
+        Log.d("RosViewModel", "Sent cancel to $cancelTopic: $cancelMsg")
+    }
+
+    // Helper to subscribe to a topic and route messages
+    fun subscribeToTopic(topic: String, type: String, onMessage: (String) -> Unit) {
+        val id = "subscribe_${topic.replace("/", "_")}_${System.currentTimeMillis()}"
+        val jsonString = """
+            {"op": "subscribe", "id": "$id", "topic": "$topic", "type": "$type"}
+        """.trimIndent()
+        RosbridgeConnectionManager.sendRaw(jsonString)
+        topicHandlers[topic] = onMessage
+    }
+
     /*
         input:    topicName - String, messageType - String, rawJson - String
         output:   None
@@ -141,11 +474,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     }
 
     /*
-        input:    ipAddress - String, port - Int (default 9090)
+        input:    ipAddress - String, port - Int (required)
         output:   None
-        remarks:  Initiates connection to rosbridge and updates connection status.
+        remarks:  Initiates connection to rosbridge and updates connection status. Port must be specified by the caller.
     */
-    fun connect(ipAddress: String, port: Int = 9090) {
+    fun connect(ipAddress: String, port: Int) {
         _connectionStatus.value = "Connecting..."
         RosbridgeConnectionManager.addListener(this)
         RosbridgeConnectionManager.connect(ipAddress, port)
@@ -355,6 +688,8 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     */
     override fun onDisconnected() {
         _connectionStatus.value = "Disconnected"
+        // Notify listeners (e.g., Fragment) to clear advertised sets
+        onRosbridgeDisconnected?.invoke()
     }
 
     /*
@@ -363,8 +698,27 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         remarks:  Called when a message is received from rosbridge; emits to rosMessages flow.
     */
     override fun onMessage(text: String) {
-        viewModelScope.launch {
-            _rosMessages.emit(text)
+        // Try to parse the message and route to the correct handler (topic or service id)
+        try {
+            val jsonElem = Json.parseToJsonElement(text)
+            val obj = jsonElem.jsonObject
+            val topic = obj["topic"]?.jsonPrimitive?.let { jp -> try { jp.content } catch (_: Exception) { null } }
+            val id = obj["id"]?.jsonPrimitive?.let { jp -> try { jp.content } catch (_: Exception) { null } }
+            var handled = false
+            if (topic != null && topicHandlers.containsKey(topic)) {
+                topicHandlers[topic]?.invoke(text)
+                handled = true
+            }
+            if (!handled && id != null && topicHandlers.containsKey(id)) {
+                topicHandlers[id]?.invoke(text)
+                topicHandlers.remove(id) // one-time handler for service response
+                handled = true
+            }
+            if (!handled) {
+                viewModelScope.launch { _rosMessages.emit(text) }
+            }
+        } catch (e: Exception) {
+            viewModelScope.launch { _rosMessages.emit(text) }
         }
     }
 

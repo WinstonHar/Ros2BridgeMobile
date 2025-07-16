@@ -1,5 +1,8 @@
 package com.example.testros2jsbridge
 
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.intOrNull
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -24,6 +27,39 @@ import com.example.testros2jsbridge.CustomProtocolsViewModel
 */
 
 class ImportCustomProtocolsFragment : Fragment() {
+    // ...existing code...
+    // Track advertised actions and services to ensure idempotency
+    private val advertisedActions = mutableSetOf<String>()
+    private val advertisedServices = mutableSetOf<String>()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Clear advertised sets when rosbridge disconnects
+        rosViewModel.onRosbridgeDisconnected = {
+            advertisedActions.clear()
+            advertisedServices.clear()
+        }
+    }
+
+    // No need to track lastGoalUuid here; handled by RosViewModel
+    // Helper to format JSON values: quote strings, leave numbers/bools/null as is
+    private fun formatJsonValue(value: String): String {
+        return if (value.matches(Regex("^-?\\d+(\\.\\d+)?$")) ||
+            value.equals("true", ignoreCase = true) ||
+            value.equals("false", ignoreCase = true) ||
+            value.equals("null", ignoreCase = true)) {
+            value
+        } else if (value.trim().startsWith("[") && value.trim().endsWith("]")) {
+            // Allow raw JSON arrays for list fields
+            value
+        } else {
+            // Escape any embedded quotes in the string value
+            "\"" + value.replace("\"", "\\\"") + "\""
+        }
+    }
+    // Track which action is being edited (null if not editing)
+    private var editingActionIndex: Int? = null
+    private var editingFieldValues: Map<String, String>? = null
     // Use viewModels() delegate for correct ViewModel scoping
     private val viewModel: CustomProtocolsViewModel by viewModels()
     private val rosViewModel: RosViewModel by activityViewModels()
@@ -43,6 +79,7 @@ class ImportCustomProtocolsFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+
         val root = inflater.inflate(R.layout.fragment_import_custom_protocols, container, false)
         val context = requireContext()
         val msgSection = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -57,6 +94,14 @@ class ImportCustomProtocolsFragment : Fragment() {
         // Add to root layout (replace with your layout logic)
         val scroll = ScrollView(context)
         val vertical = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+
+        // --- Add rosbridge connection status indicator at the very top ---
+        val statusIndicator = TextView(context).apply {
+            text = "rosbridge: Connecting..."
+            textSize = 16f
+            setPadding(0, 8, 0, 8)
+        }
+        vertical.addView(statusIndicator)
 
         // --- Add ROS root package input at the top ---
         val rosRootLayout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -75,6 +120,19 @@ class ImportCustomProtocolsFragment : Fragment() {
         vertical.addView(srvSection)
         scroll.addView(vertical)
         (root as ViewGroup).addView(scroll)
+        // Observe rosbridge connection status and update indicator
+        viewLifecycleOwner.lifecycleScope.launch {
+            rosViewModel.connectionStatus.collectLatest { status ->
+                statusIndicator.text = "rosbridge: $status"
+                statusIndicator.setTextColor(
+                    when {
+                        status.equals("Connected", ignoreCase = true) -> 0xFF388E3C.toInt() // green
+                        status.startsWith("Error", ignoreCase = true) -> 0xFFD32F2F.toInt() // red
+                        else -> 0xFF757575.toInt() // gray
+                    }
+                )
+            }
+        }
 
         // Save root package on change
         rosRootInput.setOnFocusChangeListener { _, hasFocus ->
@@ -158,7 +216,10 @@ class ImportCustomProtocolsFragment : Fragment() {
         configLayout.addView(dropdown)
 
         // Placeholder for dynamic configuration fields
-        val configFields = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val configFields = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "configFields"
+        }
         configLayout.addView(configFields)
 
         // Observe selected protocols and update dropdown
@@ -170,13 +231,27 @@ class ImportCustomProtocolsFragment : Fragment() {
                 val adapter = android.widget.ArrayAdapter(context, android.R.layout.simple_spinner_item, names)
                 adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 dropdown.adapter = adapter
-                // Show config fields for the first selected by default
-                if (selectedProtocols.isNotEmpty()) {
-                    showConfigFields(configFields, selectedProtocols[0])
+                // If editing, select the protocol and prefill fields
+                if (editingActionIndex != null && editingActionIndex!! < rosViewModel.customProtocolActions.value.size) {
+                    val action = rosViewModel.customProtocolActions.value[editingActionIndex!!]
+                    val idx = selectedProtocols.indexOfFirst { it.importPath == action.proto.importPath }
+                    if (idx >= 0) {
+                        dropdown.setSelection(idx, false)
+                        showConfigFields(configFields, selectedProtocols[idx], editingFieldValues)
+                    } else if (selectedProtocols.isNotEmpty()) {
+                        showConfigFields(configFields, selectedProtocols[0])
+                    } else {
+                        configFields.removeAllViews()
+                    }
                 } else {
-                    configFields.removeAllViews()
+                    // Show config fields for the first selected by default
+                    if (selectedProtocols.isNotEmpty()) {
+                        showConfigFields(configFields, selectedProtocols[0])
+                    } else {
+                        configFields.removeAllViews()
+                    }
+                    dropdown.setSelection(0, false)
                 }
-                dropdown.setSelection(0, false)
             }
         }
         // Update config fields when dropdown selection changes
@@ -211,7 +286,7 @@ class ImportCustomProtocolsFragment : Fragment() {
     }
 
     // Show configuration fields for a selected protocol (supports .msg, .srv, .action)
-    private fun showConfigFields(container: LinearLayout, proto: CustomProtocolsViewModel.ProtocolFile) {
+    private fun showConfigFields(container: LinearLayout, proto: CustomProtocolsViewModel.ProtocolFile, prefill: Map<String, String>? = null) {
         container.removeAllViews()
         val context = requireContext()
         val nameView = TextView(context).apply {
@@ -291,7 +366,7 @@ class ImportCustomProtocolsFragment : Fragment() {
         val topicInput = android.widget.EditText(context).apply {
             hint = "Topic"
             tag = "__topic__"
-            setText("/${proto.name}")
+            setText(prefill?.get("__topic__") ?: "/${proto.name}")
         }
         topicLayout.addView(topicLabel)
         topicLayout.addView(topicInput)
@@ -302,7 +377,11 @@ class ImportCustomProtocolsFragment : Fragment() {
             val (type, name, value) = triple
             val layout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
             val label = TextView(context).apply { text = "$type $name" }
-            val input = android.widget.EditText(context).apply { hint = name; tag = name }
+            val input = android.widget.EditText(context).apply {
+                hint = name
+                tag = name
+                setText(prefill?.get(name) ?: "")
+            }
             layout.addView(label)
             layout.addView(input)
             container.addView(layout)
@@ -323,8 +402,18 @@ class ImportCustomProtocolsFragment : Fragment() {
             container.addView(layout)
         }
 
-        // Add Save as App Action button
-        val saveButton = android.widget.Button(context).apply { text = "Save as App Action" }
+        // Add Save/Update and Cancel buttons with layout tweaks
+        val buttonLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val saveButton = android.widget.Button(context).apply {
+            text = if (editingActionIndex != null) "Update App Action" else "Save as App Action"
+            layoutParams = if (editingActionIndex != null) {
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.75f)
+            } else {
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+        }
         saveButton.setOnClickListener {
             val values = mutableMapOf<String, String>()
             var topicValue: String? = null
@@ -343,20 +432,91 @@ class ImportCustomProtocolsFragment : Fragment() {
             // Prompt for label
             val labelInput = android.widget.EditText(context)
             labelInput.hint = "Label for this action"
+            if (editingActionIndex != null && editingActionIndex!! < rosViewModel.customProtocolActions.value.size) {
+                labelInput.setText(rosViewModel.customProtocolActions.value[editingActionIndex!!].label)
+            }
             android.app.AlertDialog.Builder(context)
-                .setTitle("Save Custom Protocol Action")
+                .setTitle(if (editingActionIndex != null) "Update Custom Protocol Action" else "Save Custom Protocol Action")
                 .setView(labelInput)
-                .setPositiveButton("Save") { _, _ ->
+                .setPositiveButton(if (editingActionIndex != null) "Update" else "Save") { _, _ ->
                     val label = labelInput.text.toString().ifBlank { proto.name }
-                    // Store topic as a special key in fieldValues
                     val finalValues = values.toMutableMap()
                     if (topicValue != null) finalValues["__topic__"] = topicValue!!
-                    rosViewModel.addCustomProtocolAction(RosViewModel.CustomProtocolAction(label, proto, finalValues))
+                    if (editingActionIndex != null && editingActionIndex!! < rosViewModel.customProtocolActions.value.size) {
+                        // Overwrite existing action
+                        val updated = RosViewModel.CustomProtocolAction(label, proto, finalValues)
+                        val list = rosViewModel.customProtocolActions.value.toMutableList()
+                        list[editingActionIndex!!] = updated
+                        rosViewModel.setCustomProtocolActions(list)
+                        // Clear editing state and refresh config fields
+                        editingActionIndex = null
+                        editingFieldValues = null
+                        // Refresh config fields UI
+                        val fragmentView = view
+                        if (fragmentView != null) {
+                            val configFields = fragmentView.findViewWithTag<LinearLayout>("configFields")
+                            val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
+                            val selectedProtocols = allProtocols.filter { viewModel.selected.value.contains(it.importPath) }
+                            if (configFields != null) {
+                                if (selectedProtocols.isNotEmpty()) {
+                                    showConfigFields(configFields, selectedProtocols[0])
+                                } else {
+                                    configFields.removeAllViews()
+                                }
+                            }
+                        }
+                    } else {
+                        rosViewModel.addCustomProtocolAction(RosViewModel.CustomProtocolAction(label, proto, finalValues))
+                    }
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton("Cancel") { _, _ ->
+                    // On dialog cancel, clear editing state and refresh config fields
+                    editingActionIndex = null
+                    editingFieldValues = null
+                    val fragmentView = view
+                    if (fragmentView != null) {
+                        val configFields = fragmentView.findViewWithTag<LinearLayout>("configFields")
+                        val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
+                        val selectedProtocols = allProtocols.filter { viewModel.selected.value.contains(it.importPath) }
+                        if (configFields != null) {
+                            if (selectedProtocols.isNotEmpty()) {
+                                showConfigFields(configFields, selectedProtocols[0])
+                            } else {
+                                configFields.removeAllViews()
+                            }
+                        }
+                    }
+                }
                 .show()
         }
-        container.addView(saveButton)
+        buttonLayout.addView(saveButton)
+        // Add Cancel button if editing, with 25% width
+        if (editingActionIndex != null) {
+            val cancelButton = android.widget.Button(context).apply {
+                text = "Cancel"
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.25f)
+            }
+            cancelButton.setOnClickListener {
+                editingActionIndex = null
+                editingFieldValues = null
+                // Refresh config fields UI
+                val fragmentView = view
+                if (fragmentView != null) {
+                    val configFields = fragmentView.findViewWithTag<LinearLayout>("configFields")
+                    val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
+                    val selectedProtocols = allProtocols.filter { viewModel.selected.value.contains(it.importPath) }
+                    if (configFields != null) {
+                        if (selectedProtocols.isNotEmpty()) {
+                            showConfigFields(configFields, selectedProtocols[0])
+                        } else {
+                            configFields.removeAllViews()
+                        }
+                    }
+                }
+            }
+            buttonLayout.addView(cancelButton)
+        }
+        container.addView(buttonLayout)
     }
 
     private fun refreshSavedActions(actions: List<RosViewModel.CustomProtocolAction>) {
@@ -371,44 +531,124 @@ class ImportCustomProtocolsFragment : Fragment() {
                 val btn = android.widget.Button(requireContext()).apply {
                     text = action.label
                     layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                    setOnClickListener {
-                        val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
-                        val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
-                        val type = action.proto.type.name
-                        val rosType = when (action.proto.type) {
-                            CustomProtocolsViewModel.ProtocolType.MSG -> "$rosRoot/msg/${action.proto.name}"
-                            CustomProtocolsViewModel.ProtocolType.SRV -> "$rosRoot/srv/${action.proto.name}"
-                            CustomProtocolsViewModel.ProtocolType.ACTION -> "$rosRoot/action/${action.proto.name}"
-                            else -> action.proto.name
+                }
+                // Always create a new result/feedback display for this row
+                val resultDisplay = TextView(requireContext()).apply {
+                    textSize = 14f
+                    setPadding(8, 8, 8, 8)
+                }
+                btn.setOnClickListener {
+                    if (rosViewModel.connectionStatus.value != "Connected") {
+                        android.widget.Toast.makeText(requireContext(), "Not connected to rosbridge!", android.widget.Toast.LENGTH_SHORT).show()
+                        return@setOnClickListener
+                    }
+                    val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
+                    val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
+                    val type = action.proto.type.name
+                    val jsonBuilder = StringBuilder()
+                    jsonBuilder.append("{")
+                    val filtered = action.fieldValues.entries.filter { it.key != "__topic__" }
+                    filtered.forEachIndexed { idx, (k, v) ->
+                        jsonBuilder.append("\"").append(k).append("\": ")
+                        val trimmed = v.trim()
+                        val isJson = (trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))
+                        if (isJson) {
+                            try {
+                                kotlinx.serialization.json.Json.parseToJsonElement(trimmed)
+                                jsonBuilder.append(trimmed)
+                            } catch (e: Exception) {
+                                jsonBuilder.append(formatJsonValue(v))
+                            }
+                        } else {
+                            jsonBuilder.append(formatJsonValue(v))
                         }
-                        // Compose message from fieldValues as JSON (simple flat map), skip __topic__
-                        // Output numbers as numbers, not as strings
-                        val msgJson = action.fieldValues.entries.filter { it.key != "__topic__" }
-                            .joinToString(", ", "{", "}") { (k, v) -> "\"$k\": $v" }
+                        if (idx < filtered.size - 1) jsonBuilder.append(", ")
+                    }
+                    jsonBuilder.append("}")
+                    val msgJson = jsonBuilder.toString()
+                    android.util.Log.d("ROS2JSBridge", "Button clicked: topic=$topic, type=$type, json=$msgJson")
 
+                    try {
                         when (action.proto.type) {
                             CustomProtocolsViewModel.ProtocolType.MSG -> {
-                                rosViewModel.advertiseTopic(topic, rosType)
-                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                                val msgType = "$rosRoot/msg/${action.proto.name}"
+                                rosViewModel.advertiseTopic(topic, msgType)
+                                rosViewModel.publishCustomRawMessage(topic, msgType, msgJson)
                             }
                             CustomProtocolsViewModel.ProtocolType.SRV -> {
-                                // Only send request (not response)
-                                rosViewModel.advertiseTopic(topic, rosType)
-                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
-                                // TODO: Listen for response and log to JSON (future)
+                                val srvType = "$rosRoot/srv/${action.proto.name}"
+                                if (!advertisedServices.contains(topic)) {
+                                    rosViewModel.advertiseService(topic, srvType)
+                                    advertisedServices.add(topic)
+                                }
+                                rosViewModel.callCustomService(topic, srvType, msgJson)
                             }
                             CustomProtocolsViewModel.ProtocolType.ACTION -> {
-                                // Only send goal (not result/feedback)
-                                rosViewModel.advertiseTopic(topic, rosType)
-                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
-                                // TODO: Listen for result/feedback and log to JSON (future)
+                                requireActivity().runOnUiThread { resultDisplay.text = "" } // Clear previous result
+                                val baseType = "$rosRoot/action/${action.proto.name}"
+                                fun appendToDisplay(label: String, msg: String?) {
+                                    requireActivity().runOnUiThread {
+                                        val safeMsg = if (msg.isNullOrBlank()) "(no data)" else msg
+                                        resultDisplay.append("[$label]:\n$safeMsg\n\n")
+                                    }
+                                }
+                                val goalFields = try {
+                                    kotlinx.serialization.json.Json.parseToJsonElement(msgJson).jsonObject
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(requireContext(), "Invalid action goal JSON", android.widget.Toast.LENGTH_SHORT).show()
+                                    return@setOnClickListener
+                                }
+                                val newGoalUuid = java.util.UUID.randomUUID().toString()
+                                rosViewModel.sendOrQueueActionGoal(topic, baseType, goalFields, newGoalUuid) { resultMsg ->
+                                    appendToDisplay("Result", resultMsg)
+                                }
+                                rosViewModel.subscribeToActionFeedback(topic, baseType) { feedbackMsg ->
+                                    appendToDisplay("Feedback", feedbackMsg)
+                                }
+                                rosViewModel.subscribeToActionStatus(topic) { statusMsg ->
+                                    appendToDisplay("Status", statusMsg)
+                                }
                             }
                             else -> {
-                                rosViewModel.advertiseTopic(topic, rosType)
-                                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                                val msgType = "$rosRoot/msg/${action.proto.name}"
+                                rosViewModel.advertiseTopic(topic, msgType)
+                                rosViewModel.publishCustomRawMessage(topic, msgType, msgJson)
                             }
                         }
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(requireContext(), "ROS action failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                     }
+                }
+                row.addView(btn)
+                // Always add the result/feedback display below the button
+                val resultLayout = LinearLayout(requireContext()).apply {
+                    orientation = LinearLayout.VERTICAL
+                }
+                resultLayout.addView(resultDisplay)
+                row.addView(resultLayout)
+                val editBtn = android.widget.Button(requireContext()).apply {
+                    text = "O"
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                    setOnClickListener {
+                        // Set editing state and prefill config
+                        editingActionIndex = index
+                        editingFieldValues = action.fieldValues
+                        // Select protocol in dropdown and prefill fields
+                        val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
+                        val idx = allProtocols.indexOfFirst { it.importPath == action.proto.importPath }
+                        if (idx >= 0) {
+                            val selectedSet = viewModel.selected.value.toMutableSet()
+                            selectedSet.add(action.proto.importPath)
+                            viewModel.setSelected(selectedSet)
+                        }
+                        // Immediately update config fields UI by tag
+                        val fragmentView = view ?: return@setOnClickListener
+                        val configFields = fragmentView.findViewWithTag<LinearLayout>("configFields")
+                        if (configFields != null) {
+                            showConfigFields(configFields, action.proto, action.fieldValues)
+                        }
+                    }
+                    contentDescription = "Edit ${action.label}"
                 }
                 val removeBtn = android.widget.Button(requireContext()).apply {
                     text = "✕"
@@ -418,14 +658,31 @@ class ImportCustomProtocolsFragment : Fragment() {
                             .setTitle("Delete Saved Action")
                             .setMessage("Are you sure you want to delete this saved action?")
                             .setPositiveButton("Delete") { _, _ ->
+                                // Reset editing state if deleting
+                                editingActionIndex = null
+                                editingFieldValues = null
                                 rosViewModel.removeCustomProtocolAction(index)
+                                // Refresh config fields to default state
+                                val fragmentView = view
+                                if (fragmentView != null) {
+                                    val configFields = fragmentView.findViewWithTag<LinearLayout>("configFields")
+                                    val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
+                                    val selectedProtocols = allProtocols.filter { viewModel.selected.value.contains(it.importPath) }
+                                    if (configFields != null) {
+                                        if (selectedProtocols.isNotEmpty()) {
+                                            showConfigFields(configFields, selectedProtocols[0])
+                                        } else {
+                                            configFields.removeAllViews()
+                                        }
+                                    }
+                                }
                             }
                             .setNegativeButton("Cancel", null)
                             .show()
                     }
                     contentDescription = "Remove ${action.label}"
                 }
-                row.addView(btn)
+                row.addView(editBtn)
                 row.addView(removeBtn)
                 layout.addView(row)
             }
