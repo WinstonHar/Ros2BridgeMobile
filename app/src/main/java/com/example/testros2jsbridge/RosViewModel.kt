@@ -37,6 +37,16 @@ import kotlinx.serialization.json.put
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
     /**
+     * Force clear the busy lock and queue for all actions. This allows new actions to be sent even if any previous one is stuck.
+     * Also clears lastGoalIdMap and lastGoalStatusMap to fully reset action state.
+     */
+    fun forceClearAllActionBusyLocks() {
+        lastGoalIdMap.clear()
+        lastGoalStatusMap.clear()
+        pendingGoalMap.clear()
+    }
+    
+    /**
      * Request the result of an action goal via the get_result service.
      * @param actionName The base action name, e.g. /pose_server/run_trajectory
      * @param actionType The action type, e.g. ryan_msgs/action/RunPose
@@ -198,6 +208,8 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
                     getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultJson ->
                         handleTerminal(resultJson)
                     }
+                    // Mark as TIMEOUT to clear all busy locks and pending goals globally
+                    forceClearAllActionBusyLocks()
                 }
             }
         }

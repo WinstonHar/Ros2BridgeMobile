@@ -685,10 +685,18 @@ class ImportCustomProtocolsFragment : Fragment() {
                 }
                 row.addView(editBtn)
                 row.addView(removeBtn)
-                // Add the result display layout as a separate row below the button row
                 layout.addView(row)
                 layout.addView(resultLayout)
             }
+            val forceClearBtnGlobal = android.widget.Button(requireContext()).apply {
+                text = "Force Clear"
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                setOnClickListener {
+                    rosViewModel.forceClearAllActionBusyLocks()
+                }
+                contentDescription = "Force clear all busy locks"
+            }
+            layout.addView(forceClearBtnGlobal)
         }
     }
 }
