@@ -145,6 +145,24 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         val prevGoalStatus = lastGoalStatusMap[actionName]
         val handleTerminal: (String) -> Unit = { resultJson ->
             Log.d("RosViewModel", "[ACTION] handleTerminal called for $actionName, result: $resultJson")
+            val jsonElem = kotlinx.serialization.json.Json.parseToJsonElement(resultJson)
+            val obj = jsonElem.jsonObject
+            val statusCode = obj["values"]!!.jsonObject["status"]!!.jsonPrimitive.intOrNull ?: -1
+            val statusString = when (statusCode) {
+                2 -> "ACTIVE"
+                3 -> "PREEMPTED"
+                4 -> "SUCCEEDED"
+                5 -> "ABORTED"
+                6 -> "REJECTED"
+                7 -> "PREEMPTING"
+                8 -> "RECALLING"
+                9 -> "RECALLED"
+                10 -> "LOST"
+                0 -> "PENDING"
+                1 -> "CANCELED"
+                else -> "UNKNOWN"
+            }
+            lastGoalStatusMap[actionName] = statusString
             onResult?.invoke(resultJson)
         }
         if (prevGoalId != null && prevGoalStatus != null && prevGoalStatus != "SUCCEEDED" && prevGoalStatus != "CANCELED" && prevGoalStatus != "ABORTED" && prevGoalStatus != "REJECTED") {
