@@ -2,7 +2,7 @@ package com.example.testros2jsbridge
 
 import android.content.Context
 import android.hardware.input.InputManager
-import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.Lifecycle
 import android.os.Bundle
 import android.view.*
@@ -32,7 +32,7 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 }
 
 class ControllerSupportFragment : Fragment() {
-    private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
+    private lateinit var sliderControllerViewModel: SliderControllerViewModel
     private val joystickResendIntervalMs = 100L
     private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var joystickResendActive = false
@@ -215,7 +215,7 @@ class ControllerSupportFragment : Fragment() {
         }
     }
 
-    private val rosViewModel: RosViewModel by activityViewModels()
+    private lateinit var rosViewModel: RosViewModel
     private lateinit var controllerListText: TextView
 
     /*
@@ -227,6 +227,14 @@ class ControllerSupportFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        // Use application context and appViewModelStore for truly application-scoped RosViewModel
+        val app = requireActivity().application as MyApp
+        rosViewModel = ViewModelProvider(
+            app.appViewModelStore,
+            ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+        sliderControllerViewModel = ViewModelProvider(requireActivity()).get(SliderControllerViewModel::class.java)
+
         val view = try {
             inflater.inflate(R.layout.fragment_controller_support, container, false)
         } catch (e: Exception) {
@@ -249,17 +257,19 @@ class ControllerSupportFragment : Fragment() {
             // Observe custom protocol actions and update app actions list
             viewLifecycleOwner.lifecycleScope.launch {
                 rosViewModel.customProtocolActions.collectLatest { customActions ->
+                    // Get the current ROS root package from SharedPreferences (default: ryan_msgs)
+                    val rosRoot = requireActivity().getPreferences(Context.MODE_PRIVATE)
+                        .getString("ros_root_package", "ryan_msgs") ?: "ryan_msgs"
                     customProtocolAppActions = customActions.map { action ->
-                        // --- Match ImportCustomProtocolsFragment logic exactly ---
                         // Topic: use __topic__ if present, else fallback to /proto.name, always with leading slash
                         val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
                         val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
 
-                        // Type: use full ROS 2 type string (e.g. ryan_msgs/msg/AvatarEmotion)
+                        // Type: use full ROS 2 type string with the correct root package
                         val rosType = when (action.proto.type.name) {
-                            "MSG" -> "ryan_msgs/msg/${action.proto.name}"
-                            "SRV" -> "ryan_msgs/srv/${action.proto.name}"
-                            "ACTION" -> "ryan_msgs/action/${action.proto.name}"
+                            "MSG" -> "$rosRoot/msg/${action.proto.name}"
+                            "SRV" -> "$rosRoot/srv/${action.proto.name}"
+                            "ACTION" -> "$rosRoot/action/${action.proto.name}"
                             else -> action.proto.name
                         }
 

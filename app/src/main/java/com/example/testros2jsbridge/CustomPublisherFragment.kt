@@ -12,7 +12,7 @@ import com.google.android.material.textfield.TextInputEditText
 import androidx.fragment.app.Fragment
 import android.util.Log
 import android.widget.ArrayAdapter
-import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.google.gson.Gson
@@ -215,7 +215,7 @@ class CustomPublisherFragment : Fragment() {
         }
     }
 
-    private val rosViewModel: RosViewModel by activityViewModels()
+    private lateinit var rosViewModel: RosViewModel
 
     /*
         input:    None
@@ -236,6 +236,9 @@ class CustomPublisherFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        // Use application context for ViewModelProvider to get application-scoped ViewModel
+        rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
+
         val view = inflater.inflate(R.layout.activity_custom_publisher, container, false)
 
         val topicEditText = view.findViewById<TextInputEditText>(R.id.edittext_topic)

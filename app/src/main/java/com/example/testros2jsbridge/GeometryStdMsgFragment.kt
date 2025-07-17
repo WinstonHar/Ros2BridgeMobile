@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import android.content.Context
@@ -168,7 +168,7 @@ class GeometryStdMsgFragment : Fragment() {
             else -> null
         }
     }
-    private val rosViewModel: RosViewModel by activityViewModels()
+    private lateinit var rosViewModel: RosViewModel
 
     private val geometryTypes = listOf(
         // Acceleration
@@ -215,6 +215,7 @@ class GeometryStdMsgFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
         val view = inflater.inflate(R.layout.fragment_geometry_std_msg, container, false)
         val spinnerType = view.findViewById<Spinner>(R.id.spinner_geometry_type)
         val dynamicFieldsLayout = view.findViewById<LinearLayout>(R.id.layout_dynamic_fields)
