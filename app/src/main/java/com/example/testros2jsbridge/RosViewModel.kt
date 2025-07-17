@@ -36,6 +36,8 @@ import kotlinx.serialization.json.put
 */
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    // Holds the latest received image bitmap for Compose image view (persists across activity recreation)
+    val latestBitmap: MutableStateFlow<android.graphics.Bitmap?> = MutableStateFlow(null)
     // --- Persistent set of currently subscribed topics (topic to type) ---
     private val _subscribedTopics = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
     val subscribedTopics: StateFlow<Set<Pair<String, String>>> = _subscribedTopics.asStateFlow()

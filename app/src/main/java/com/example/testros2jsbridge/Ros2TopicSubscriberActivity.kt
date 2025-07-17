@@ -23,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 
 /*
     Ros2TopicSubscriberActivity provides a UI for subscribing to ROS2 topics via rosbridge, supporting both dynamic topic discovery and manual subscription.
@@ -59,8 +60,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private lateinit var manualTopicEditText: EditText
     private lateinit var manualTypeEditText: EditText
     private lateinit var subscribeManualButton: Button
-    // Compose image state
-    private val latestBitmap = androidx.compose.runtime.mutableStateOf<android.graphics.Bitmap?>(null)
+    // Compose image state (bitmap now in ViewModel)
     private val showImageState = androidx.compose.runtime.mutableStateOf(true)
 
     private val supportedTypes = setOf(
@@ -134,7 +134,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         imageComposeView.setContent {
             val subsState = rosViewModel.subscribedTopics.collectAsState()
             val hasImage = isImageTopicSubscribed(subsState.value.toList())
-            val bitmap = latestBitmap.value
+            val bitmap by rosViewModel.latestBitmap.collectAsState()
             // Reset showImageState if a new image topic is subscribed
             androidx.compose.runtime.LaunchedEffect(hasImage) {
                 if (hasImage) showImageState.value = true
@@ -429,10 +429,10 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         } else {
                             decodeBgr8ToBitmap(byteArray, width, height)
                         }
-                        latestBitmap.value = bitmap
+                        rosViewModel.latestBitmap.value = bitmap
                         android.util.Log.d("Ros2TopicSubscriber", "Bitmap created: ${bitmap.width}x${bitmap.height}")
                     } catch (e: Exception) {
-                        latestBitmap.value = null
+                        rosViewModel.latestBitmap.value = null
                         android.util.Log.e("Ros2TopicSubscriber", "Bitmap decode error: ${e.message}")
                     }
                     // Only auto-show if currently hidden and a new image topic is subscribed
