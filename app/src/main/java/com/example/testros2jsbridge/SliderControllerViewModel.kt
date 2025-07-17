@@ -21,7 +21,7 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
     val sliders: StateFlow<List<SliderState>> = _sliders
 
     private val _selectedSliderIndex = MutableStateFlow(0)
-
+    
     fun setSliders(sliderStates: List<SliderState>) {
         fun snapValue(min: Float, step: Float, value: Float): Float {
             if (step <= 0f) return value

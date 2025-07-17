@@ -87,7 +87,8 @@ class ControllerSupportFragment : Fragment() {
                 }
             } catch (_: Exception) {}
         } else {
-            list.add(JoystickMapping("Default Joystick"))
+            list.add(JoystickMapping("Left Stick"))
+            list.add(JoystickMapping("Right Stick"))
         }
         return list
     }
