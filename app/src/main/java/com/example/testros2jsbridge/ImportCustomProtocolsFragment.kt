@@ -587,6 +587,7 @@ class ImportCustomProtocolsFragment : Fragment() {
                                 }
                                 requireActivity().runOnUiThread { resultDisplay.text = "" } // Clear previous result
                                 rosViewModel.callCustomService(topic, srvType, msgJson) { resultMsg ->
+                                    rosViewModel.appendToMessageHistory(resultMsg)
                                     requireActivity().runOnUiThread {
                                         val safeMsg = if (resultMsg.isNullOrBlank()) "(no data)" else resultMsg
                                         resultDisplay.append("[Service Result]:\n$safeMsg\n\n")
@@ -611,6 +612,7 @@ class ImportCustomProtocolsFragment : Fragment() {
                                 }
                                 val newGoalUuid = java.util.UUID.randomUUID().toString()
                                 rosViewModel.sendOrQueueActionGoal(topic, baseType, goalFields, newGoalUuid) { resultMsg ->
+                                    rosViewModel.appendToMessageHistory(resultMsg)
                                     appendToDisplay("Result", resultMsg)
                                 }
                                 rosViewModel.subscribeToActionFeedback(topic, baseType) { feedbackMsg ->

@@ -58,7 +58,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     fun removeSubscribedTopic(topic: String, type: String) {
         val newSet = _subscribedTopics.value - (topic to type)
         _subscribedTopics.value = newSet
-=        val unsubscribeJson = """
+        val unsubscribeJson = """
             {"op": "unsubscribe", "topic": "$topic"}
         """.trimIndent()
         RosbridgeConnectionManager.sendRaw(unsubscribeJson)

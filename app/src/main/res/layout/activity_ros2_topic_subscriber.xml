@@ -140,12 +140,12 @@
             android:textColor="@color/darker_gray" />
     </ScrollView>
 
-    <ImageView
-        android:id="@+id/imageView"
+
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/image_compose_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:adjustViewBounds="true"
-        android:scaleType="fitCenter"
-        android:contentDescription="ROS2 Camera Image" />
+        android:layout_marginTop="8dp"
+        android:background="@color/background_container" />
 
 </LinearLayout>

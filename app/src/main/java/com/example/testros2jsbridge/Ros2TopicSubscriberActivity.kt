@@ -18,6 +18,11 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.collectAsState
 
 /*
     Ros2TopicSubscriberActivity provides a UI for subscribing to ROS2 topics via rosbridge, supporting both dynamic topic discovery and manual subscription.
@@ -25,6 +30,10 @@ import kotlinx.coroutines.launch
 */
 
 class Ros2TopicSubscriberActivity : AppCompatActivity() {
+    // Helper to check if any image topic is subscribed
+    private fun isImageTopicSubscribed(subs: List<Pair<String, String>>): Boolean {
+        return subs.any { it.second == "sensor_msgs/msg/Image" }
+    }
     private var autoRefreshJob: Job? = null
     // Shared ViewModel for Compose log view (application-scoped)
     private val rosViewModel: RosViewModel by lazy {
@@ -50,7 +59,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private lateinit var manualTopicEditText: EditText
     private lateinit var manualTypeEditText: EditText
     private lateinit var subscribeManualButton: Button
-    private var imageView: android.widget.ImageView? = null
+    // Compose image state
+    private val latestBitmap = androidx.compose.runtime.mutableStateOf<android.graphics.Bitmap?>(null)
+    private val showImageState = androidx.compose.runtime.mutableStateOf(true)
 
     private val supportedTypes = setOf(
         "std_msgs/msg/String", "std_msgs/msg/Int32", "geometry_msgs/msg/Twist", "geometry_msgs/msg/PoseStamped",
@@ -98,24 +109,12 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         remarks:  Initializes the UI, sets up listeners, manages connection, topic discovery, and subscription logic.
     */
     override fun onCreate(savedInstanceState: Bundle?) {
-        logUpdateJob = lifecycleScope.launch {
-            while (true) {
-                if (logDirty) {
-                    logView.text = logBuffer.toString()
-                    logDirty = false
-                    logScrollView.post {
-                        logScrollView.fullScroll(android.view.View.FOCUS_UP)
-                    }
-                }
-                delay(200)
-            }
-        }
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ros2_topic_subscriber)
+
         logView = findViewById(R.id.logView)
         logScrollView = findViewById(R.id.logScrollView)
-        imageView = findViewById(R.id.imageView)
+        // imageView removed, now handled by ComposeView
         backToMainButton = findViewById(R.id.button_back_to_main)
         ipEditText = findViewById(R.id.edittext_ip_address_sub)
         portEditText = findViewById(R.id.edittext_port_sub)
@@ -130,8 +129,59 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
         val recyclerTopics = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_topics)
 
+        // Compose image state: subscribe to topic changes and update ComposeView
+        val imageComposeView = findViewById<androidx.compose.ui.platform.ComposeView>(R.id.image_compose_view)
+        imageComposeView.setContent {
+            val subsState = rosViewModel.subscribedTopics.collectAsState()
+            val hasImage = isImageTopicSubscribed(subsState.value.toList())
+            val bitmap = latestBitmap.value
+            // Reset showImageState if a new image topic is subscribed
+            androidx.compose.runtime.LaunchedEffect(hasImage) {
+                if (hasImage) showImageState.value = true
+            }
+            if (hasImage) {
+                androidx.compose.foundation.layout.Column {
+                    if (showImageState.value) {
+                        androidx.compose.material3.Button(onClick = { showImageState.value = false }) {
+                            androidx.compose.material3.Text("Hide Image")
+                        }
+                        if (bitmap != null) {
+                            androidx.compose.ui.viewinterop.AndroidView(
+                                factory = { ctx ->
+                                    android.widget.ImageView(ctx).apply {
+                                        setImageBitmap(bitmap)
+                                        adjustViewBounds = true
+                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                                    }
+                                },
+                                update = { it.setImageBitmap(bitmap) }
+                            )
+                        } else {
+                            androidx.compose.material3.Text("Waiting for image...", color = androidx.compose.ui.graphics.Color.Gray)
+                        }
+                    } else {
+                        androidx.compose.material3.Button(onClick = { showImageState.value = true }) {
+                            androidx.compose.material3.Text("Show Image")
+                        }
+                    }
+                }
+            }
+        }
+        logUpdateJob = lifecycleScope.launch {
+            while (true) {
+                if (logDirty) {
+                    logView.text = logBuffer.toString()
+                    logDirty = false
+                    logScrollView.post {
+                        logScrollView.fullScroll(android.view.View.FOCUS_UP)
+                    }
+                }
+                delay(200)
+            }
+        }
+
         fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
-            val subscribedSet = subscribed.map { it.first }.toSet()
+        val subscribedSet = subscribed.map { it.first }.toSet()
             if (topicAdapter == null) {
                 topicAdapter = TopicCheckboxAdapter(
                     topics = topics,
@@ -336,7 +386,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         val topic = json.optString("topic", "?")
                         val msg = json.optJSONObject("msg")
                         val type = discoveredTopics.find { it.first == topic }?.second
-                        if (type == "sensor_msgs/msg/Image" && msg != null) {
+            if (type == "sensor_msgs/msg/Image" && msg != null) {
                             val width = msg.optInt("width", -1)
                             val height = msg.optInt("height", -1)
                             val encoding = msg.optString("encoding", "")
@@ -372,16 +422,24 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                             } else {
                                 dataPreview = "data=[]"
                             }
-                            if (width > 0 && height > 0 && byteArray != null && (encoding == "rgb8" || encoding == "bgr8")) {
-                                val bitmap = if (encoding == "rgb8") {
-                                    decodeRgb8ToBitmap(byteArray, width, height)
-                                } else {
-                                    decodeBgr8ToBitmap(byteArray, width, height)
-                                }
-                                runOnUiThread {
-                                    imageView?.setImageBitmap(bitmap)
-                                }
-                            }
+                if (width > 0 && height > 0 && byteArray != null && (encoding == "rgb8" || encoding == "bgr8")) {
+                    try {
+                        val bitmap = if (encoding == "rgb8") {
+                            decodeRgb8ToBitmap(byteArray, width, height)
+                        } else {
+                            decodeBgr8ToBitmap(byteArray, width, height)
+                        }
+                        latestBitmap.value = bitmap
+                        android.util.Log.d("Ros2TopicSubscriber", "Bitmap created: ${bitmap.width}x${bitmap.height}")
+                    } catch (e: Exception) {
+                        latestBitmap.value = null
+                        android.util.Log.e("Ros2TopicSubscriber", "Bitmap decode error: ${e.message}")
+                    }
+                    // Only auto-show if currently hidden and a new image topic is subscribed
+                    if (!showImageState.value) {
+                        // Do not force show; keep hidden until user toggles
+                    }
+                }
                             appendLogLine("RECEIVED: [$topic] sensor_msgs/msg/Image: width=$width, height=$height, encoding=$encoding, $dataPreview, data.length=$dataLen")
                         } else {
                             appendLogLine("RECEIVED: [${topic}] ${msg}")
