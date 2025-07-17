@@ -201,15 +201,28 @@ class ControllerSupportFragment : Fragment() {
         fun updatePresetSpinners(preset: ControllerPreset) {
             val actions = getAppActionNames()
             val abxy = preset.abxy
+            
             fun setSpinner(spinner: android.widget.Spinner, value: String) {
-                val idx = actions.indexOf(value).takeIf { it >= 0 } ?: 0
-                // Set selection without triggering listener
+                val adapter = (spinner.adapter as? android.widget.ArrayAdapter<String>) ?: run {
+                    // If adapter doesn't exist, create it and set it
+                    android.widget.ArrayAdapter<String>(requireContext(), android.R.layout.simple_spinner_item, actions).apply {
+                        setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                    }.also { spinner.adapter = it }
+                }
+
                 val listener = spinner.onItemSelectedListener
                 spinner.onItemSelectedListener = null
-                spinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, actions).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-                spinner.setSelection(idx)
+
+                // Update data in the *existing* adapter instead of creating a new one
+                adapter.clear()
+                adapter.addAll(actions)
+                
+                val idx = actions.indexOf(value).takeIf { it >= 0 } ?: 0
+                spinner.setSelection(idx, false) // false prevents animation/scrolling
+
                 spinner.onItemSelectedListener = listener
             }
+
             setSpinner(abtnSpinner, abxy["A"] ?: "")
             setSpinner(bbtnSpinner, abxy["B"] ?: "")
             setSpinner(xbtnSpinner, abxy["X"] ?: "")
@@ -217,13 +230,51 @@ class ControllerSupportFragment : Fragment() {
         }
 
         fun updateUI() {
-            if (presets.isEmpty()) presets.add(ControllerPreset("Default"))
+            if (presets.isEmpty()) {
+                presets.add(ControllerPreset("Default"))
+                selectedIdx = 0
+            }
+
+            // --- Safely update the presetSpinner's adapter ---
             val presetNames = presets.map { it.name }
-            presetSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, presetNames).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            presetSpinner.setSelection(selectedIdx.coerceIn(0, presets.size - 1))
-            val preset = presets[selectedIdx]
-            nameEdit.setText(preset.name)
-            updatePresetSpinners(preset)
+            val adapter = (presetSpinner.adapter as? android.widget.ArrayAdapter<*>) ?: run {
+                // If adapter doesn't exist, create it and set it
+                android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, presetNames).apply {
+                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }.also { presetSpinner.adapter = it }
+            }
+
+            // Temporarily remove listener to prevent re-triggering this function
+            val listener = presetSpinner.onItemSelectedListener
+            presetSpinner.onItemSelectedListener = null
+
+            if (adapter is android.widget.ArrayAdapter<*>) {
+                @Suppress("UNCHECKED_CAST")
+                val stringAdapter = adapter as android.widget.ArrayAdapter<String>
+                stringAdapter.clear()
+                stringAdapter.addAll(presetNames)
+                stringAdapter.notifyDataSetChanged()
+            }
+            
+            val safeIdx = selectedIdx.coerceIn(0, presets.size - 1)
+            if (presetSpinner.selectedItemPosition != safeIdx) {
+                presetSpinner.setSelection(safeIdx, false)
+            }
+
+            // Restore the listener
+            presetSpinner.onItemSelectedListener = listener
+            // --- End of safe adapter update ---
+
+            if (safeIdx < presets.size) {
+                val preset = presets[safeIdx]
+                
+                // Only update the EditText if the user isn't currently typing in it.
+                if (!nameEdit.hasFocus()) {
+                    nameEdit.setText(preset.name)
+                }
+                
+                updatePresetSpinners(preset)
+            }
         }
 
         fun saveCurrentPreset() {
@@ -286,6 +337,18 @@ class ControllerSupportFragment : Fragment() {
                     }
                 }
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+            }
+        }
+
+        // Focus change listener to ensure keyboard shows on nameEdit focus
+        nameEdit.setOnFocusChangeListener { v, hasFocus ->
+            if (hasFocus) {
+                // Request focus and show the keyboard
+                v.post {
+                    v.requestFocus()
+                    val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                }
             }
         }
 
@@ -475,7 +538,6 @@ class ControllerSupportFragment : Fragment() {
                         )
                     }
                     updateAppActions()
-                    updatePresetAbxySpinners()
                 }
             }
 
@@ -483,7 +545,6 @@ class ControllerSupportFragment : Fragment() {
             viewLifecycleOwner.lifecycleScope.launch {
                 sliderControllerViewModel.sliders.collectLatest {
                     updateAppActions()
-                    updatePresetAbxySpinners()
                 }
             }
 
@@ -491,97 +552,6 @@ class ControllerSupportFragment : Fragment() {
             updatePresetAbxySpinners()
             setupControllerMappingUI(view)
         }
-    // --- Preset Management UI logic ---
-    fun setupPresetManagementUI(root: View) {
-        val presetSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_presets)
-        val nameEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_name)
-        val abtnSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_abtn)
-        val bbtnSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_bbtn)
-        val xbtnSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_xbtn)
-        val ybtnSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_ybtn)
-        val addBtn = root.findViewById<android.widget.Button>(R.id.btn_add_preset)
-        val removeBtn = root.findViewById<android.widget.Button>(R.id.btn_remove_preset)
-        val saveBtn = root.findViewById<android.widget.Button>(R.id.btn_save_preset)
-
-        var presets = loadControllerPresets()
-        var selectedIdx = 0
-
-        fun getAppActionNames(): List<String> {
-            return (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
-        }
-
-        fun updatePresetSpinners(preset: ControllerPreset) {
-            val actions = listOf("") + getAppActionNames()
-            val abxy = preset.abxy
-            fun setSpinner(spinner: android.widget.Spinner, value: String) {
-                val idx = actions.indexOf(value).takeIf { it >= 0 } ?: 0
-                spinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, actions).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-                spinner.setSelection(idx)
-            }
-            setSpinner(abtnSpinner, abxy["A"] ?: "")
-            setSpinner(bbtnSpinner, abxy["B"] ?: "")
-            setSpinner(xbtnSpinner, abxy["X"] ?: "")
-            setSpinner(ybtnSpinner, abxy["Y"] ?: "")
-        }
-
-        fun updateUI() {
-            if (presets.isEmpty()) presets.add(ControllerPreset("Default"))
-            val presetNames = presets.map { it.name }
-            presetSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, presetNames).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            presetSpinner.setSelection(selectedIdx.coerceIn(0, presets.size - 1))
-            val preset = presets[selectedIdx]
-            nameEdit.setText(preset.name)
-            updatePresetSpinners(preset)
-        }
-
-        fun saveCurrentPreset() {
-            val preset = presets[selectedIdx]
-            preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
-            // The abxy map is already updated by the spinner listeners, so we just save.
-            saveControllerPresets(presets)
-            updateUI() // Refresh UI to reflect saved state
-        }
-
-        presetSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                selectedIdx = position
-                updateUI()
-            }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
-        }
-
-        addBtn.setOnClickListener {
-            presets.add(ControllerPreset("Preset ${presets.size + 1}"))
-            selectedIdx = presets.size - 1
-            saveControllerPresets(presets)
-            updateUI()
-        }
-        removeBtn.setOnClickListener {
-            if (presets.size > 1) {
-                presets.removeAt(selectedIdx)
-                selectedIdx = selectedIdx.coerceAtMost(presets.size - 1)
-                saveControllerPresets(presets)
-                updateUI()
-            }
-        }
-        saveBtn.setOnClickListener {
-            saveCurrentPreset()
-            android.widget.Toast.makeText(requireContext(), "Preset saved", android.widget.Toast.LENGTH_SHORT).show()
-        }
-
-        // Update ABXY assignments on spinner change
-        val abxySpinners = listOf(abtnSpinner, bbtnSpinner, xbtnSpinner, ybtnSpinner)
-        for (spinner in abxySpinners) {
-            spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                    // Optionally auto-save or update preview
-                }
-                override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
-            }
-        }
-
-        updateUI()
-    }
         return view
     }
 
@@ -1185,13 +1155,30 @@ class ControllerSupportFragment : Fragment() {
         // Joystick mappings
         val mappings = loadJoystickMappings()
         if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK && event.action == MotionEvent.ACTION_MOVE) {
+            
             for (mapping in mappings) {
-                // Process historical and current positions
-                for (i in 0 until event.historySize) {
-                    processJoystickInput(event, dev, i, mapping)
+                // Create local immutable copies to allow for smart casting
+                val currentTopic = mapping.topic
+                val currentType = mapping.type
+
+                // Check that the required values are not null before proceeding
+                if (currentTopic != null && currentType != null) {
+                    val x = getCenteredAxis(event, dev, mapping.axisX, -1, mapping)
+                    val y = getCenteredAxis(event, dev, mapping.axisY, -1, mapping)
+
+                    if (currentType == "geometry_msgs/msg/TwistStamped") {
+                        val header = "{\"stamp\":\"now\",\"frame_id\":\"base_link\"}"
+                        val twist = "{\"linear\":{\"x\":$x,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":$y}}"
+                        val msg = "{\"header\":$header,\"twist\":$twist}"
+                        // Use the safe, non-null local variables
+                        publishRosAction(currentTopic, currentType, msg)
+                    } else if (currentType == "geometry_msgs/msg/Twist") {
+                        val msg = "{\"linear\":{\"x\":$x,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":$y}}"
+                        // Use the safe, non-null local variables
+                        publishRosAction(currentTopic, currentType, msg)
+                    }
+                    handled = true
                 }
-                processJoystickInput(event, dev, -1, mapping)
-                handled = true
             }
             // Start periodic resend
             lastJoystickMappings = mappings
