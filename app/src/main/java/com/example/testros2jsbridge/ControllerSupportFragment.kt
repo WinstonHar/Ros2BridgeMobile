@@ -195,16 +195,20 @@ class ControllerSupportFragment : Fragment() {
         var selectedIdx = 0
 
         fun getAppActionNames(): List<String> {
-            return (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
+            return listOf("") + (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
         }
 
         fun updatePresetSpinners(preset: ControllerPreset) {
-            val actions = listOf("") + getAppActionNames()
+            val actions = getAppActionNames()
             val abxy = preset.abxy
             fun setSpinner(spinner: android.widget.Spinner, value: String) {
                 val idx = actions.indexOf(value).takeIf { it >= 0 } ?: 0
+                // Set selection without triggering listener
+                val listener = spinner.onItemSelectedListener
+                spinner.onItemSelectedListener = null
                 spinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, actions).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
                 spinner.setSelection(idx)
+                spinner.onItemSelectedListener = listener
             }
             setSpinner(abtnSpinner, abxy["A"] ?: "")
             setSpinner(bbtnSpinner, abxy["B"] ?: "")
@@ -225,21 +229,15 @@ class ControllerSupportFragment : Fragment() {
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
             preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
-            preset.abxy = mapOf(
-                "A" to (abtnSpinner.selectedItem as? String ?: ""),
-                "B" to (bbtnSpinner.selectedItem as? String ?: ""),
-                "X" to (xbtnSpinner.selectedItem as? String ?: ""),
-                "Y" to (ybtnSpinner.selectedItem as? String ?: "")
-            )
+            // The abxy map is already updated by the spinner listeners, so we just save.
             saveControllerPresets(presets)
-            updateUI()
+            updateUI() // Refresh UI to reflect saved state
         }
 
         presetSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                 selectedIdx = position
                 updateUI()
-                updatePresetSpinners(presets[selectedIdx])
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
         }
@@ -263,12 +261,29 @@ class ControllerSupportFragment : Fragment() {
             android.widget.Toast.makeText(requireContext(), "Preset saved", android.widget.Toast.LENGTH_SHORT).show()
         }
 
-        // Update ABXY assignments on spinner change
-        val abxySpinners = listOf(abtnSpinner, bbtnSpinner, xbtnSpinner, ybtnSpinner)
-        for (spinner in abxySpinners) {
+        // Create a map of spinners to their button keys
+        val spinnerMap = mapOf(
+            abtnSpinner to "A",
+            bbtnSpinner to "B",
+            xbtnSpinner to "X",
+            ybtnSpinner to "Y"
+        )
+
+        // Assign a listener to each ABXY spinner that updates the in-memory preset
+        for ((spinner, btnKey) in spinnerMap) {
             spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                    // Optionally auto-save or update preview
+                    if (selectedIdx < presets.size) {
+                        val selectedActionName = parent.getItemAtPosition(position) as? String ?: ""
+                        val currentPreset = presets[selectedIdx]
+
+                        // Check if the value has actually changed to avoid unnecessary updates
+                        if (currentPreset.abxy[btnKey] != selectedActionName) {
+                            val newAbxy = currentPreset.abxy.toMutableMap()
+                            newAbxy[btnKey] = selectedActionName
+                            currentPreset.abxy = newAbxy
+                        }
+                    }
                 }
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
             }
@@ -522,21 +537,15 @@ class ControllerSupportFragment : Fragment() {
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
             preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
-            preset.abxy = mapOf(
-                "A" to (abtnSpinner.selectedItem as? String ?: ""),
-                "B" to (bbtnSpinner.selectedItem as? String ?: ""),
-                "X" to (xbtnSpinner.selectedItem as? String ?: ""),
-                "Y" to (ybtnSpinner.selectedItem as? String ?: "")
-            )
+            // The abxy map is already updated by the spinner listeners, so we just save.
             saveControllerPresets(presets)
-            updateUI()
+            updateUI() // Refresh UI to reflect saved state
         }
 
         presetSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                 selectedIdx = position
                 updateUI()
-                updatePresetSpinners(presets[selectedIdx])
             }
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
         }
@@ -756,7 +765,6 @@ class ControllerSupportFragment : Fragment() {
         // Load from SliderButtonFragment but do NOT add the base slider action ("Slider"), only add increment/decrement actions below
         val prefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
         val json = prefs.getString("saved_slider_buttons", null)
-        android.util.Log.d("ControllerSupport", "Loaded slider_buttons_prefs:saved_slider_buttons: $json")
         // (Intentionally skip adding base slider actions here)
         // Add increment/decrement actions for each slider in the shared ViewModel
         val sliderStates = sliderControllerViewModel.sliders.value
@@ -795,7 +803,6 @@ class ControllerSupportFragment : Fragment() {
         // Load from GeometryStdMsgFragment
         val geoPrefs = requireContext().getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
         val geoJson = geoPrefs.getString("geometry_buttons", null)
-        android.util.Log.d("ControllerSupport", "Loaded geometry_reusable_buttons:geometry_buttons: $geoJson")
         if (!geoJson.isNullOrEmpty()) {
             try {
                 val arr = org.json.JSONArray(geoJson)
@@ -816,7 +823,6 @@ class ControllerSupportFragment : Fragment() {
         try {
             val prefs = requireContext().getSharedPreferences("custom_publishers_prefs", Context.MODE_PRIVATE)
             val json = prefs.getString("custom_publishers", null)
-            android.util.Log.d("ControllerSupport", "Loaded custom_publishers_prefs:custom_publishers: $json")
             if (!json.isNullOrEmpty()) {
                 val arr = com.google.gson.JsonParser.parseString(json).asJsonArray
                 for (el in arr) {
@@ -835,7 +841,6 @@ class ControllerSupportFragment : Fragment() {
         } catch (e: Exception) {
             android.util.Log.e("ControllerSupport", "Error loading custom_publishers_prefs:custom_publishers", e)
         }
-        android.util.Log.d("ControllerSupport", "App actions loaded: $actions")
         return actions
     }
 
@@ -902,7 +907,7 @@ class ControllerSupportFragment : Fragment() {
         return map
     }
 
-    /*
+    /*de
         input:    displayName, topic, type, source, msg
         output:   None
         remarks:  Data class for app actions
