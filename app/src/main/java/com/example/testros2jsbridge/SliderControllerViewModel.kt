@@ -23,7 +23,6 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
     private val _selectedSliderIndex = MutableStateFlow(0)
 
     fun setSliders(sliderStates: List<SliderState>) {
-        // Snap each slider value to the nearest valid step
         fun snapValue(min: Float, step: Float, value: Float): Float {
             if (step <= 0f) return value
             val n = Math.round((value - min) / step)

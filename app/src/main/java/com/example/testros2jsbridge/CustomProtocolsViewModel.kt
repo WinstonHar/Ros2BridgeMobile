@@ -72,7 +72,7 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
                     }
                 }
             } catch (e: Exception) {
-                //handle errors?
+                //errors would end up here
             }
             _messages.value = msgList
             _services.value = srvList

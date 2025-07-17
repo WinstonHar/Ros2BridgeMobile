@@ -74,9 +74,18 @@ class MainActivity : AppCompatActivity() {
             dropdown.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions))
             dropdown.setText(currentText, false)
         }
+        // Ensure all topic subscriptions are (re-)registered to append to log
+        rosViewModel.resubscribeAllTopicsToLog()
     }
 
-    private val rosViewModel: RosViewModel by viewModels()
+    // Shared ViewModel for Compose log view (application-scoped)
+    private val rosViewModel: RosViewModel by lazy {
+        val app = application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+    }
 
     private lateinit var ipAddressEditText: TextInputEditText
     private lateinit var portEditText: TextInputEditText
@@ -332,6 +341,8 @@ class MainActivity : AppCompatActivity() {
                     portEditText.isEnabled = false
                     connectButton.isEnabled = false
                     disconnectButton.isEnabled = true
+                    // After connecting, (re-)subscribe to all topics for log updates
+                    rosViewModel.resubscribeAllTopicsToLog()
                 }
             }
             override fun onDisconnected() {

@@ -36,6 +36,53 @@ import kotlinx.serialization.json.put
 */
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    // --- Persistent set of currently subscribed topics (topic to type) ---
+    private val _subscribedTopics = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
+    val subscribedTopics: StateFlow<Set<Pair<String, String>>> = _subscribedTopics.asStateFlow()
+
+    /**
+     * Add a topic subscription (topic, type). Call this from the subscriber activity when user checks a topic.
+     * This will subscribe and keep the topic in the persistent set.
+     */
+    fun addSubscribedTopic(topic: String, type: String) {
+        val newSet = _subscribedTopics.value + (topic to type)
+        _subscribedTopics.value = newSet
+        // Subscribe immediately with a handler that appends to log
+        subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
+    }
+
+    /**
+     * Remove a topic subscription (topic, type). Call this from the subscriber activity when user unchecks a topic.
+     * This will remove the topic from the persistent set. (Unsubscribe logic can be added if needed)
+     */
+    fun removeSubscribedTopic(topic: String, type: String) {
+        val newSet = _subscribedTopics.value - (topic to type)
+        _subscribedTopics.value = newSet
+=        val unsubscribeJson = """
+            {"op": "unsubscribe", "topic": "$topic"}
+        """.trimIndent()
+        RosbridgeConnectionManager.sendRaw(unsubscribeJson)
+        Log.d("RosViewModel", "Unsubscribed from topic: $topic ($type)")
+    }
+
+    /**
+     * (Re-)subscribe to all topics in the persistent set, with a handler that appends to the log.
+     * Call this from MainActivity after connecting or resuming.
+     */
+    fun resubscribeAllTopicsToLog() {
+        for ((topic, type) in _subscribedTopics.value) {
+            subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
+        }
+    }
+    /**
+     * Appends a message to the custom message history (for Compose log view).
+     * Call this from other activities to display received messages in the Compose log.
+     */
+    fun appendToMessageHistory(msg: String) {
+        // Truncate each log line to 300 characters to prevent UI lag
+        val truncated = if (msg.length > 300) msg.take(300) + "... [truncated]" else msg
+        _customMessageHistory.update { currentHistory -> (currentHistory + truncated).takeLast(25) }
+    }
     // --- Robust Service Request Management ---
     private val lastServiceRequestIdMap = mutableMapOf<String, String>() // serviceName -> last request id
     private val lastServiceBusyMap = mutableMapOf<String, Boolean>() // serviceName -> busy
@@ -175,7 +222,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             val pkg = parts[0]
             val actionNameBase = parts[2]
             val sendGoalService = "$actionName/_action/send_goal"
-            val sendGoalType = "$pkg/action/${actionNameBase}_SendGoal" //bug from rosbridge
+            val sendGoalType = "$pkg/action/${actionNameBase}_SendGoal"
             // Convert UUID string to 16-byte array for unique_identifier_msgs/UUID
             val uuidBytes = try {
                 val u = UUID.fromString(uuid)
@@ -502,7 +549,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
                 val jsonString = jsonObject.toString()
                 RosbridgeConnectionManager.sendRaw(jsonString)
                 Log.d("RosViewModel", "Sent Publish to '$topicName': $jsonString")
-                _customMessageHistory.update { currentHistory -> (currentHistory + jsonString).takeLast(100) }
+                _customMessageHistory.update { currentHistory -> (currentHistory + jsonString).takeLast(25) }
             } catch (e: Exception) {
                 Log.e("RosViewModel", "Publish error for topic '$topicName' (raw)", e)
             }
@@ -690,7 +737,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
         // --- Update message history: store the JSON string of the sent message ---
         val jsonString = if (asJson != null) asJson.toString() else messageToSend
-        _customMessageHistory.update { currentHistory -> (currentHistory + jsonString).takeLast(100) }
+        _customMessageHistory.update { currentHistory -> (currentHistory + jsonString).takeLast(25) }
         // --- End message history update ---
         publishStringMessage(topicName, messageToSend)
     }

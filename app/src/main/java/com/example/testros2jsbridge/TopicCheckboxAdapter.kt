@@ -8,9 +8,19 @@ import androidx.recyclerview.widget.RecyclerView
 
 class TopicCheckboxAdapter(
     private var topics: List<Pair<String, String>>,
-    private val subscribedTopics: Set<String>,
+    internal var subscribedTopics: Set<String>,
     private val onCheckedChange: (topic: String, type: String, isChecked: Boolean) -> Unit
 ) : RecyclerView.Adapter<TopicCheckboxAdapter.TopicViewHolder>() {
+
+    fun updateTopicsAndSubscribed(newTopics: List<Pair<String, String>>, newSubscribed: Set<String>) {
+        topics = newTopics
+        subscribedTopics = newSubscribed
+        notifyDataSetChanged()
+    }
+    fun setSubscribedTopics(newSet: Set<String>) {
+        subscribedTopics = newSet
+        notifyDataSetChanged()
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TopicViewHolder {
         val view = LayoutInflater.from(parent.context)

@@ -27,7 +27,6 @@ import com.example.testros2jsbridge.CustomProtocolsViewModel
 */
 
 class ImportCustomProtocolsFragment : Fragment() {
-    // ...existing code...
     // Track advertised actions and services to ensure idempotency
     private val advertisedActions = mutableSetOf<String>()
     private val advertisedServices = mutableSetOf<String>()
@@ -41,7 +40,6 @@ class ImportCustomProtocolsFragment : Fragment() {
         }
     }
 
-    // No need to track lastGoalUuid here; handled by RosViewModel
     // Helper to format JSON values: quote strings, leave numbers/bools/null as is
     private fun formatJsonValue(value: String): String {
         return if (value.matches(Regex("^-?\\d+(\\.\\d+)?$")) ||
@@ -50,19 +48,21 @@ class ImportCustomProtocolsFragment : Fragment() {
             value.equals("null", ignoreCase = true)) {
             value
         } else if (value.trim().startsWith("[") && value.trim().endsWith("]")) {
-            // Allow raw JSON arrays for list fields
             value
         } else {
-            // Escape any embedded quotes in the string value
             "\"" + value.replace("\"", "\\\"") + "\""
         }
     }
-    // Track which action is being edited (null if not editing)
     private var editingActionIndex: Int? = null
     private var editingFieldValues: Map<String, String>? = null
-    // Use viewModels() delegate for correct ViewModel scoping
     private val viewModel: CustomProtocolsViewModel by viewModels()
-    private val rosViewModel: RosViewModel by activityViewModels()
+    private val rosViewModel: RosViewModel by lazy {
+        val app = requireActivity().application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+    }
 
     // Data class for a saved custom protocol action
     data class SavedCustomProtocolAction(
@@ -120,7 +120,6 @@ class ImportCustomProtocolsFragment : Fragment() {
         vertical.addView(srvSection)
         scroll.addView(vertical)
         (root as ViewGroup).addView(scroll)
-        // Observe rosbridge connection status and update indicator
         viewLifecycleOwner.lifecycleScope.launch {
             rosViewModel.connectionStatus.collectLatest { status ->
                 statusIndicator.text = "rosbridge: $status"
@@ -402,7 +401,7 @@ class ImportCustomProtocolsFragment : Fragment() {
             container.addView(layout)
         }
 
-        // Add Save/Update and Cancel buttons with layout tweaks
+        // Add Save/Update and Cancel buttons
         val buttonLayout = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
         }
@@ -429,7 +428,6 @@ class ImportCustomProtocolsFragment : Fragment() {
                     }
                 }
             }
-            // Prompt for label
             val labelInput = android.widget.EditText(context)
             labelInput.hint = "Label for this action"
             if (editingActionIndex != null && editingActionIndex!! < rosViewModel.customProtocolActions.value.size) {

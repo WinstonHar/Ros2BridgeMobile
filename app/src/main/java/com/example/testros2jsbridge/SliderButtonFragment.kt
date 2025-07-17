@@ -427,7 +427,14 @@ class SliderButtonFragment : Fragment() {
         row.addView(saveBtn)
         layout.addView(row, 0)
     }
-    private val rosViewModel: RosViewModel by activityViewModels()
+    // Use application-scoped RosViewModel for consistent connection state
+    private val rosViewModel: RosViewModel by lazy {
+        val app = requireActivity().application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+    }
     private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
 
     /*

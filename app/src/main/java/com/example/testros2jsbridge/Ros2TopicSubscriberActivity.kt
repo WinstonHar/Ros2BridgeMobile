@@ -25,7 +25,15 @@ import kotlinx.coroutines.launch
 */
 
 class Ros2TopicSubscriberActivity : AppCompatActivity() {
-    // Efficient log buffer for incoming messages
+    private var autoRefreshJob: Job? = null
+    // Shared ViewModel for Compose log view (application-scoped)
+    private val rosViewModel: RosViewModel by lazy {
+        val app = application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+    }
     private val logBuffer = StringBuilder()
     private var logDirty = false
     private val maxLogLines = 300
@@ -42,17 +50,47 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private lateinit var manualTopicEditText: EditText
     private lateinit var manualTypeEditText: EditText
     private lateinit var subscribeManualButton: Button
-    // Supported message types for dynamic subscription
+    private var imageView: android.widget.ImageView? = null
+
     private val supportedTypes = setOf(
         "std_msgs/msg/String", "std_msgs/msg/Int32", "geometry_msgs/msg/Twist", "geometry_msgs/msg/PoseStamped",
         "sensor_msgs/msg/BatteryState", "sensor_msgs/msg/CameraInfo", "sensor_msgs/msg/ChannelFloat32", "sensor_msgs/msg/CompressedImage", "sensor_msgs/msg/FluidPressure", "sensor_msgs/msg/Illuminance", "sensor_msgs/msg/Image", "sensor_msgs/msg/Imu", "sensor_msgs/msg/JointState", "sensor_msgs/msg/Joy", "sensor_msgs/msg/JoyFeedback", "sensor_msgs/msg/JoyFeedbackArray", "sensor_msgs/msg/LaserEcho", "sensor_msgs/msg/LaserScan", "sensor_msgs/msg/MagneticField", "sensor_msgs/msg/MultiDOFJointState", "sensor_msgs/msg/MultiEchoLaserScan", "sensor_msgs/msg/NavSatFix", "sensor_msgs/msg/NavSatStatus", "sensor_msgs/msg/PointCloud", "sensor_msgs/msg/PointCloud2", "sensor_msgs/msg/PointField", "sensor_msgs/msg/Range", "sensor_msgs/msg/RegionOfInterest", "sensor_msgs/msg/RelativeHumidity", "sensor_msgs/msg/Temperature", "sensor_msgs/msg/TimeReference",
         "geometry_msgs/msg/Accel", "geometry_msgs/msg/AccelStamped", "geometry_msgs/msg/AccelWithCovariance", "geometry_msgs/msg/AccelWithCovarianceStamped", "geometry_msgs/msg/Inertia", "geometry_msgs/msg/InertiaStamped", "geometry_msgs/msg/Point", "geometry_msgs/msg/Point32", "geometry_msgs/msg/PointStamped", "geometry_msgs/msg/Polygon", "geometry_msgs/msg/PolygonInstance", "geometry_msgs/msg/PolygonInstanceStamped", "geometry_msgs/msg/PolygonStamped", "geometry_msgs/msg/Pose", "geometry_msgs/msg/Pose2D", "geometry_msgs/msg/PoseArray", "geometry_msgs/msg/PoseStamped", "geometry_msgs/msg/PoseWithCovariance", "geometry_msgs/msg/PoseWithCovarianceStamped", "geometry_msgs/msg/Quaternion", "geometry_msgs/msg/QuaternionStamped", "geometry_msgs/msg/Transform", "geometry_msgs/msg/TransformStamped", "geometry_msgs/msg/Twist", "geometry_msgs/msg/TwistStamped", "geometry_msgs/msg/TwistWithCovariance", "geometry_msgs/msg/TwistWithCovarianceStamped", "geometry_msgs/msg/Vector3", "geometry_msgs/msg/Vector3Stamped", "geometry_msgs/msg/VelocityStamped", "geometry_msgs/msg/Wrench", "geometry_msgs/msg/WrenchStamped",
         "std_msgs/msg/Bool", "std_msgs/msg/Byte", "std_msgs/msg/ByteMultiArray", "std_msgs/msg/Char", "std_msgs/msg/ColorRGBA", "std_msgs/msg/Empty", "std_msgs/msg/Float32", "std_msgs/msg/Float32MultiArray", "std_msgs/msg/Float64", "std_msgs/msg/Float64MultiArray", "std_msgs/msg/Header", "std_msgs/msg/Int16", "std_msgs/msg/Int16MultiArray", "std_msgs/msg/Int32MultiArray", "std_msgs/msg/Int64", "std_msgs/msg/Int64MultiArray", "std_msgs/msg/Int8", "std_msgs/msg/Int8MultiArray", "std_msgs/msg/MultiArrayDimension", "std_msgs/msg/MultiArrayLayout", "std_msgs/msg/String", "std_msgs/msg/UInt16", "std_msgs/msg/UInt16MultiArray", "std_msgs/msg/UInt32", "std_msgs/msg/UInt32MultiArray", "std_msgs/msg/UInt64", "std_msgs/msg/UInt64MultiArray", "std_msgs/msg/UInt8", "std_msgs/msg/UInt8MultiArray"
     )
-    // List of discovered topics and types
     private var discoveredTopics: List<Pair<String, String>> = emptyList()
-    // Track currently subscribed topics
-    private val subscribedTopics = mutableSetOf<String>()
+    private var topicAdapter: TopicCheckboxAdapter? = null
+
+    // --- Bitmap decoding helpers for sensor_msgs/msg/Image ---
+    private fun decodeRgb8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
+        val pixels = IntArray(width * height)
+        var i = 0
+        var j = 0
+        while (i < data.size && j < pixels.size) {
+            val r = data[i].toInt() and 0xFF
+            val g = data[i + 1].toInt() and 0xFF
+            val b = data[i + 2].toInt() and 0xFF
+            pixels[j] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            i += 3
+            j += 1
+        }
+        return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    }
+
+    private fun decodeBgr8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
+        val pixels = IntArray(width * height)
+        var i = 0
+        var j = 0
+        while (i < data.size && j < pixels.size) {
+            val b = data[i].toInt() and 0xFF
+            val g = data[i + 1].toInt() and 0xFF
+            val r = data[i + 2].toInt() and 0xFF
+            pixels[j] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            i += 3
+            j += 1
+        }
+        return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    }
 
     /*
         input:    savedInstanceState - Bundle?
@@ -60,7 +98,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         remarks:  Initializes the UI, sets up listeners, manages connection, topic discovery, and subscription logic.
     */
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Start a coroutine to batch log updates (every 200ms)
         logUpdateJob = lifecycleScope.launch {
             while (true) {
                 if (logDirty) {
@@ -73,10 +110,12 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 delay(200)
             }
         }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ros2_topic_subscriber)
         logView = findViewById(R.id.logView)
         logScrollView = findViewById(R.id.logScrollView)
+        imageView = findViewById(R.id.imageView)
         backToMainButton = findViewById(R.id.button_back_to_main)
         ipEditText = findViewById(R.id.edittext_ip_address_sub)
         portEditText = findViewById(R.id.edittext_port_sub)
@@ -90,37 +129,53 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
 
         val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
         val recyclerTopics = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_topics)
-        val topicAdapter = TopicCheckboxAdapter(
-            topics = discoveredTopics,
-            subscribedTopics = subscribedTopics,
-            onCheckedChange = { topic, type, isChecked ->
-                if (isChecked) {
-                    if (!subscribedTopics.contains(topic)) {
-                        val subscribeMsg = org.json.JSONObject()
-                        subscribeMsg.put("op", "subscribe")
-                        subscribeMsg.put("topic", topic)
-                        subscribeMsg.put("type", type)
-                        RosbridgeConnectionManager.send(subscribeMsg)
-                        subscribedTopics.add(topic)
-                        logView.text = "Subscribed to $topic ($type)\n" + logView.text
+
+        fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
+            val subscribedSet = subscribed.map { it.first }.toSet()
+            if (topicAdapter == null) {
+                topicAdapter = TopicCheckboxAdapter(
+                    topics = topics,
+                    subscribedTopics = subscribedSet,
+                    onCheckedChange = { topic, type, isChecked ->
+                        if (isChecked) {
+                            rosViewModel.addSubscribedTopic(topic, type)
+                            logView.text = "Subscribed to $topic ($type)\n" + logView.text
+                        } else {
+                            rosViewModel.removeSubscribedTopic(topic, type)
+                            logView.text = "Unsubscribed from $topic\n" + logView.text
+                        }
                     }
-                } else {
-                    if (subscribedTopics.contains(topic)) {
-                        val unsubscribeMsg = org.json.JSONObject()
-                        unsubscribeMsg.put("op", "unsubscribe")
-                        unsubscribeMsg.put("topic", topic)
-                        RosbridgeConnectionManager.send(unsubscribeMsg)
-                        subscribedTopics.remove(topic)
-                        logView.text = "Unsubscribed from $topic\n" + logView.text
+                )
+                recyclerTopics.adapter = topicAdapter
+                recyclerTopics.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+            } else {
+                topicAdapter!!.updateTopicsAndSubscribed(topics, subscribedSet)
+            }
+        }
+        // Initial adapter setup
+        updateTopicAdapterWithSubscriptions(discoveredTopics, rosViewModel.subscribedTopics.value.toList())
+
+        // --- Auto-fetch topics and enable auto-refresh if connected on activity start ---
+        if (RosbridgeConnectionManager.isConnected) {
+            autoRefreshCheckBox.isChecked = true
+            if (autoRefreshJob == null) {
+                autoRefreshJob = lifecycleScope.launch {
+                    while (autoRefreshCheckBox.isChecked) {
+                        runOnUiThread { fetchTopicsButton.performClick() }
+                        delay(1500)
                     }
                 }
             }
-        )
-        recyclerTopics.adapter = topicAdapter
-        recyclerTopics.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+            fetchTopicsButton.performClick()
+        }
+
+        lifecycleScope.launch {
+            rosViewModel.subscribedTopics.collect { subs ->
+                updateTopicAdapterWithSubscriptions(discoveredTopics, subs.toList())
+            }
+        }
 
         // --- Auto-refresh polling logic ---
-        var autoRefreshJob: Job? = null
         autoRefreshCheckBox.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 autoRefreshJob?.cancel()
@@ -133,6 +188,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 logView.text = "Auto-refresh enabled.\n" + logView.text
             } else {
                 autoRefreshJob?.cancel()
+                autoRefreshJob = null
                 logView.text = "Auto-refresh disabled.\n" + logView.text
             }
         }
@@ -145,40 +201,30 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
             val topic = manualTopicEditText.text.toString().trim()
             val type = manualTypeEditText.text.toString().trim()
-            // Validate topic
             if (topic.isEmpty()) {
                 manualTopicEditText.error = "Topic required"
                 logView.text = "Manual topic required.\n" + logView.text
                 return@setOnClickListener
             }
-            // Validate type
             if (type.isEmpty()) {
                 manualTypeEditText.error = "Type required"
                 logView.text = "Manual type required.\n" + logView.text
                 return@setOnClickListener
             }
-            // Validate type format: should be like pkg/msg/Type
             val typePattern = Regex("^[a-zA-Z0-9_]+/msg/[a-zA-Z0-9_]+$")
             if (!typePattern.matches(type)) {
                 manualTypeEditText.error = "Type must be in the form pkg/msg/Type (e.g. std_msgs/msg/String)"
                 logView.text = "Type format invalid. Use pkg/msg/Type (e.g. std_msgs/msg/String).\n" + logView.text
                 return@setOnClickListener
             }
-            // Optionally, check if type is in supportedTypes
             if (!supportedTypes.contains(type)) {
                 manualTypeEditText.error = "Type not in supported list"
                 logView.text = "Warning: Type '$type' is not in supported types.\n" + logView.text
-                // Allow to proceed, but warn
             }
-            val subscribeMsg = JSONObject()
-            subscribeMsg.put("op", "subscribe")
-            subscribeMsg.put("topic", topic)
-            subscribeMsg.put("type", type)
-            RosbridgeConnectionManager.send(subscribeMsg)
+            rosViewModel.addSubscribedTopic(topic, type)
             logView.text = "Manually subscribed to $topic ($type)\n" + logView.text
         }
 
-        // SharedPreferences for IP/Port sync
         val prefs = getSharedPreferences("ros2_prefs", Context.MODE_PRIVATE)
         val savedIp = prefs.getString("ip_address", "")
         val savedPort = prefs.getString("port", "")
@@ -221,7 +267,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
 
         updateButtonStates(RosbridgeConnectionManager.isConnected)
 
-        // Fetch topics button logic
         fetchTopicsButton.setOnClickListener {
             if (!RosbridgeConnectionManager.isConnected) {
                 logView.text = "Not connected to rosbridge.\n" + logView.text
@@ -233,8 +278,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             request.put("id", "topics_and_types_request")
             RosbridgeConnectionManager.send(request)
         }
-
-        // Remove spinner and subscribe button logic
 
         rosbridgeListener = object : RosbridgeConnectionManager.Listener {
             override fun onConnected() {
@@ -250,7 +293,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
             override fun onMessage(text: String) {
-                // Handle rosapi topics_and_raw_types response
                 try {
                     val json = JSONObject(text)
                     if (json.optString("op") == "service_response" && json.optString("service") == "/rosapi/topics_and_raw_types") {
@@ -267,8 +309,17 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                                 }
                             }
                             discoveredTopics = filtered
+                            val availableTopicsSet = filtered.map { it.first }.toSet()
+                            val currentSubs = rosViewModel.subscribedTopics.value.toList()
+                            val toRemove = currentSubs.filter { !availableTopicsSet.contains(it.first) }
+                            for ((topic, type) in toRemove) {
+                                rosViewModel.removeSubscribedTopic(topic, type)
+                                runOnUiThread {
+                                    logView.text = "Auto-unsubscribed from $topic (no longer exists)\n" + logView.text
+                                }
+                            }
                             runOnUiThread {
-                                topicAdapter.updateTopics(filtered)
+                                updateTopicAdapterWithSubscriptions(filtered, rosViewModel.subscribedTopics.value.toList())
                                 if (filtered.isEmpty()) {
                                     logView.text = "No supported topics found.\n" + logView.text
                                 } else {
@@ -279,23 +330,59 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         return
                     }
                 } catch (_: Exception) {}
-                // Efficient log update: buffer, batch, and limit lines
                 try {
                     val json = JSONObject(text)
                     if (json.optString("op") == "publish") {
                         val topic = json.optString("topic", "?")
                         val msg = json.optJSONObject("msg")
-                        // Special handling for sensor_msgs/msg/Image
                         val type = discoveredTopics.find { it.first == topic }?.second
                         if (type == "sensor_msgs/msg/Image" && msg != null) {
-                            // Log only metadata, not the full data array
-                            val header = msg.optJSONObject("header")
                             val width = msg.optInt("width", -1)
                             val height = msg.optInt("height", -1)
                             val encoding = msg.optString("encoding", "")
-                            val step = msg.optInt("step", -1)
-                            val dataLength = msg.optJSONArray("data")?.length() ?: msg.optString("data").length
-                            appendLogLine("RECEIVED: [$topic] sensor_msgs/msg/Image: width=$width, height=$height, encoding=$encoding, step=$step, data.length=$dataLength, header=${header?.toString() ?: "{}"}")
+                            val dataField = msg.opt("data")
+                            var byteArray: ByteArray? = null
+                            var dataPreview = ""
+                            var dataLen = 0
+                            if (dataField is String) {
+                                try {
+                                    byteArray = android.util.Base64.decode(dataField, android.util.Base64.DEFAULT)
+                                    dataLen = byteArray.size
+                                    val previewLen = minOf(8, dataLen)
+                                    val previewBytes = byteArray.take(previewLen).joinToString(" ") { b ->
+                                        (b.toInt() and 0xFF).toString(16).padStart(2, '0')
+                                    }
+                                    dataPreview = "data[0..${previewLen - 1}]=[$previewBytes] (base64)"
+                                } catch (_: Exception) {
+                                    dataPreview = "data=[base64 decode error]"
+                                }
+                            } else if (dataField is org.json.JSONArray) {
+                                val dataArray = dataField
+                                dataLen = dataArray.length()
+                                val previewLen = minOf(8, dataLen)
+                                val previewBytes = (0 until previewLen).joinToString(" ") { idx ->
+                                    val v = dataArray.getInt(idx)
+                                    v.toUByte().toString(16).padStart(2, '0')
+                                }
+                                dataPreview = "data[0..${previewLen - 1}]=[$previewBytes] (array)"
+                                byteArray = ByteArray(dataLen)
+                                for (i in 0 until dataLen) {
+                                    byteArray[i] = dataArray.getInt(i).toByte()
+                                }
+                            } else {
+                                dataPreview = "data=[]"
+                            }
+                            if (width > 0 && height > 0 && byteArray != null && (encoding == "rgb8" || encoding == "bgr8")) {
+                                val bitmap = if (encoding == "rgb8") {
+                                    decodeRgb8ToBitmap(byteArray, width, height)
+                                } else {
+                                    decodeBgr8ToBitmap(byteArray, width, height)
+                                }
+                                runOnUiThread {
+                                    imageView?.setImageBitmap(bitmap)
+                                }
+                            }
+                            appendLogLine("RECEIVED: [$topic] sensor_msgs/msg/Image: width=$width, height=$height, encoding=$encoding, $dataPreview, data.length=$dataLen")
                         } else {
                             appendLogLine("RECEIVED: [${topic}] ${msg}")
                         }
@@ -307,11 +394,10 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
 
-            // Append a line to the log buffer, trim to max lines, and mark dirty for UI update
             private fun appendLogLine(line: String) {
+                val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
                 synchronized(logBuffer) {
-                    logBuffer.insert(0, line + "\n")
-                    // Trim to maxLogLines
+                    logBuffer.insert(0, truncated + "\n")
                     var lines = 0
                     var idx = 0
                     while (idx < logBuffer.length && lines < maxLogLines) {
@@ -323,6 +409,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                     }
                     logDirty = true
                 }
+                rosViewModel.appendToMessageHistory(line)
             }
 
             override fun onError(error: String) {
@@ -333,6 +420,29 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
         }
         RosbridgeConnectionManager.addListener(rosbridgeListener!!)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (discoveredTopics.isNotEmpty() && topicAdapter != null) {
+            val subscribedSet = rosViewModel.subscribedTopics.value.map { it.first }.toSet()
+            topicAdapter!!.updateTopicsAndSubscribed(discoveredTopics, subscribedSet)
+        }
+        if (RosbridgeConnectionManager.isConnected && autoRefreshCheckBox.isChecked && autoRefreshJob == null) {
+            autoRefreshJob = lifecycleScope.launch {
+                val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
+                while (autoRefreshCheckBox.isChecked) {
+                    runOnUiThread { fetchTopicsButton.performClick() }
+                    delay(1500)
+                }
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        autoRefreshJob?.cancel()
+        autoRefreshJob = null
     }
 
     /*
