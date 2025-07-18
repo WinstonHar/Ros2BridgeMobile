@@ -26,7 +26,7 @@ data class RosBridgeTopic(val op: String, val id: String? = null, val topic: Str
 
 @Serializable
 data class RosBridgeServiceCall(
-    val op: String = "call_service",
+    val op: String,
     val id: String,
     val service: String,
     val type: String,
@@ -41,7 +41,7 @@ data class RosBridgeUnsubscribe(
 
 @Serializable
 data class RosBridgeAdvertise(
-    val op: String = "advertise",
+    val op: String,
     val id: String = "advertise_${System.currentTimeMillis()}",
     val topic: String,
     val type: String,
@@ -51,7 +51,7 @@ data class RosBridgeAdvertise(
 
 @Serializable
 data class RosBridgeAdvertiseService(
-    val op: String = "advertise_service",
+    val op: String,
     val id: String? = null,
     val service: String,
     val type: String
@@ -229,6 +229,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         sendToBridge("Service Call '$serviceName'") {
             Json.encodeToString(
                 RosBridgeServiceCall(
+                    op = "call_service",
                     id = id,
                     service = serviceName,
                     type = serviceType,
@@ -281,6 +282,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         sendToBridge("GetResult Service Call '$actionName'") {
             Json.encodeToString(
                 RosBridgeServiceCall(
+                    op = "call_service",
                     id = id,
                     service = names.getResultService,
                     type = names.getResultType,
@@ -308,6 +310,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
                 put("goal", goalFields)
             }
             val op = RosBridgeServiceCall(
+                op = "call_service",
                 id = "service_call_${System.currentTimeMillis()}",
                 service = names.sendGoalService,
                 type = names.sendGoalType,
@@ -487,6 +490,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     fun advertiseService(serviceName: String, serviceType: String) {
         sendToBridge("Advertise Service '$serviceName'") {
             val op = RosBridgeAdvertiseService(
+                op = "advertise_service",
                 id = "advertise_service_${System.currentTimeMillis()}",
                 service = serviceName,
                 type = serviceType
@@ -508,6 +512,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             sendToBridge("Call Service '$serviceName'") {
                 Json.encodeToString(
                     RosBridgeServiceCall(
+                        op = "call_service",
                         id = "service_call_${System.currentTimeMillis()}",
                         service = serviceName,
                         type = serviceType,
@@ -700,7 +705,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     */
     fun advertiseTopic(topicName: String, messageType: String) {
         sendToBridge("Advertise '$topicName'") {
-            Json.encodeToString(RosBridgeAdvertise(topic = topicName, type = messageType))
+            Json.encodeToString(RosBridgeAdvertise(op = "advertise", topic = topicName, type = messageType))
         }
     }
 
