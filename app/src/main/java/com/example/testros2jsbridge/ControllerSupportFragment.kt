@@ -285,7 +285,6 @@ class ControllerSupportFragment : Fragment() {
     private fun setupPresetManagementUI(root: View) {
         val presetSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_presets)
         val nameEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_name)
-        val topicEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_topic)
         val buttonSpinners = mapOf(
             "A" to root.findViewById<android.widget.Spinner>(R.id.spinner_abtn),
             "B" to root.findViewById<android.widget.Spinner>(R.id.spinner_bbtn),
@@ -343,7 +342,6 @@ class ControllerSupportFragment : Fragment() {
             if (safeIdx < presets.size) {
                 val preset = presets[safeIdx]
                 if (!nameEdit.hasFocus()) nameEdit.setText(preset.name)
-                if (!topicEdit.hasFocus()) topicEdit.setText(preset.topic)
                 val appActionNames = getAppActionNames()
                 buttonSpinners.forEach { (btnKey, spinner) ->
                     setupActionSpinner(spinner, appActionNames, preset.abxy[btnKey] ?: "")
@@ -354,7 +352,6 @@ class ControllerSupportFragment : Fragment() {
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
             preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
-            preset.topic = topicEdit.text.toString().ifEmpty { "" }
             saveControllerPresets(presets)
             updateUI()
         }
@@ -802,7 +799,7 @@ class ControllerSupportFragment : Fragment() {
         actions.add(
             AppAction(
                 displayName = "Cycle Presets",
-                topic = "",
+                topic = "/ignore", // Not used, safe default
                 type = "Set",
                 source = "Controller",
                 msg = ""

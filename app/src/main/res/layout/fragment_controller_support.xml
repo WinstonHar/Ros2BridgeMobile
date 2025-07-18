@@ -133,13 +133,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Preset Name" />
-        <EditText
-            android:id="@+id/edit_preset_topic"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Preset Topic (no effect)"
-            android:inputType="textUri"
-            android:layout_marginTop="8dp"/>
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

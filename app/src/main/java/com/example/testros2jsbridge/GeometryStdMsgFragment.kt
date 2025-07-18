@@ -239,14 +239,14 @@ class GeometryStdMsgFragment : Fragment() {
         }
         parentLayout.addView(savedButtonsLayout)
 
-        // Add topic input (no default value)
+        val prefs = requireContext().getSharedPreferences(PERSIST_PREFS, Context.MODE_PRIVATE)
+
+        // Add topic input field
         val topicLayout = TextInputLayout(requireContext(), null, com.google.android.material.R.style.Widget_Material3_TextInputLayout_OutlinedBox)
         topicLayout.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         topicLayout.hint = "Topic Name"
         topicEditText = TextInputEditText(requireContext())
         topicEditText.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        // Restore topic if present
-        val prefs = requireContext().getSharedPreferences(PERSIST_PREFS, Context.MODE_PRIVATE)
         topicEditText.setText(prefs.getString(KEY_TOPIC, "/"))
         topicLayout.addView(topicEditText)
         parentLayout.addView(topicLayout, 0)
