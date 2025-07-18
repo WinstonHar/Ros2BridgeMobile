@@ -571,148 +571,148 @@ class GeometryStdMsgFragment : Fragment() {
         layout.removeAllViews()
         when (type) {
             "Accel" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
             }
             "AccelStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
             }
             "AccelWithCovariance" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "AccelWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "Inertia" -> {
-                layout.addView(createFloatField(inflater, layout, "m (mass, float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "com (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixx (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixy (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixz (float64)"))
-                layout.addView(createFloatField(inflater, layout, "iyy (float64)"))
-                layout.addView(createFloatField(inflater, layout, "iyz (float64)"))
-                layout.addView(createFloatField(inflater, layout, "izz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "m (mass)", "m (mass)"))
+                layout.addView(createVector3Fields(inflater, layout, "com"))
+                layout.addView(createFloatField(inflater, layout, "ixx", "ixx"))
+                layout.addView(createFloatField(inflater, layout, "ixy", "ixy"))
+                layout.addView(createFloatField(inflater, layout, "ixz", "ixz"))
+                layout.addView(createFloatField(inflater, layout, "iyy", "iyy"))
+                layout.addView(createFloatField(inflater, layout, "iyz", "iyz"))
+                layout.addView(createFloatField(inflater, layout, "izz", "izz"))
             }
             "InertiaStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createFloatField(inflater, layout, "m (mass, float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "com (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixx (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixy (float64)"))
-                layout.addView(createFloatField(inflater, layout, "ixz (float64)"))
-                layout.addView(createFloatField(inflater, layout, "iyy (float64)"))
-                layout.addView(createFloatField(inflater, layout, "iyz (float64)"))
-                layout.addView(createFloatField(inflater, layout, "izz (float64)"))
+                layout.addView(createFloatField(inflater, layout, "m (mass)", "m (mass)"))
+                layout.addView(createVector3Fields(inflater, layout, "com"))
+                layout.addView(createFloatField(inflater, layout, "ixx", "ixx"))
+                layout.addView(createFloatField(inflater, layout, "ixy", "ixy"))
+                layout.addView(createFloatField(inflater, layout, "ixz", "ixz"))
+                layout.addView(createFloatField(inflater, layout, "iyy", "iyy"))
+                layout.addView(createFloatField(inflater, layout, "iyz", "iyz"))
+                layout.addView(createFloatField(inflater, layout, "izz", "izz"))
             }
             "Point" -> {
-                layout.addView(createFloatField(inflater, layout, "x (float64)"))
-                layout.addView(createFloatField(inflater, layout, "y (float64)"))
-                layout.addView(createFloatField(inflater, layout, "z (float64)"))
+                layout.addView(createFloatField(inflater, layout, "x", "x"))
+                layout.addView(createFloatField(inflater, layout, "y", "y"))
+                layout.addView(createFloatField(inflater, layout, "z", "z"))
             }
             "Point32" -> {
-                layout.addView(createFloatField(inflater, layout, "x (float32)"))
-                layout.addView(createFloatField(inflater, layout, "y (float32)"))
-                layout.addView(createFloatField(inflater, layout, "z (float32)"))
+                layout.addView(createFloatField(inflater, layout, "x (float32)", "x (float32)"))
+                layout.addView(createFloatField(inflater, layout, "y (float32)", "y (float32)"))
+                layout.addView(createFloatField(inflater, layout, "z (float32)", "z (float32)"))
             }
             "PointStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createFloatField(inflater, layout, "x (float64)"))
-                layout.addView(createFloatField(inflater, layout, "y (float64)"))
-                layout.addView(createFloatField(inflater, layout, "z (float64)"))
+                layout.addView(createFloatField(inflater, layout, "x", "x"))
+                layout.addView(createFloatField(inflater, layout, "y", "y"))
+                layout.addView(createFloatField(inflater, layout, "z", "z"))
             }
             "Polygon" -> {
-                layout.addView(createPoint32ArrayFields(inflater, layout, "points (float32)"))
+                layout.addView(createPoint32ArrayFields(inflater, layout, "points"))
             }
             "PolygonStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPoint32ArrayFields(inflater, layout, "points (float32)"))
+                layout.addView(createPoint32ArrayFields(inflater, layout, "points"))
             }
             "Pose" -> {
-                layout.addView(createPointFields(inflater, layout, "position (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
+                layout.addView(createPointFields(inflater, layout, "position"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
             }
             "PoseArray" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPoseArrayFields(inflater, layout, "poses (float64)"))
+                layout.addView(createPoseArrayFields(inflater, layout, "poses"))
             }
             "PoseStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPointFields(inflater, layout, "position (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
+                layout.addView(createPointFields(inflater, layout, "position"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
             }
             "PoseWithCovariance" -> {
-                layout.addView(createPointFields(inflater, layout, "position (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createPointFields(inflater, layout, "position"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "PoseWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createPointFields(inflater, layout, "position (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "orientation (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createPointFields(inflater, layout, "position"))
+                layout.addView(createQuaternionFields(inflater, layout, "orientation"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "Quaternion" -> {
-                layout.addView(createFloatField(inflater, layout, "x (float64)"))
-                layout.addView(createFloatField(inflater, layout, "y (float64)"))
-                layout.addView(createFloatField(inflater, layout, "z (float64)"))
-                layout.addView(createFloatField(inflater, layout, "w (float64)"))
+                layout.addView(createFloatField(inflater, layout, "x", "x"))
+                layout.addView(createFloatField(inflater, layout, "y", "y"))
+                layout.addView(createFloatField(inflater, layout, "z", "z"))
+                layout.addView(createFloatField(inflater, layout, "w", "w"))
             }
             "QuaternionStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createQuaternionFields(inflater, layout, "quaternion (float64)"))
+                layout.addView(createQuaternionFields(inflater, layout, "quaternion"))
             }
             "Transform" -> {
-                layout.addView(createVector3Fields(inflater, layout, "translation (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "rotation (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "translation"))
+                layout.addView(createQuaternionFields(inflater, layout, "rotation"))
             }
             "TransformStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createStringField(inflater, layout, "child_frame_id (string)"))
-                layout.addView(createVector3Fields(inflater, layout, "translation (float64)"))
-                layout.addView(createQuaternionFields(inflater, layout, "rotation (float64)"))
+                layout.addView(createStringField(inflater, layout, "child_frame_id", "child_frame_id"))
+                layout.addView(createVector3Fields(inflater, layout, "translation"))
+                layout.addView(createQuaternionFields(inflater, layout, "rotation"))
             }
             "Twist" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
             }
             "TwistStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
             }
             "TwistWithCovariance" -> {
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "TwistWithCovarianceStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "linear (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "angular (float64)"))
-                layout.addView(createCovarianceFields(inflater, layout, "covariance (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "linear"))
+                layout.addView(createVector3Fields(inflater, layout, "angular"))
+                layout.addView(createCovarianceFields(inflater, layout, "covariance"))
             }
             "Vector3" -> {
-                layout.addView(createVector3Fields(inflater, layout, "(float64)"))
+                layout.addView(createVector3Fields(inflater, layout, ""))
             }
             "Vector3Stamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "vector (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "vector"))
             }
             "Wrench" -> {
-                layout.addView(createVector3Fields(inflater, layout, "force (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "torque (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "force"))
+                layout.addView(createVector3Fields(inflater, layout, "torque"))
             }
             "WrenchStamped" -> {
                 layout.addView(createHeaderFields(inflater, layout))
-                layout.addView(createVector3Fields(inflater, layout, "force (float64)"))
-                layout.addView(createVector3Fields(inflater, layout, "torque (float64)"))
+                layout.addView(createVector3Fields(inflater, layout, "force"))
+                layout.addView(createVector3Fields(inflater, layout, "torque"))
             }
         }
     }
@@ -725,13 +725,16 @@ class GeometryStdMsgFragment : Fragment() {
     private fun createVector3Fields(inflater: LayoutInflater, parent: ViewGroup, label: String): View {
         val group = LinearLayout(requireContext())
         group.orientation = LinearLayout.VERTICAL
-        val prefix = if (label.isNotEmpty()) "$label " else ""
+        // Show type in hint, use simple tag for lookup
+        val xHint = if (label.isNotEmpty()) "$label x (float64)" else "x (float64)"
+        val yHint = if (label.isNotEmpty()) "$label y (float64)" else "y (float64)"
+        val zHint = if (label.isNotEmpty()) "$label z (float64)" else "z (float64)"
         val xTag = if (label.isNotEmpty()) "${label}_x" else "x"
         val yTag = if (label.isNotEmpty()) "${label}_y" else "y"
         val zTag = if (label.isNotEmpty()) "${label}_z" else "z"
-        val xLayout = createFloatField(inflater, group, "$prefix x", xTag)
-        val yLayout = createFloatField(inflater, group, "$prefix y", yTag)
-        val zLayout = createFloatField(inflater, group, "$prefix z", zTag)
+        val xLayout = createFloatField(inflater, group, xHint, xTag)
+        val yLayout = createFloatField(inflater, group, yHint, yTag)
+        val zLayout = createFloatField(inflater, group, zHint, zTag)
         group.addView(xLayout)
         group.addView(yLayout)
         group.addView(zLayout)
@@ -755,15 +758,19 @@ class GeometryStdMsgFragment : Fragment() {
     private fun createQuaternionFields(inflater: LayoutInflater, parent: ViewGroup, label: String): View {
         val group = LinearLayout(requireContext())
         group.orientation = LinearLayout.VERTICAL
-        val prefix = if (label.isNotEmpty()) "$label " else ""
+        // Show type in hint, use simple tag for lookup
+        val xHint = if (label.isNotEmpty()) "$label x (float64)" else "x (float64)"
+        val yHint = if (label.isNotEmpty()) "$label y (float64)" else "y (float64)"
+        val zHint = if (label.isNotEmpty()) "$label z (float64)" else "z (float64)"
+        val wHint = if (label.isNotEmpty()) "$label w (float64)" else "w (float64)"
         val xTag = if (label.isNotEmpty()) "${label}_x" else "x"
         val yTag = if (label.isNotEmpty()) "${label}_y" else "y"
         val zTag = if (label.isNotEmpty()) "${label}_z" else "z"
         val wTag = if (label.isNotEmpty()) "${label}_w" else "w"
-        val xLayout = createFloatField(inflater, group, "$prefix x", xTag)
-        val yLayout = createFloatField(inflater, group, "$prefix y", yTag)
-        val zLayout = createFloatField(inflater, group, "$prefix z", zTag)
-        val wLayout = createFloatField(inflater, group, "$prefix w", wTag)
+        val xLayout = createFloatField(inflater, group, xHint, xTag)
+        val yLayout = createFloatField(inflater, group, yHint, yTag)
+        val zLayout = createFloatField(inflater, group, zHint, zTag)
+        val wLayout = createFloatField(inflater, group, wHint, wTag)
         group.addView(xLayout)
         group.addView(yLayout)
         group.addView(zLayout)
@@ -908,7 +915,7 @@ class GeometryStdMsgFragment : Fragment() {
         val group = LinearLayout(requireContext())
         group.orientation = LinearLayout.VERTICAL
         for (i in 0 until 36) {
-            group.addView(createFloatField(inflater, group, "$label[$i]", "$label$i"))
+            group.addView(createFloatField(inflater, group, "$label[$i] (float64)", "$label$i"))
         }
         return group
     }

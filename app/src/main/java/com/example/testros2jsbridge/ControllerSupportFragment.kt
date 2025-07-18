@@ -226,6 +226,7 @@ class ControllerSupportFragment : Fragment() {
     // --- Controller Preset System (Refactored) ---
     data class ControllerPreset(
         var name: String = "Preset",
+        var topic: String = "",
         var abxy: Map<String, String> = mapOf(
             "A" to "",
             "B" to "",
@@ -244,6 +245,7 @@ class ControllerSupportFragment : Fragment() {
         saveListToPrefs(requireContext(), PREFS_CONTROLLER_PRESETS, "presets", presets) { preset ->
             JSONObject().apply {
                 put("name", preset.name)
+                put("topic", preset.topic)
                 put("abxy", JSONObject(preset.abxy as Map<*, *>))
             }
         }
@@ -262,10 +264,14 @@ class ControllerSupportFragment : Fragment() {
                     abxyMap[key] = abxyObj.getString(key)
                 }
             }
-            ControllerPreset(obj.optString("name", "Preset"), abxyMap)
+            ControllerPreset(
+                name = obj.optString("name", "Preset"),
+                topic = obj.optString("topic", ""),
+                abxy = abxyMap
+            )
         }
         if (list.isEmpty()) {
-            list.add(ControllerPreset("Default", mapOf("A" to "", "B" to "", "X" to "", "Y" to "")))
+            list.add(ControllerPreset("Default", "/cmd_vel", mapOf("A" to "", "B" to "", "X" to "", "Y" to "")))
         }
         return list
     }
@@ -279,6 +285,7 @@ class ControllerSupportFragment : Fragment() {
     private fun setupPresetManagementUI(root: View) {
         val presetSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_presets)
         val nameEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_name)
+        val topicEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_topic)
         val buttonSpinners = mapOf(
             "A" to root.findViewById<android.widget.Spinner>(R.id.spinner_abtn),
             "B" to root.findViewById<android.widget.Spinner>(R.id.spinner_bbtn),
@@ -336,6 +343,7 @@ class ControllerSupportFragment : Fragment() {
             if (safeIdx < presets.size) {
                 val preset = presets[safeIdx]
                 if (!nameEdit.hasFocus()) nameEdit.setText(preset.name)
+                if (!topicEdit.hasFocus()) topicEdit.setText(preset.topic)
                 val appActionNames = getAppActionNames()
                 buttonSpinners.forEach { (btnKey, spinner) ->
                     setupActionSpinner(spinner, appActionNames, preset.abxy[btnKey] ?: "")
@@ -346,6 +354,7 @@ class ControllerSupportFragment : Fragment() {
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
             preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
+            preset.topic = topicEdit.text.toString().ifEmpty { "" }
             saveControllerPresets(presets)
             updateUI()
         }
@@ -374,7 +383,6 @@ class ControllerSupportFragment : Fragment() {
         }
         saveBtn.setOnClickListener {
             saveCurrentPreset()
-            android.widget.Toast.makeText(requireContext(), "Preset saved", android.widget.Toast.LENGTH_SHORT).show()
         }
 
         buttonSpinners.forEach { (btnKey, spinner) ->
@@ -790,6 +798,16 @@ class ControllerSupportFragment : Fragment() {
         } catch (e: Exception) {
             android.util.Log.e("ControllerSupport", "Error loading custom_publishers_prefs:custom_publishers", e)
         }
+        //Add Cycle Presets action
+        actions.add(
+            AppAction(
+                displayName = "Cycle Presets",
+                topic = "",
+                type = "Set",
+                source = "Controller",
+                msg = ""
+            )
+        )
         return actions
     }
 
@@ -947,8 +965,7 @@ class ControllerSupportFragment : Fragment() {
         }
     }
 
-    // --- Trigger App Action (Refactored) ---
-    // CORRECTED triggerAppAction
+    // --- Trigger App Action ---
     private fun triggerAppAction(action: AppAction) {
         // Helper to get the default message if the action's message is empty
         fun getDefaultMessage(action: AppAction): String {
@@ -987,6 +1004,14 @@ class ControllerSupportFragment : Fragment() {
             "Geometry", "Standard Message", "Custom Protocol" -> {
                 val message = action.msg.ifEmpty { getDefaultMessage(action) }
                 publishRosAction(action.topic, action.type, message)
+            }
+            "CyclePreset" -> {
+                val presets = loadControllerPresets()
+                val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
+                val currentIdx = prefs.getInt("selected_preset_idx", 0)
+                val nextIdx = if (presets.isNotEmpty()) (currentIdx + 1) % presets.size else 0
+                prefs.edit { putInt("selected_preset_idx", nextIdx) }
+                android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(nextIdx)?.name}")
             }
             else -> android.util.Log.d(TAG, "Triggered unknown action source: ${action.source}")
         }
