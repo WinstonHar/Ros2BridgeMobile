@@ -22,6 +22,11 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
 
     private val _selectedSliderIndex = MutableStateFlow(0)
     
+    /*
+        input:    sliderStates - List<SliderState>
+        output:   None
+        remarks:  Sets the list of sliders, snapping values to valid steps and ranges.
+    */
     fun setSliders(sliderStates: List<SliderState>) {
         fun snapValue(min: Float, step: Float, value: Float): Float {
             if (step <= 0f) return value
@@ -36,12 +41,22 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
         _sliders.value = snappedSliders
     }
 
+    /*
+        input:    index - Int
+        output:   None
+        remarks:  Selects the slider at the given index if valid.
+    */
     fun selectSlider(index: Int) {
         if (index in _sliders.value.indices) {
             _selectedSliderIndex.value = index
         }
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Increments the value of the currently selected slider by its step size.
+    */
     fun incrementSelectedSlider() {
         val idx = _selectedSliderIndex.value
         val slidersList = _sliders.value.toMutableList()
@@ -53,6 +68,11 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Decrements the value of the currently selected slider by its step size.
+    */
     fun decrementSelectedSlider() {
         val idx = _selectedSliderIndex.value
         val slidersList = _sliders.value.toMutableList()
@@ -64,5 +84,10 @@ class SliderControllerViewModel(application: Application) : AndroidViewModel(app
         }
     }
 
+    /*
+        input:    None
+        output:   SliderState? (nullable)
+        remarks:  Returns the currently selected slider state, or null if none is selected.
+    */
     fun getSelectedSlider(): SliderState? = _sliders.value.getOrNull(_selectedSliderIndex.value)
 }

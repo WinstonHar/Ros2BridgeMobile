@@ -24,30 +24,35 @@ class GeometryStdMsgFragment : Fragment() {
     private val KEY_TOPIC = "topic"
     private val KEY_TYPE = "type"
     private val KEY_FIELDS = "fields_json"
+
     /*
         input:    type - String, layout - LinearLayout
         output:   Null if valid, or error message String if invalid
         remarks:  Validates user input for geometry_msgs message fields
     */
     private fun validateGeometryMsgInput(type: String, layout: LinearLayout): String? {
+
         /*
             input:    s - String
             output:   Boolean
             remarks:  Checks if the string can be parsed as a float
         */
         fun isFloat(s: String) = s.toFloatOrNull() != null
+
         /*
             input:    s - String
             output:   Boolean
             remarks:  Checks if the string can be parsed as an integer
         */
         fun isInt(s: String) = s.toIntOrNull() != null
+
         /*
             input:    s - String
             output:   Boolean
             remarks:  Checks if the string can be parsed as a long
         */
         fun isLong(s: String) = s.toLongOrNull() != null
+
         /*
             input:    prefix - String (optional)
             output:   Null if valid, or error message String if invalid
@@ -60,6 +65,7 @@ class GeometryStdMsgFragment : Fragment() {
             if (!isFloat(x) || !isFloat(y) || !isFloat(z)) return "All Vector3 fields must be floats (x, y, z)"
             return null
         }
+
         /*
             input:    prefix - String (optional)
             output:   Null if valid, or error message String if invalid
@@ -73,6 +79,7 @@ class GeometryStdMsgFragment : Fragment() {
             if (!isFloat(x) || !isFloat(y) || !isFloat(z) || !isFloat(w)) return "All Quaternion fields must be floats (x, y, z, w)"
             return null
         }
+
         /*
             input:    label - String (default "covariance")
             output:   Null if valid, or error message String if invalid
@@ -85,6 +92,7 @@ class GeometryStdMsgFragment : Fragment() {
             }
             return null
         }
+
         /*
             input:    label - String (default "points")
             output:   Null if valid, or error message String if invalid
@@ -99,6 +107,7 @@ class GeometryStdMsgFragment : Fragment() {
             }
             return null
         }
+
         /*
             input:    label - String (default "poses")
             output:   Null if valid, or error message String if invalid
@@ -113,19 +122,20 @@ class GeometryStdMsgFragment : Fragment() {
             }
             return null
         }
+
         /*
             input:    tag - String
             output:   Null if valid, or error message String if invalid
             remarks:  Validates that the field is a float
         */
         fun checkFloatField(tag: String): String? = if (!isFloat(getValue(layout, tag))) "$tag must be a float" else null
+        
         /*
             input:    tag - String
             output:   Null if valid, or error message String if invalid
             remarks:  Validates that the field is an integer
         */
         fun checkIntField(tag: String): String? = if (!isInt(getValue(layout, tag))) "$tag must be an integer" else null
-        // Add more as needed for new types
         return when (type) {
             // Acceleration
             "Accel" -> checkVector3("linear") ?: checkVector3("angular")
@@ -192,6 +202,7 @@ class GeometryStdMsgFragment : Fragment() {
         // Wrench
         "Wrench", "WrenchStamped"
     )
+
     /*
         input:    label - String, topic - String, type - String, message - String
         output:   None
@@ -199,7 +210,6 @@ class GeometryStdMsgFragment : Fragment() {
     */
     data class ReusableMsgButton(val label: String, val topic: String, val type: String, val message: String)
     private val savedMessages = mutableListOf<ReusableMsgButton>()
-    // Persist advertised topics for the fragment session
     private val advertisedTopics = mutableSetOf<String>()
     private var savedButtonsLayout: LinearLayout? = null
     private lateinit var topicEditText: TextInputEditText
@@ -283,6 +293,11 @@ class GeometryStdMsgFragment : Fragment() {
             prefs.edit().putString(KEY_FIELDS, gson.toJson(map)).apply()
         }
 
+        /*
+            input:    layout - LinearLayout, json - String?
+            output:   None
+            remarks:  Restores EditText field values from a JSON string mapping tags to values.
+        */
         fun restoreFieldsFromPrefs(layout: LinearLayout, json: String?) {
             if (json == null) return
             val map: Map<String, String> = try { gson.fromJson(json, object : TypeToken<Map<String, String>>() {}.type) } catch (_: Exception) { emptyMap() }
@@ -361,7 +376,6 @@ class GeometryStdMsgFragment : Fragment() {
         }
         attachWatcher(dynamicFieldsLayout)
 
-        // Load persistent reusable buttons
         loadSavedButtons()
         refreshSavedButtons()
 
@@ -424,9 +438,18 @@ class GeometryStdMsgFragment : Fragment() {
             }
         }
 
-    // Helper to build message with default 0.0/0 for empty fields (for saving only)
+    /*
+        input:    type - String, layout - LinearLayout
+        output:   String (JSON message with default values for empty fields)
+        remarks:  Builds a geometry_msgs message JSON string, filling empty fields with defaults (0.0 for floats, 0 for ints).
+    */
     fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
-        // Helper to get value or default for float/int
+
+        /*
+            input:    tag - String, isFloat - Boolean
+            output:   String (field value or default)
+            remarks:  Returns the value of the EditText with the given tag, or a default (0.0/0) if empty. Throws if invalid type.
+        */
         fun getOrDefault(tag: String, isFloat: Boolean): String {
             val editText = layout.findViewWithTag<EditText>(tag)
             val value = editText?.text?.toString()?.trim()
@@ -446,25 +469,61 @@ class GeometryStdMsgFragment : Fragment() {
                 return value
             }
         }
+        
+        /*
+            input:    prefix - String (optional)
+            output:   String (JSON fragment for Vector3)
+            remarks:  Builds a JSON fragment for a Vector3 from EditText fields.
+        */
         fun vector3(prefix: String = ""): String =
             "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
             "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
             "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true)
+        
+        /*
+            input:    prefix - String (optional)
+            output:   String (JSON fragment for Quaternion)
+            remarks:  Builds a JSON fragment for a Quaternion from EditText fields.
+        */
         fun quaternion(prefix: String = ""): String =
             "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
             "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
             "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true) + "," +
             "\"w\":" + getOrDefault(if (prefix.isEmpty()) "w" else "${prefix}_w", true)
+        
+        /*
+            input:    None
+            output:   String (JSON fragment for header)
+            remarks:  Builds a JSON fragment for a header from EditText fields.
+        */
         fun header(): String =
             "\"frame_id\":\"" + getOrDefault("header_frame_id", false) + "\""
+
+        /*
+            input:    label - String (default "points")
+            output:   String (JSON array for Point32s)
+            remarks:  Builds a JSON array for 3 Point32s from EditText fields.
+        */
         fun point32Array(label: String = "points"): String =
             (0 until 3).joinToString(",") { i ->
                 "{\"x\":" + getOrDefault("${label}_${i}_x", true) + ",\"y\":" + getOrDefault("${label}_${i}_y", true) + ",\"z\":" + getOrDefault("${label}_${i}_z", true) + "}"
             }
+
+        /*
+            input:    label - String (default "poses")
+            output:   String (JSON array for Poses)
+            remarks:  Builds a JSON array for 2 Poses from EditText fields.
+        */
         fun poseArray(label: String = "poses"): String =
             (0 until 2).joinToString(",") { i ->
                 "{\"position\":{${vector3("${label}[$i] position")}},\"orientation\":{${quaternion("${label}[$i] orientation")}}}"
             }
+
+        /*
+            input:    label - String (default "covariance")
+            output:   String (JSON array for covariance)
+            remarks:  Builds a JSON array for 36 covariance values from EditText fields.
+        */
         fun covarianceArray(label: String = "covariance"): String =
             (0 until 36).joinToString(",") { getOrDefault("$label$it", true) }
         return when (type) {
@@ -903,7 +962,6 @@ class GeometryStdMsgFragment : Fragment() {
         output:   String (JSON message for the given geometry_msgs type)
         remarks:  Serializes the input fields into a JSON string for the selected geometry_msgs type. Includes inner helpers for each message structure.
     */
-    // Generic message builder to reduce redundancy
     fun buildMessage(
         type: String,
         layout: LinearLayout,
@@ -963,10 +1021,20 @@ class GeometryStdMsgFragment : Fragment() {
         }
     }
 
+    /*
+        input:    type - String, layout - LinearLayout
+        output:   String (JSON message for the given geometry_msgs type)
+        remarks:  Serializes the input fields into a JSON string for the selected geometry_msgs type using getValue.
+    */
     private fun buildMessageFromFields(type: String, layout: LinearLayout): String {
         return buildMessage(type, layout) { tag, isFloat -> getValue(layout, tag) }
     }
 
+    /*
+        input:    type - String, layout - LinearLayout
+        output:   String (JSON message with default values for empty fields)
+        remarks:  Serializes the input fields into a JSON string for the selected geometry_msgs type using getOrDefault.
+    */
     private fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
         fun getOrDefault(tag: String, isFloat: Boolean): String {
             val editText = layout.findViewWithTag<EditText>(tag)

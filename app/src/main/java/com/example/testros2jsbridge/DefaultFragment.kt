@@ -32,7 +32,6 @@ class DefaultFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Use application context for ViewModelProvider to get application-scoped ViewModel
         rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
         val view = inflater.inflate(R.layout.activity_default, container, false)
         advertiseButton = view.findViewById(R.id.button_advertise)

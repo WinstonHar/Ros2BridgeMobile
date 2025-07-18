@@ -18,7 +18,6 @@ import android.content.Context
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
 import com.example.testros2jsbridge.CustomProtocolsViewModel
 
 /*
@@ -27,20 +26,28 @@ import com.example.testros2jsbridge.CustomProtocolsViewModel
 */
 
 class ImportCustomProtocolsFragment : Fragment() {
-    // Track advertised actions and services to ensure idempotency
+    
     private val advertisedActions = mutableSetOf<String>()
     private val advertisedServices = mutableSetOf<String>()
 
+    /*
+        input:    savedInstanceState - Bundle?
+        output:   None
+        remarks:  Called when the fragment is created; sets up ROS disconnect handler.
+    */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Clear advertised sets when rosbridge disconnects
         rosViewModel.onRosbridgeDisconnected = {
             advertisedActions.clear()
             advertisedServices.clear()
         }
     }
 
-    // Helper to format JSON values: quote strings, leave numbers/bools/null as is
+    /*
+        input:    value - String
+        output:   String
+        remarks:  Formats a JSON value, quoting strings and leaving numbers/bools/null as is.
+    */
     private fun formatJsonValue(value: String): String {
         return if (value.matches(Regex("^-?\\d+(\\.\\d+)?$")) ||
             value.equals("true", ignoreCase = true) ||
@@ -75,6 +82,11 @@ class ImportCustomProtocolsFragment : Fragment() {
     private val savedActions = mutableListOf<SavedCustomProtocolAction>()
     private var savedActionsLayout: LinearLayout? = null
 
+    /*
+        input:    inflater - LayoutInflater, container - ViewGroup?, savedInstanceState - Bundle?
+        output:   View?
+        remarks:  Inflates the fragment view and sets up protocol import UI.
+    */
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -255,6 +267,12 @@ class ImportCustomProtocolsFragment : Fragment() {
         }
         // Update config fields when dropdown selection changes
         dropdown.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            
+            /*
+                input:    parent - AdapterView<*>, view - View?, position - Int, id - Long
+                output:   None
+                remarks:  Called when a protocol is selected in the dropdown; updates config fields.
+            */
             override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                 val allProtocols = viewModel.actions.value + viewModel.messages.value + viewModel.services.value
                 val selectedProtocols = allProtocols.filter { viewModel.selected.value.contains(it.importPath) }
@@ -262,6 +280,12 @@ class ImportCustomProtocolsFragment : Fragment() {
                     showConfigFields(configFields, selectedProtocols[position])
                 }
             }
+
+            /*
+                input:    parent - AdapterView<*>
+                output:   None
+                remarks:  Called when no protocol is selected in the dropdown; clears config fields.
+            */
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
                 configFields.removeAllViews()
             }
@@ -284,7 +308,11 @@ class ImportCustomProtocolsFragment : Fragment() {
         return root
     }
 
-    // Show configuration fields for a selected protocol (supports .msg, .srv, .action)
+    /*
+        input:    container - LinearLayout, proto - ProtocolFile, prefill - Map<String, String>?
+        output:   None
+        remarks:  Shows configuration fields for a selected protocol (.msg, .srv, .action).
+    */
     private fun showConfigFields(container: LinearLayout, proto: CustomProtocolsViewModel.ProtocolFile, prefill: Map<String, String>? = null) {
         container.removeAllViews()
         val context = requireContext()
@@ -302,7 +330,11 @@ class ImportCustomProtocolsFragment : Fragment() {
         container.addView(typeView)
         container.addView(importView)
 
-        // Helper to parse .msg, .srv, .action files and split by section
+        /*
+            input:    importPath - String, type - ProtocolType
+            output:   Map<String, List<Triple<String, String, String?>>>
+            remarks:  Parses .msg, .srv, .action files and splits by section.
+        */
         fun parseFieldsBySection(importPath: String, type: CustomProtocolsViewModel.ProtocolType): Map<String, List<Triple<String, String, String?>>> {
             val sections = mutableMapOf<String, MutableList<Triple<String, String, String?>>>()
             var currentSection = when (type) {
@@ -517,6 +549,11 @@ class ImportCustomProtocolsFragment : Fragment() {
         container.addView(buttonLayout)
     }
 
+    /*
+        input:    actions - List<CustomProtocolAction>
+        output:   None
+        remarks:  Refreshes the UI for all saved custom protocol actions.
+    */
     private fun refreshSavedActions(actions: List<RosViewModel.CustomProtocolAction>) {
         savedActionsLayout?.let { layout ->
             layout.removeAllViews()
@@ -694,6 +731,12 @@ class ImportCustomProtocolsFragment : Fragment() {
                 layout.addView(row)
                 layout.addView(resultLayout)
             }
+            
+            /*
+                input:    None
+                output:   None
+                remarks:  Button to force clear all busy locks for actions and services.
+            */
             val forceClearBtnGlobal = android.widget.Button(requireContext()).apply {
                 text = "Force Clear"
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)

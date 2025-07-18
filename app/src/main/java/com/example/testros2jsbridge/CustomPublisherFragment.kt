@@ -87,7 +87,6 @@ class CustomPublisherFragment : Fragment() {
             }
             "Empty" -> null
             "String" -> null
-            // MultiArray types: expect comma-separated values
             "Float32MultiArray", "Float64MultiArray" -> {
                 val arr = userInput.split(",").map { it.trim() }
                 if (arr.isEmpty() || arr.any { it.isNotEmpty() && it.toDoubleOrNull() == null }) "Input must be comma-separated floats (e.g. 1.0,2.0,3.0)"
@@ -171,7 +170,6 @@ class CustomPublisherFragment : Fragment() {
                 """{"data": ${Gson().toJson(userInput)}}"""
             }
             "ColorRGBA" -> {
-                // Expect input as r,g,b,a (floats)
                 val parts = userInput.split(",").map { it.trim().toFloatOrNull() ?: 0f }
                 val (r, g, b, a) = (parts + List(4) { 0f }).take(4)
                 """{"r":$r,"g":$g,"b":$b,"a":$a}"""
@@ -179,7 +177,6 @@ class CustomPublisherFragment : Fragment() {
             "Empty" -> {
                 "{}"
             }
-            // MultiArray types: expect comma-separated values
             "Float32MultiArray", "Float64MultiArray" -> {
                 val arr = userInput.split(",").mapNotNull { it.trim().toDoubleOrNull() }
                 """{"data": $arr}"""
@@ -193,11 +190,9 @@ class CustomPublisherFragment : Fragment() {
                 """{"data": $arr}"""
             }
             "Header" -> {
-                // Only frame_id supported for now
                 """{"frame_id": ${Gson().toJson(userInput)}}"""
             }
             "MultiArrayDimension" -> {
-                // Expect input as label,size,stride
                 val parts = userInput.split(",")
                 val label = if (parts.isNotEmpty()) Gson().toJson(parts[0].trim()) else "\"\""
                 val size = parts.getOrNull(1)?.toIntOrNull() ?: 0
@@ -205,11 +200,9 @@ class CustomPublisherFragment : Fragment() {
                 """{"label":$label,"size":$size,"stride":$stride}"""
             }
             "MultiArrayLayout" -> {
-                // Not fully supported, just pass as string for now
                 """{"dim":[],"data_offset":0}"""
             }
             else -> {
-                // Fallback: treat as string
                 """{"data": ${Gson().toJson(userInput)}}"""
             }
         }
@@ -236,13 +229,11 @@ class CustomPublisherFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Use application context for ViewModelProvider to get application-scoped ViewModel
         rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
 
         val view = inflater.inflate(R.layout.activity_custom_publisher, container, false)
 
         val topicEditText = view.findViewById<TextInputEditText>(R.id.edittext_topic)
-        // Prefill the topic input with a forward slash
         topicEditText.setText("/")
         val messageEditText = view.findViewById<TextInputEditText>(R.id.edittext_message)
         val addPublisherButton = view.findViewById<Button>(R.id.button_add_publisher)
@@ -284,7 +275,6 @@ class CustomPublisherFragment : Fragment() {
                     .show()
                 return@setOnClickListener
             }
-            // Only add the button, do not publish or advertise
             val newPublisher = RosViewModel.CustomPublisher(topic, messageType, userInput)
             val updated = rosViewModel.customPublishers.value + newPublisher
             rosViewModel.setCustomPublishers(updated)
@@ -292,9 +282,7 @@ class CustomPublisherFragment : Fragment() {
             messageEditText.text?.clear()
         }
 
-        // Observe the custom publishers and rebuild the buttons
         viewLifecycleOwner.lifecycleScope.launch {
-            // Track which topics have already been advertised in this session
             val advertisedTopics = mutableSetOf<String>()
             rosViewModel.customPublishers.collect { publishers ->
                 customButtonsLayout.removeAllViews()
@@ -363,7 +351,6 @@ class CustomPublisherFragment : Fragment() {
             val obj = org.json.JSONObject()
             obj.put("label", pub.topic)
             obj.put("topic", pub.topic)
-            // Save only the base type
             val baseType = pub.messageType.substringAfterLast('/')
             obj.put("type", baseType)
             obj.put("msg", pub.message)

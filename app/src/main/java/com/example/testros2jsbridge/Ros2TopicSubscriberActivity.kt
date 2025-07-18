@@ -31,12 +31,16 @@ import androidx.compose.runtime.getValue
 */
 
 class Ros2TopicSubscriberActivity : AppCompatActivity() {
-    // Helper to check if any image topic is subscribed
+    /*
+        input:    subs - List<Pair<String, String>>
+        output:   Boolean
+        remarks:  Checks if any image topic is subscribed.
+    */
     private fun isImageTopicSubscribed(subs: List<Pair<String, String>>): Boolean {
         return subs.any { it.second == "sensor_msgs/msg/Image" }
     }
+    
     private var autoRefreshJob: Job? = null
-    // Shared ViewModel for Compose log view (application-scoped)
     private val rosViewModel: RosViewModel by lazy {
         val app = application as MyApp
         androidx.lifecycle.ViewModelProvider(
@@ -72,7 +76,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private var discoveredTopics: List<Pair<String, String>> = emptyList()
     private var topicAdapter: TopicCheckboxAdapter? = null
 
-    // --- Bitmap decoding helpers for sensor_msgs/msg/Image ---
+    /*
+        input:    data - ByteArray, width - Int, height - Int
+        output:   Bitmap
+        remarks:  Decodes RGB8 image data to a Bitmap.
+    */
     private fun decodeRgb8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
         val pixels = IntArray(width * height)
         var i = 0
@@ -88,6 +96,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888)
     }
 
+    /*
+        input:    data - ByteArray, width - Int, height - Int
+        output:   Bitmap
+        remarks:  Decodes BGR8 image data to a Bitmap.
+    */
     private fun decodeBgr8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
         val pixels = IntArray(width * height)
         var i = 0
@@ -180,6 +193,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
         }
 
+        /*
+            input:    topics - List<Pair<String, String>>, subscribed - List<Pair<String, String>>
+            output:   None
+            remarks:  Updates the topic adapter with current subscriptions.
+        */
         fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
         val subscribedSet = subscribed.map { it.first }.toSet()
             if (topicAdapter == null) {
@@ -330,18 +348,36 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         }
 
         rosbridgeListener = object : RosbridgeConnectionManager.Listener {
+
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge connects; updates UI and button states.
+            */
             override fun onConnected() {
                 runOnUiThread {
                     logView.text = "Connected to rosbridge\n" + logView.text
                     updateButtonStates(true)
                 }
             }
+
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge disconnects; updates UI and button states.
+            */
             override fun onDisconnected() {
                 runOnUiThread {
                     logView.text = "Disconnected\n" + logView.text
                     updateButtonStates(false)
                 }
             }
+            
+            /*
+                input:    text - String
+                output:   None
+                remarks:  Called when a message is received from rosbridge; handles topic/service responses and updates UI/log.
+            */
             override fun onMessage(text: String) {
                 try {
                     val json = JSONObject(text)
@@ -452,6 +488,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
 
+            /*
+                input:    line - String
+                output:   None
+                remarks:  Appends a log line to the log buffer and updates the UI/log history.
+            */
             private fun appendLogLine(line: String) {
                 val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
                 synchronized(logBuffer) {
@@ -470,6 +511,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 rosViewModel.appendToMessageHistory(line)
             }
 
+            /*
+                input:    error - String
+                output:   None
+                remarks:  Called when a WebSocket error occurs; updates UI and button states.
+            */
             override fun onError(error: String) {
                 runOnUiThread {
                     logView.text = "WebSocket error: $error\n" + logView.text
@@ -480,6 +526,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         RosbridgeConnectionManager.addListener(rosbridgeListener!!)
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity resumes; updates topic adapter and auto-refresh job.
+    */
     override fun onResume() {
         super.onResume()
         if (discoveredTopics.isNotEmpty() && topicAdapter != null) {
@@ -497,6 +548,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         }
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity pauses; cancels auto-refresh job.
+    */
     override fun onPause() {
         super.onPause()
         autoRefreshJob?.cancel()

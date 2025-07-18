@@ -42,10 +42,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     private val _subscribedTopics = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
     val subscribedTopics: StateFlow<Set<Pair<String, String>>> = _subscribedTopics.asStateFlow()
 
-    /**
-     * Add a topic subscription (topic, type). Call this from the subscriber activity when user checks a topic.
-     * This will subscribe and keep the topic in the persistent set.
-     */
+    /*
+        input:    topic - String, type - String
+        output:   None
+        remarks:  Adds a topic subscription and subscribes immediately with a handler that appends to log.
+    */
     fun addSubscribedTopic(topic: String, type: String) {
         val newSet = _subscribedTopics.value + (topic to type)
         _subscribedTopics.value = newSet
@@ -53,10 +54,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
     }
 
-    /**
-     * Remove a topic subscription (topic, type). Call this from the subscriber activity when user unchecks a topic.
-     * This will remove the topic from the persistent set. (Unsubscribe logic can be added if needed)
-     */
+    /*
+        input:    topic - String, type - String
+        output:   None
+        remarks:  Removes a topic subscription and unsubscribes from the topic.
+    */
     fun removeSubscribedTopic(topic: String, type: String) {
         val newSet = _subscribedTopics.value - (topic to type)
         _subscribedTopics.value = newSet
@@ -67,19 +69,21 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         Log.d("RosViewModel", "Unsubscribed from topic: $topic ($type)")
     }
 
-    /**
-     * (Re-)subscribe to all topics in the persistent set, with a handler that appends to the log.
-     * Call this from MainActivity after connecting or resuming.
-     */
+    /*
+        input:    None
+        output:   None
+        remarks:  Resubscribes to all topics in the persistent set with a handler that appends to the log.
+    */
     fun resubscribeAllTopicsToLog() {
         for ((topic, type) in _subscribedTopics.value) {
             subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
         }
     }
-    /**
-     * Appends a message to the custom message history (for Compose log view).
-     * Call this from other activities to display received messages in the Compose log.
-     */
+    /*
+        input:    msg - String
+        output:   None
+        remarks:  Appends a message to the custom message history for Compose log view.
+    */
     fun appendToMessageHistory(msg: String) {
         // Truncate each log line to 300 characters to prevent UI lag
         val truncated = if (msg.length > 300) msg.take(300) + "... [truncated]" else msg
@@ -90,22 +94,22 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     private val lastServiceBusyMap = mutableMapOf<String, Boolean>() // serviceName -> busy
     private val pendingServiceRequestMap = mutableMapOf<String, Triple<String, String, (String) -> Unit>>() // serviceName -> (serviceType, requestJson, onResult)
 
-    /**
-     * Force clear the busy lock and queue for all services. This allows new service requests to be sent even if any previous one is stuck.
-     */
+    /*
+        input:    None
+        output:   None
+        remarks:  Force clears the busy lock and queue for all services.
+    */
     fun forceClearAllServiceBusyLocks() {
         lastServiceRequestIdMap.clear()
         lastServiceBusyMap.clear()
         pendingServiceRequestMap.clear()
     }
 
-    /**
-     * Robustly send or queue a service request. If a previous request is active, queue the new one until the previous is done.
-     * @param serviceName The ROS2 service name (e.g. /my_service)
-     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
-     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
-     * @param onResult Callback with the result JSON string
-     */
+    /*
+        input:    serviceName - String, serviceType - String, requestJson - String, onResult - (String) -> Unit
+        output:   None
+        remarks:  Robustly sends or queues a service request, queues if previous is active.
+    */
     fun sendOrQueueServiceRequest(
         serviceName: String,
         serviceType: String,
@@ -152,23 +156,23 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             }
         }
     }
-    /**
-     * Force clear the busy lock and queue for all actions. This allows new actions to be sent even if any previous one is stuck.
-     * Also clears lastGoalIdMap and lastGoalStatusMap to fully reset action state.
-     */
+
+    /*
+        input:    None
+        output:   None
+        remarks:  Force clears the busy lock and queue for all actions and resets action state.
+    */
     fun forceClearAllActionBusyLocks() {
         lastGoalIdMap.clear()
         lastGoalStatusMap.clear()
         pendingGoalMap.clear()
     }
     
-    /**
-     * Request the result of an action goal via the get_result service.
-     * @param actionName The base action name, e.g. /pose_server/run_trajectory
-     * @param actionType The action type, e.g. ryan_msgs/action/RunPose
-     * @param goalUuid The UUID of the goal as a string
-     * @param onResult Callback with the result JSON string
-     */
+    /*
+        input:    actionName - String, actionType - String, goalUuid - String, onResult - (String) -> Unit
+        output:   None
+        remarks:  Requests the result of an action goal via the get_result service.
+    */
     fun getActionResultViaService(
         actionName: String,
         actionType: String,
@@ -358,9 +362,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
-    /**
-     * Returns a SharedFlow of status updates for a given action topic, for coroutine-based waiting.
-     */
+    /*
+        input:    actionName - String
+        output:   SharedFlow<Map<String, String>>
+        remarks:  Returns a SharedFlow of status updates for a given action topic for coroutine-based waiting.
+    */
     fun actionStatusFlow(actionName: String): SharedFlow<Map<String, String>> {
         return actionStatusFlows.getOrPut(actionName) { MutableSharedFlow(extraBufferCapacity = 8) }
     }
@@ -402,11 +408,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     var onRosbridgeDisconnected: (() -> Unit)? = null
     // Map to store topic handlers for message routing
     private val topicHandlers = mutableMapOf<String, (String) -> Unit>()
-    /**
-     * Advertise a ROS2 service via rosbridge_server.
-     * @param serviceName The ROS2 service name (e.g. /my_service)
-     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
-     */
+    /*
+        input:    serviceName - String, serviceType - String
+        output:   None
+        remarks:  Advertises a ROS2 service via rosbridge_server.
+    */
     fun advertiseService(serviceName: String, serviceType: String) {
         viewModelScope.launch {
             if (!RosbridgeConnectionManager.isConnected) {
@@ -426,25 +432,12 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
-    /**
-     * Call a ROS2 service via rosbridge_server.
-     * @param serviceName The ROS2 service name (e.g. /my_service)
-     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
-     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
-     */
-    /**
-     * Robustly call a ROS2 service via rosbridge_server, using the robust queue/busy logic.
-     * @param serviceName The ROS2 service name (e.g. /my_service)
-     * @param serviceType The ROS2 service type (e.g. my_pkg/srv/MyService)
-     * @param requestJson The request arguments as a JSON string (e.g. {"a": 1, "b": 2})
-     * @param onResult Optional callback with the result JSON string
-     */
+
     fun callCustomService(serviceName: String, serviceType: String, requestJson: String, onResult: ((String) -> Unit)? = null) {
         Log.d("RosViewModel", "callCustomService called: serviceName=$serviceName, serviceType=$serviceType, requestJson=$requestJson")
         if (onResult != null) {
             sendOrQueueServiceRequest(serviceName, serviceType, requestJson, onResult)
         } else {
-            // Fallback: fire and forget (legacy usage)
             viewModelScope.launch {
                 if (!RosbridgeConnectionManager.isConnected) {
                     Log.w("RosViewModel", "Cannot call service: Not connected.")
@@ -464,7 +457,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
-    // Removed sendActionGoalClassic overloads. Use sendOrQueueActionGoal as the main entry point for sending action goals.
 
     fun subscribeToActionFeedback(actionName: String, actionType: String, onMessage: (String) -> Unit) {
         val feedbackTopic = "$actionName/feedback"
@@ -480,8 +472,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         val statusType = "action_msgs/action/GoalStatusArray"
         subscribeToTopic(statusTopic, statusType, onMessage)
     }
-
-    // Removed subscribeToActionResult. Use getActionResultViaService for result retrieval.
 
     fun cancelActionGoal(actionName: String, actionType: String, uuid: String) {
         val cancelTopic = "$actionName/cancel"
@@ -520,7 +510,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     /*
         input:    topicName - String, messageType - String, rawJson - String
         output:   None
-        remarks:  Publishes a raw JSON message to the given topic and type, with special handling for std_msgs/String and std_msgs/Bool.
+        remarks:  Called when the ViewModel is cleared; disconnects and removes listener.
     */
     fun publishCustomRawMessage(topicName: String, messageType: String, rawJson: String) {
         viewModelScope.launch {
@@ -566,7 +556,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     /*
         input:    publisher - CustomPublisher
         output:   None
-        remarks:  Adds a custom publisher to the list.
+        remarks:  Called when rosbridge connection is established; updates connection status.
     */
     fun addCustomPublisher(publisher: CustomPublisher) {
         _customPublishers.value = _customPublishers.value + publisher
@@ -575,7 +565,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     /*
         input:    list - List<CustomPublisher>
         output:   None
-        remarks:  Sets the list of custom publishers.
+        remarks:  Called when rosbridge connection is lost; updates connection status.
     */
     fun setCustomPublishers(list: List<CustomPublisher>) {
         _customPublishers.value = list
@@ -593,7 +583,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     /*
         input:    None
         output:   None
-        remarks:  Clears the current custom message text field.
+        remarks:  Called when a message is received from rosbridge; emits to rosMessages flow.
     */
     fun clearCustomMessage() {
         _customMessage.value = ""
@@ -623,9 +613,9 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     data class StdString(val data: String)
 
     /*
-        input:    newMessage - String
+        input:    error - String
         output:   None
-        remarks:  Updates the custom message text field value.
+        remarks:  Called when an error occurs on rosbridge connection; updates connection status.
     */
     fun onCustomMessageChange(newMessage: String) {
         _customMessage.value = newMessage
@@ -827,8 +817,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             _customProtocolActions.value = loaded
         } catch (_: Exception) { }
     }
-
-    // RosbridgeConnectionManager.Listener implementation
 
     /*
         input:    None

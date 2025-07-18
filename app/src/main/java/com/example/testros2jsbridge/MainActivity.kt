@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
     */
     override fun onResume() {
         super.onResume()
-        // Workaround: reset the adapter after rotation to clear any stuck filter state
+        // Reset the adapter after rotation to clear any stuck filter state
         dropdown.post {
             val currentText = dropdown.text.toString()
             dropdown.setAdapter(null)
@@ -78,7 +78,6 @@ class MainActivity : AppCompatActivity() {
         rosViewModel.resubscribeAllTopicsToLog()
     }
 
-    // Shared ViewModel for Compose log view (application-scoped)
     private val rosViewModel: RosViewModel by lazy {
         val app = application as MyApp
         androidx.lifecycle.ViewModelProvider(

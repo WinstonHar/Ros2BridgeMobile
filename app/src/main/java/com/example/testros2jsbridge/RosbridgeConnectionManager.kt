@@ -69,17 +69,41 @@ object RosbridgeConnectionManager {
                 isConnected = true
                 mainHandler.post { listeners.forEach { it.onConnected() } }
             }
+
+            /*
+                input:    webSocket - WebSocket, text - String
+                output:   None
+                remarks:  Called when a text message is received from rosbridge; notifies listeners.
+            */
             override fun onMessage(webSocket: WebSocket, text: String) {
                 mainHandler.post { listeners.forEach { it.onMessage(text) } }
             }
+
+            /*
+                input:    webSocket - WebSocket, bytes - ByteString
+                output:   None
+                remarks:  Called when a binary message is received from rosbridge; decodes and notifies listeners.
+            */
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                 onMessage(webSocket, bytes.utf8())
             }
+
+            /*
+                input:    webSocket - WebSocket, t - Throwable, response - Response?
+                output:   None
+                remarks:  Called when the WebSocket connection fails; logs error and notifies listeners.
+            */
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 android.util.Log.e("RosbridgeConnectionManager", "WebSocket failure: ${t.message}", t)
                 isConnected = false
                 mainHandler.post { listeners.forEach { it.onError(t.message ?: "Unknown error") } }
             }
+            
+            /*
+                input:    webSocket - WebSocket, code - Int, reason - String
+                output:   None
+                remarks:  Called when the WebSocket connection is closed; logs and notifies listeners.
+            */
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 android.util.Log.w("RosbridgeConnectionManager", "WebSocket closed: code=$code, reason=$reason")
                 isConnected = false

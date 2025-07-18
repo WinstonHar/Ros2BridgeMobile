@@ -28,23 +28,42 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
 
     private val _selected = MutableStateFlow<Set<String>>(loadSelectedFromPrefs())
     val selected: StateFlow<Set<String>> = _selected
+
+    /*
+        input:    None
+        output:   SharedPreferences
+        remarks:  Returns the SharedPreferences instance for custom protocols
+    */
     private fun getPrefs(): android.content.SharedPreferences {
         return getApplication<Application>().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    /*
+        input:    None
+        output:   Set<String>
+        remarks:  Loads selected protocol import paths from SharedPreferences
+    */
     private fun loadSelectedFromPrefs(): Set<String> {
         val prefs = getPrefs()
         val set = prefs.getStringSet(PREFS_SELECTED_KEY, null)
         return set ?: emptySet()
     }
 
+    /*
+        input:    selected - Set<String>
+        output:   None
+        remarks:  Saves selected protocol import paths to SharedPreferences
+    */
     private fun saveSelectedToPrefs(selected: Set<String>) {
         val prefs = getPrefs()
         prefs.edit().putStringSet(PREFS_SELECTED_KEY, selected).apply()
     }
 
-    // Call this to scan the msgs folder in assets
-    fun scanMsgsAssets(context: Context) {
+    /*
+        input:    context - Context
+        output:   None
+        remarks:  Scans the assets msgs folder for .msg, .srv, and .action files and updates StateFlows
+    */    fun scanMsgsAssets(context: Context) {
         viewModelScope.launch {
             val msgList = mutableListOf<ProtocolFile>()
             val srvList = mutableListOf<ProtocolFile>()
@@ -80,7 +99,11 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
-
+    /*
+        input:    selected - Set<String>
+        output:   None
+        remarks:  Updates the selected protocol import paths and saves to SharedPreferences
+    */
     fun setSelected(selected: Set<String>) {
         _selected.value = selected
         saveSelectedToPrefs(selected)

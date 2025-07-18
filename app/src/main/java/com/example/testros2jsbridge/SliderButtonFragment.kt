@@ -11,7 +11,6 @@ import android.widget.TextView
 import android.widget.Toast
 import android.app.AlertDialog
 import android.content.Context
-import android.content.SharedPreferences
 import androidx.core.content.ContextCompat
 import androidx.core.view.setPadding
 import androidx.fragment.app.Fragment
@@ -93,6 +92,11 @@ class SliderButtonFragment : Fragment() {
     // Map to keep track of UI sliders by topic (or name if available)
     private val sliderMap = mutableMapOf<String, Slider>()
 
+    /*
+        input:    layout - LinearLayout, config - SliderButtonConfig
+        output:   None
+        remarks:  Adds a saved slider button to the UI with publish and delete functionality.
+    */
     private fun addSavedSliderButton(layout: LinearLayout, config: SliderButtonConfig) {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
@@ -529,6 +533,11 @@ class SliderButtonFragment : Fragment() {
         return view
     }
 
+    /*
+        input:    view - View, savedInstanceState - Bundle?
+        output:   None
+        remarks:  Called after the fragment view is created; observes ViewModel sliders and updates UI sliders live.
+    */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         // Observe ViewModel sliders and update UI sliders live
