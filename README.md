@@ -1,18 +1,23 @@
 # Ros2BridgeMobile
 
 ## Description
-Ros2BridgeMobile is an Android application that allows you to send messages from your mobile device to a ROS 2 client via rosbridge. It supports publishing standard and geometry messages, as well as using controller input for remote robot control. The app provides a user-friendly interface for connecting to a ROS 2 network, sending custom messages, and subscribing to topics in real time.
+Ros2BridgeMobile is an Android application that allows you to send messages from your mobile device to a ROS 2 client via rosbridge.  It supports publishing, subscribing, and managing custom messages, services, and actions directly from an android mobile device. The app supports standard, geometry, and custom protocol messages, controller/gamepad input, reusable message templates, and dynamic topic discovery.
 
 Key features:
-- Connect to a ROS 2 network using rosbridge protocol
-- Publish to any topic with custom or standard message types
-- Save and reuse message templates
-- Subscribe to and view live ROS 2 topics
-- Use Android device controller/gamepad input to control robots
-- Compose and send geometry_msgs and std_msgs interactively
-- View message history and manage reusable message buttons
+- Connect to ROS 2 networks using rosbridge protocol
+- Publish to any topic with custom, standard, geometry, or protocol-based message types
+- Save, edit, and reuse message templates and custom publisher buttons
+- Subscribe to and view live ROS 2 topics with dynamic topic/type discovery (including image support)
+- Import and manage custom .msg, .srv, and .action protocols with UI configuration
+- Compose and send geometry_msgs, std_msgs, and custom messages interactively
+- Manage and assign controller/gamepad inputs for remote robot control
+- Service and action call support with queuing, status tracking, and result handling
+- View and manage message history, custom publishers, and protocol actions
+- Jetpack Compose tab for interactive message history and UI navigation
+- Persistent storage for user preferences, custom actions, and publishers
+- Modern UI with fragment switching, dropdowns, and configuration panels
 
-The app is built with Kotlin, Jetpack Compose, and Android best practices. It leverages OkHttp for networking and kotlinx.serialization for message handling.
+Built with Kotlin, Jetpack Compose, and Android best practices. Networking uses OkHttp; message handling uses kotlinx.serialization and Gson.
 
 ## Table of Contents
 - [Description](#description)
