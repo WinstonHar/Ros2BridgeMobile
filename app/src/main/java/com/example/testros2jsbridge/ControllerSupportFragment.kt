@@ -24,6 +24,10 @@ import androidx.core.content.edit
     This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
 */
 
+// --- Button Rate Limiting ---
+    private val lastButtonMessageTime: MutableMap<String, Long> = mutableMapOf()
+    private val buttonMessageIntervalMs = 100L //100ms
+
 /*
     input:    tag - String, block - () -> Unit
     output:   None
@@ -198,7 +202,8 @@ class ControllerSupportFragment : Fragment() {
     private var joystickResendActive: Boolean = false
     @Suppress("DEPRECATION")
     private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val joystickResendIntervalMs: Long = 200L
+    // Default to 5 times per second
+    private var joystickPublishRate: Int = 5
     private val joystickResendRunnable = object : Runnable {
         override fun run() {
             val mappings = lastJoystickMappings
@@ -208,7 +213,8 @@ class ControllerSupportFragment : Fragment() {
                 for (mapping in mappings) {
                     processJoystickInput(event, dev, -1, mapping, forceSend = true)
                 }
-                joystickResendHandler.postDelayed(this, joystickResendIntervalMs)
+                val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
+                joystickResendHandler.postDelayed(this, intervalMs)
             } else {
                 joystickResendActive = false
             }
@@ -425,6 +431,45 @@ class ControllerSupportFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val mappings = loadJoystickMappings()
             withContext(kotlinx.coroutines.Dispatchers.Main) {
+                // Add a field for joystick publish rate (times per second)
+                val rateGroup = android.widget.LinearLayout(requireContext()).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    setPadding(8, 8, 8, 8)
+                }
+                val rateLabel = TextView(requireContext()).apply {
+                    text = "Joystick Publish Rate (Hz): "
+                    textSize = 15f
+                }
+
+                joystickPublishRate = loadJoystickPublishRate()
+                val rateInput = android.widget.EditText(requireContext()).apply {
+                    hint = "e.g. 5"
+                    setText(joystickPublishRate.toString())
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                    layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                rateGroup.addView(rateLabel)
+                rateGroup.addView(rateInput)
+                container.addView(rateGroup, 0)
+                // Listen for changes
+                rateInput.addTextChangedListener(object : android.text.TextWatcher {
+                    override fun afterTextChanged(s: android.text.Editable?) {
+                        val rate = s?.toString()?.toIntOrNull()
+                        if (rate != null && rate > 0) {
+                            joystickPublishRate = rate
+                            saveJoystickPublishRate(rate)
+                            // If resend is active, restart handler with new interval
+                            if (joystickResendActive) {
+                                joystickResendHandler.removeCallbacks(joystickResendRunnable)
+                                val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
+                                joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
+                            }
+                        }
+                    }
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                })
+
                 mappings.forEach { mapping ->
                     val group = android.widget.LinearLayout(requireContext()).apply {
                         orientation = android.widget.LinearLayout.VERTICAL
@@ -920,6 +965,14 @@ class ControllerSupportFragment : Fragment() {
     fun onControllerKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         val btnName = keyCodeToButtonName(event.keyCode) ?: return false
+        val now = System.currentTimeMillis()
+        val lastTime = lastButtonMessageTime[btnName] ?: 0L
+        if (now - lastTime < buttonMessageIntervalMs) {
+            // Ignore event if within rate limit
+            return false
+        }
+        lastButtonMessageTime[btnName] = now
+
         val slider = sliderControllerViewModel.getSelectedSlider()
         if (slider != null && (btnName == "DPad Left" || btnName == "DPad Right")) {
             if (btnName == "DPad Left") sliderControllerViewModel.decrementSelectedSlider() else sliderControllerViewModel.incrementSelectedSlider()
@@ -1064,10 +1117,13 @@ class ControllerSupportFragment : Fragment() {
             lastJoystickMappings = mappings
             lastJoystickDevice = dev
             lastJoystickEvent = MotionEvent.obtain(event)
-            if (!joystickResendActive) {
-                joystickResendActive = true
-                joystickResendHandler.postDelayed(joystickResendRunnable, joystickResendIntervalMs)
-            }
+
+            joystickResendHandler.removeCallbacks(joystickResendRunnable)
+            joystickResendActive = true
+            joystickPublishRate = loadJoystickPublishRate()
+            val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
+            joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
+        
         } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
             // Stop periodic resend
             joystickResendHandler.removeCallbacks(joystickResendRunnable)
@@ -1143,7 +1199,7 @@ class ControllerSupportFragment : Fragment() {
         // Only send stop if previously nonzero and now truly centered (not just in deadzone)
         // Always ensure mapping.type is fully qualified
         val rosType = if ((mapping.type ?: "").contains("/")) mapping.type ?: "geometry_msgs/msg/Twist" else "geometry_msgs/msg/${mapping.type ?: "Twist"}"
-        val topic = mapping.topic ?: "/cmd_vel"
+        val topic = mapping.topic ?: return
         if (clampedX == 0f && clampedY == 0f) {
             if (last != null && (last.first != 0f || last.second != 0f)) {
                 lastJoystickSent[displayNameKey] = 0f to 0f
@@ -1192,5 +1248,17 @@ class ControllerSupportFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         updateControllerList()
+    }
+
+    private val PREFS_JOYSTICK_RATE = "joystick_publish_rate"
+
+    private fun saveJoystickPublishRate(rate: Int) {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
+        prefs.edit { putInt(PREFS_JOYSTICK_RATE, rate) }
+    }
+
+    private fun loadJoystickPublishRate(): Int {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
+        return prefs.getInt(PREFS_JOYSTICK_RATE, 5)
     }
 }
