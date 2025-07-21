@@ -7,6 +7,7 @@ import android.hardware.input.InputManager
 import androidx.lifecycle.ViewModelProvider
 import android.os.Bundle
 import android.view.*
+import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -646,6 +647,17 @@ class ControllerSupportFragment : Fragment() {
             updateAppActions()
             setupControllerMappingUI(view)
         }
+
+        // Wire up export/import config buttons
+        view.findViewById<Button>(R.id.btn_export_config)?.setOnClickListener {
+            (activity as? MainActivity)?.exportConfigLauncher?.launch("configs.yaml")
+        }
+        view.findViewById<Button>(R.id.btn_import_config)?.setOnClickListener {
+            (activity as? MainActivity)?.importConfigLauncher?.launch(
+                arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*")
+            )
+        }
+        
         return view
     }
 

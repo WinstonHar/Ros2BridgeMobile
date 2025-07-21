@@ -165,4 +165,27 @@
         android:paddingTop="16dp"
         android:paddingBottom="16dp"
         android:background="@color/background_container"/>
+
+    <LinearLayout
+        android:id="@+id/layout_export_import"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_export_config"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Export Config" 
+            android:layout_marginEnd="5px"/>
+
+        <Button
+            android:id="@+id/btn_import_config"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:text="Import Config" 
+            android:layout_marginStart="5px"/>
+    </LinearLayout>
 </LinearLayout>

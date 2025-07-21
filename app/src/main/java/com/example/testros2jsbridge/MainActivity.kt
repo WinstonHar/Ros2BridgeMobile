@@ -52,7 +52,7 @@ import androidx.compose.ui.res.colorResource
 
 class MainActivity : AppCompatActivity() {
     // File picker launchers for export/import config
-    private val exportConfigLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri: Uri? ->
+    val exportConfigLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri: Uri? ->
         uri?.let {
             val frag = supportFragmentManager.findFragmentByTag("ControllerSupportFragment") as? ControllerSupportFragment
             if (frag != null && frag.isVisible) {
@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val importConfigLauncher = registerForActivityResult(
+    val importConfigLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
@@ -242,13 +242,6 @@ class MainActivity : AppCompatActivity() {
         openRos2SubscriberButton.setOnClickListener {
             val intent = android.content.Intent(this, Ros2TopicSubscriberActivity::class.java)
             startActivity(intent)
-        }
-        findViewById<Button>(R.id.btn_export_config).setOnClickListener {
-            exportConfigLauncher.launch("configs.yaml")
-        }
-        findViewById<Button>(R.id.btn_import_config).setOnClickListener {
-            // Allow user to select any file type, but filter for YAML and text files
-            importConfigLauncher.launch(arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*"))
         }
     }
 
