@@ -1,4 +1,6 @@
 package com.example.testros2jsbridge
+import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
 
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
@@ -10,39 +12,30 @@ import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
-import androidx.activity.viewModels
 import android.widget.AutoCompleteTextView
 import android.widget.ArrayAdapter
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.runtime.*
 import androidx.compose.material3.*
 import com.google.android.material.button.MaterialButton
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.SharedPreferences
 import android.text.Editable
 import android.text.TextWatcher
 import android.content.Context
@@ -58,6 +51,34 @@ import androidx.compose.ui.res.colorResource
 */
 
 class MainActivity : AppCompatActivity() {
+    // File picker launchers for export/import config
+    private val exportConfigLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri: Uri? ->
+        uri?.let {
+            val frag = supportFragmentManager.findFragmentByTag("ControllerSupportFragment") as? ControllerSupportFragment
+            if (frag != null && frag.isVisible) {
+                contentResolver.openOutputStream(uri)?.let { out ->
+                    frag.exportConfigToStream(out)
+                }
+            } else {
+                android.widget.Toast.makeText(this, "ControllerSupportFragment must be visible to export config!", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private val importConfigLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            val frag = supportFragmentManager.findFragmentByTag("ControllerSupportFragment") as? ControllerSupportFragment
+            if (frag != null && frag.isVisible) {
+                contentResolver.openInputStream(uri)?.let { inp ->
+                    frag.importConfigFromStream(inp)
+                }
+            } else {
+                android.widget.Toast.makeText(this, "ControllerSupportFragment must be visible to import config!", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     private lateinit var openRos2SubscriberButton: MaterialButton
 
     /*
@@ -221,6 +242,13 @@ class MainActivity : AppCompatActivity() {
         openRos2SubscriberButton.setOnClickListener {
             val intent = android.content.Intent(this, Ros2TopicSubscriberActivity::class.java)
             startActivity(intent)
+        }
+        findViewById<Button>(R.id.btn_export_config).setOnClickListener {
+            exportConfigLauncher.launch("configs.yaml")
+        }
+        findViewById<Button>(R.id.btn_import_config).setOnClickListener {
+            // Allow user to select any file type, but filter for YAML and text files
+            importConfigLauncher.launch(arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*"))
         }
     }
 

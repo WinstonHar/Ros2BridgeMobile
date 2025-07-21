@@ -83,17 +83,11 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
 
-    // For ComposeView in XML
     implementation("androidx.compose.ui:ui-viewbinding")
     implementation("androidx.compose.material:material-icons-extended:<latest_version>")
 
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.4.0")
-
-    // --- ROS 2 Java dependencies ---
-    // You may need to build ros2-java and its message packages locally and provide the correct paths or Maven coordinates.
-    // Example coordinates shown below; replace with your actual artifact locations if needed.
-    // --- End ROS 2 Java dependencies ---
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -103,4 +97,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    implementation("org.yaml:snakeyaml:2.2")
 }

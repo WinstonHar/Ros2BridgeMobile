@@ -19,6 +19,10 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.sign
 import androidx.core.content.edit
+import java.io.InputStream
+import java.io.OutputStreamWriter
+import java.io.InputStreamReader
+import java.io.OutputStream
 
 /*
     This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
@@ -43,9 +47,11 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 
 class ControllerSupportFragment : Fragment() {
 
-    // --- Button Rate Limiting ---
-    private val lastButtonMessageTime: MutableMap<String, Long> = mutableMapOf()
-    private val buttonMessageIntervalMs = 100L //100ms
+    // --- Config Data ---
+    private val joystickMappings: MutableList<JoystickMapping> = mutableListOf()
+    private val controllerPresets: MutableList<ControllerPreset> = mutableListOf()
+    private val buttonAssignments: MutableMap<String, AppAction> = mutableMapOf()
+    private val appActions: MutableList<AppAction> = mutableListOf()
 
     // --- Joystick Addressing Mode ---
     private enum class JoystickAddressingMode(val displayName: String) { DIRECT("Direct"), INVERTED_ROTATED("Inverted/Rotated") }
@@ -60,7 +66,7 @@ class ControllerSupportFragment : Fragment() {
     private fun loadJoystickAddressingMode(): JoystickAddressingMode {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         val name = prefs.getString(PREFS_JOYSTICK_ADDRESSING, JoystickAddressingMode.DIRECT.name)
-        return JoystickAddressingMode.values().find { it.name == name } ?: JoystickAddressingMode.DIRECT
+        return JoystickAddressingMode.entries.find { it.name == name } ?: JoystickAddressingMode.DIRECT
     }
 
     // --- Companion Object for Constants and Helpers ---
@@ -157,8 +163,8 @@ class ControllerSupportFragment : Fragment() {
         var displayName: String = "",
         var topic: String? = "",
         var type: String? = "",
-        var axisX: Int = android.view.MotionEvent.AXIS_X,
-        var axisY: Int = android.view.MotionEvent.AXIS_Y,
+        var axisX: Int = MotionEvent.AXIS_X,
+        var axisY: Int = MotionEvent.AXIS_Y,
         var max: Float? = 1.0f,
         var step: Float? = 0.2f,
         var deadzone: Float? = 0.1f
@@ -197,8 +203,8 @@ class ControllerSupportFragment : Fragment() {
                 displayName = obj.optString("displayName", "Joystick"),
                 topic = obj.optString("topic", "").ifEmpty { null },
                 type = obj.optString("type", "").ifEmpty { null },
-                axisX = obj.optInt("axisX", android.view.MotionEvent.AXIS_X),
-                axisY = obj.optInt("axisY", android.view.MotionEvent.AXIS_Y),
+                axisX = obj.optInt("axisX", MotionEvent.AXIS_X),
+                axisY = obj.optInt("axisY", MotionEvent.AXIS_Y),
                 max = obj.optDouble("max", 1.0).toFloat(),
                 step = obj.optDouble("step", 0.2).toFloat(),
                 deadzone = obj.optDouble("deadzone", 0.1).toFloat()
@@ -496,15 +502,15 @@ class ControllerSupportFragment : Fragment() {
                     textSize = 15f
                 }
                 val addressingSpinner = android.widget.Spinner(requireContext())
-                val addressingModes = JoystickAddressingMode.values().map { it.displayName }
+                val addressingModes = JoystickAddressingMode.entries.map { it.displayName }
                 addressingSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, addressingModes).apply {
                     setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
                 }
                 joystickAddressingMode = loadJoystickAddressingMode()
-                addressingSpinner.setSelection(JoystickAddressingMode.values().indexOf(joystickAddressingMode), false)
+                addressingSpinner.setSelection(JoystickAddressingMode.entries.indexOf(joystickAddressingMode), false)
                 addressingSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                        joystickAddressingMode = JoystickAddressingMode.values()[position]
+                        joystickAddressingMode = JoystickAddressingMode.entries.toTypedArray()[position]
                         saveJoystickAddressingMode(joystickAddressingMode)
                     }
                     override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
@@ -883,6 +889,28 @@ class ControllerSupportFragment : Fragment() {
         } catch (e: Exception) {
             android.util.Log.e("ControllerSupport", "Error loading custom_publishers_prefs:custom_publishers", e)
         }
+
+        val importedPrefs = requireContext().getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
+        val importedJson = importedPrefs.getString("imported_app_actions", null)
+        if (!importedJson.isNullOrEmpty()) {
+            try {
+                val arr = JSONArray(importedJson)
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    if (obj.optString("displayName") == "Cycle Presets") continue
+                    actions.add(AppAction(
+                        obj.optString("displayName", ""),
+                        obj.optString("topic", ""),
+                        obj.optString("type", ""),
+                        obj.optString("source", ""),
+                        obj.optString("msg", "")
+                    ))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ControllerSupport", "Error loading imported_app_actions", e)
+            }
+        }
+
         //Add Cycle Presets action
         actions.add(
             AppAction(
@@ -893,6 +921,7 @@ class ControllerSupportFragment : Fragment() {
                 msg = ""
             )
         )
+
         return actions
     }
 
@@ -1008,13 +1037,6 @@ class ControllerSupportFragment : Fragment() {
     fun onControllerKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         val btnName = keyCodeToButtonName(event.keyCode) ?: return false
-        val now = System.currentTimeMillis()
-        val lastTime = lastButtonMessageTime[btnName] ?: 0L
-        if (now - lastTime < buttonMessageIntervalMs) {
-            // Ignore event if within rate limit
-            return false
-        }
-        lastButtonMessageTime[btnName] = now
 
         val slider = sliderControllerViewModel.getSelectedSlider()
         if (slider != null && (btnName == "DPad Left" || btnName == "DPad Right")) {
@@ -1317,5 +1339,159 @@ class ControllerSupportFragment : Fragment() {
     private fun loadJoystickPublishRate(): Int {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         return prefs.getInt(PREFS_JOYSTICK_RATE, 5)
+    }
+
+    fun exportConfigToStream(out: OutputStream) {
+        val yaml = org.yaml.snakeyaml.Yaml()
+        val latestJoystickMappings = loadJoystickMappings()
+        val latestControllerPresets = loadControllerPresets()
+        val latestButtonAssignments = loadButtonAssignments(getControllerButtonList())
+        val latestAppActions = (loadAvailableAppActions() + customProtocolAppActions).distinctBy { it.displayName }
+
+        val configMap = mapOf(
+            "joystickMappings" to latestJoystickMappings.map { jm ->
+                mapOf(
+                    "axisX" to jm.axisX,
+                    "axisY" to jm.axisY,
+                    "deadzone" to jm.deadzone,
+                    "displayName" to jm.displayName,
+                    "max" to jm.max,
+                    "step" to jm.step,
+                    "topic" to jm.topic,
+                    "type" to jm.type
+                )
+            },
+            "controllerPresets" to latestControllerPresets.map { cp ->
+                mapOf(
+                    "name" to cp.name,
+                    "topic" to cp.topic,
+                    "abxy" to cp.abxy
+                )
+            },
+            "buttonAssignments" to latestButtonAssignments.mapValues { (_, action) ->
+                mapOf(
+                    "displayName" to action.displayName,
+                    "msg" to action.msg,
+                    "source" to action.source,
+                    "topic" to action.topic,
+                    "type" to action.type
+                )
+            },
+            "appActions" to latestAppActions.map { aa ->
+                mapOf(
+                    "displayName" to aa.displayName,
+                    "msg" to aa.msg,
+                    "source" to aa.source,
+                    "topic" to aa.topic,
+                    "type" to aa.type
+                )
+            }
+        )
+        yaml.dump(configMap, OutputStreamWriter(out))
+    }
+
+    fun importConfigFromStream(inp: InputStream) {
+        android.util.Log.i("ControllerSupportFragment", "Import started")
+        val yaml = org.yaml.snakeyaml.Yaml()
+        val configMap = yaml.load<Map<String, Any>>(InputStreamReader(inp))
+        joystickMappings.clear()
+        val jmList = configMap["joystickMappings"] as? List<*> ?: emptyList<Any>()
+        for (jm in jmList) {
+            if (jm is Map<*, *>) {
+                joystickMappings.add(
+                    JoystickMapping(
+                        axisX = (jm["axisX"] as? Int) ?: 0,
+                        axisY = (jm["axisY"] as? Int) ?: 1,
+                        deadzone = (jm["deadzone"] as? Float ?: (jm["deadzone"] as? Double)?.toFloat() ?: (jm["deadzone"] as? Number)?.toFloat() ?: 0.1f),
+                        displayName = jm["displayName"] as? String ?: "",
+                        max = (jm["max"] as? Float ?: (jm["max"] as? Double)?.toFloat() ?: (jm["max"] as? Number)?.toFloat() ?: 1.0f),
+                        step = (jm["step"] as? Float ?: (jm["step"] as? Double)?.toFloat() ?: (jm["step"] as? Number)?.toFloat() ?: 0.2f),
+                        topic = jm["topic"] as? String ?: "",
+                        type = jm["type"] as? String ?: ""
+                    )
+                )
+            }
+        }
+        android.util.Log.i("ControllerSupportFragment", "Imported joystickMappings: ${joystickMappings.size}")
+        controllerPresets.clear()
+        val cpList = configMap["controllerPresets"] as? List<*> ?: emptyList<Any>()
+        for (cp in cpList) {
+            if (cp is Map<*, *>) {
+                controllerPresets.add(
+                    ControllerPreset(
+                        name = cp["name"] as? String ?: "",
+                        topic = cp["topic"] as? String ?: "",
+                        abxy = (cp["abxy"] as? Map<String, String>) ?: mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
+                    )
+                )
+            }
+        }
+        android.util.Log.i("ControllerSupportFragment", "Imported controllerPresets: ${controllerPresets.size}")
+        buttonAssignments.clear()
+        val baMap = configMap["buttonAssignments"] as? Map<*, *> ?: emptyMap<String, Any>()
+        for ((key, value) in baMap) {
+            if (key is String && value is Map<*, *>) {
+                buttonAssignments[key] = AppAction(
+                    displayName = value["displayName"] as? String ?: "",
+                    msg = value["msg"] as? String ?: "",
+                    source = value["source"] as? String ?: "",
+                    topic = value["topic"] as? String ?: "",
+                    type = value["type"] as? String ?: ""
+                )
+            }
+        }
+        android.util.Log.i("ControllerSupportFragment", "Imported buttonAssignments: ${buttonAssignments.size}")
+        appActions.clear()
+        val aaList = configMap["appActions"] as? List<*> ?: emptyList<Any>()
+        for (aa in aaList) {
+            if (aa is Map<*, *>) {
+                appActions.add(
+                    AppAction(
+                        displayName = aa["displayName"] as? String ?: "",
+                        msg = aa["msg"] as? String ?: "",
+                        source = aa["source"] as? String ?: "",
+                        topic = aa["topic"] as? String ?: "",
+                        type = aa["type"] as? String ?: ""
+                    )
+                )
+            }
+        }
+        android.util.Log.i("ControllerSupportFragment", "Imported appActions: ${appActions.size}")
+        // Persist imported config to SharedPreferences
+        saveJoystickMappings(joystickMappings)
+        saveControllerPresets(controllerPresets)
+        saveButtonAssignments(buttonAssignments)
+
+        val importedPrefs = requireContext().getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
+        val arr = JSONArray()
+        for (action in appActions) {
+            val obj = JSONObject()
+            obj.put("displayName", action.displayName)
+            obj.put("topic", action.topic)
+            obj.put("type", action.type)
+            obj.put("source", action.source)
+            obj.put("msg", action.msg)
+            arr.put(obj)
+        }
+        importedPrefs.edit().putString("imported_app_actions", arr.toString()).apply()
+        
+        // Refresh app actions list
+        // Overwrite appActionsAdapter actions with imported appActions
+        if (::appActionsAdapter.isInitialized) {
+            appActionsAdapter.actions.clear()
+            appActionsAdapter.actions.addAll(appActions)
+            appActionsAdapter.notifyDataSetChanged()
+        } else {
+            updateAppActions()
+        }
+        // To fully refresh the UI, you may also want to call:
+        setupPresetManagementUI(requireView())
+        setupJoystickMappingUI(requireView())
+        setupControllerMappingUI(requireView())
+        android.util.Log.i("ControllerSupportFragment", "Import finished")
+        android.util.Log.i("ControllerSupportFragment", "Imported joystickMappings: $joystickMappings")
+        android.util.Log.i("ControllerSupportFragment", "Imported controllerPresets: $controllerPresets")
+        android.util.Log.i("ControllerSupportFragment", "Imported buttonAssignments: $buttonAssignments")
+        android.util.Log.i("ControllerSupportFragment", "Imported appActions: $appActions")
     }
 }

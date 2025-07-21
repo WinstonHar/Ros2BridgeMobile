@@ -11,6 +11,9 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
+import org.yaml.snakeyaml.Yaml
+import java.io.InputStream
+import java.io.OutputStream
 
 /* 
 RosViewModel is the main Android ViewModel for managing ROS2 communication and state in the app. 
@@ -915,5 +918,131 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     */
     override fun onError(error: String) {
         _connectionStatus.value = "Error: $error"
+    }
+
+    fun exportAppActivitiesToYaml(outputStream: OutputStream) {
+        val yaml = Yaml()
+        val context = getApplication<Application>().applicationContext
+
+        try {
+            // Gather all relevant app activities
+            val sliderPrefs = context.getSharedPreferences("slider_buttons_prefs", android.content.Context.MODE_PRIVATE)
+            val geometryPrefs = context.getSharedPreferences("geometry_reusable_buttons", android.content.Context.MODE_PRIVATE)
+            val customPubPrefs = context.getSharedPreferences("custom_publishers_prefs", android.content.Context.MODE_PRIVATE)
+            val customProtocolPrefs = context.getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
+
+            val configMap = mapOf(
+                "customPublishers" to customPublishers.value.map {
+                    mapOf("topic" to it.topic, "messageType" to it.messageType, "message" to it.message)
+                },
+                "customProtocolActions" to customProtocolActions.value.map {
+                    mapOf(
+                        "label" to it.label,
+                        "proto" to mapOf(
+                            "name" to it.proto.name,
+                            "importPath" to it.proto.importPath,
+                            "type" to it.proto.type.name
+                        ),
+                        "fieldValues" to it.fieldValues
+                    )
+                },
+                "customMessageHistory" to customMessageHistory.value,
+                "sliderButtons" to (sliderPrefs.getString("saved_slider_buttons", null) ?: ""),
+                "geometryButtons" to (geometryPrefs.getString("geometry_buttons", null) ?: ""),
+                "customPublishersPrefs" to (customPubPrefs.getString("custom_publishers", null) ?: ""),
+                "customProtocolActionsPrefs" to (customProtocolPrefs.getString("custom_protocol_actions", null) ?: "")
+            )
+            Log.d("RosViewModel", "Export configMap: $configMap")
+            // Check if configMap is empty or all values are empty
+            val allEmpty = configMap.values.all {
+                when (it) {
+                    is List<*> -> it.isEmpty()
+                    is String -> it.isEmpty()
+                    else -> false
+                }
+            }
+            if (allEmpty) {
+                Log.w("RosViewModel", "Exported config is empty! No activities to save.")
+            }
+            // Write and flush to ensure data is written
+            outputStream.writer().use { writer ->
+                val yamlString = yaml.dump(configMap)
+                Log.d("RosViewModel", "YAML output: $yamlString")
+                writer.write(yamlString)
+                writer.flush()
+            }
+        } catch (e: Exception) {
+            Log.e("RosViewModel", "Error exporting config to YAML: ${e.message}", e)
+        }
+    }
+
+    fun importAppActivitiesFromYaml(inputStream: InputStream) {
+        val yaml = Yaml()
+        val context = getApplication<Application>().applicationContext
+        val configMap = yaml.load<Map<String, Any>>(inputStream.reader())
+        Log.d("RosViewModel", "Import configMap: $configMap")
+
+        if (configMap == null || configMap.isEmpty()) {
+            Log.w("RosViewModel", "Imported config is empty or null!")
+            return
+        }
+
+        // Restore custom publishers
+        (configMap["customPublishers"] as? List<Map<String, Any>>)?.let { list ->
+            val publishers = list.map {
+                RosViewModel.CustomPublisher(
+                    topic = it["topic"] as? String ?: "",
+                    messageType = it["messageType"] as? String ?: "",
+                    message = it["message"] as? String ?: ""
+                )
+            }
+            setCustomPublishers(publishers)
+        }
+
+        // Restore custom protocol actions
+        (configMap["customProtocolActions"] as? List<Map<String, Any>>)?.let { list ->
+            val actions = list.map {
+                val label = it["label"] as? String ?: ""
+                val protoMap = it["proto"] as? Map<String, Any> ?: emptyMap()
+                val proto = CustomProtocolsViewModel.ProtocolFile(
+                    protoMap["name"] as? String ?: "",
+                    protoMap["importPath"] as? String ?: "",
+                    CustomProtocolsViewModel.ProtocolType.valueOf(protoMap["type"] as? String ?: "MSG")
+                )
+                val fieldValues = (it["fieldValues"] as? Map<String, String>) ?: emptyMap()
+                RosViewModel.CustomProtocolAction(label, proto, fieldValues)
+            }
+            setCustomProtocolActions(actions)
+        }
+
+        // Restore custom message history
+        (configMap["customMessageHistory"] as? List<String>)?.let { set ->
+            _customMessageHistory.value = set
+        }
+
+        // Restore slider buttons
+        (configMap["sliderButtons"] as? String)?.let {
+            val sliderPrefs = context.getSharedPreferences("slider_buttons_prefs", android.content.Context.MODE_PRIVATE)
+            sliderPrefs.edit().putString("saved_slider_buttons", it).apply()
+        }
+
+        // Restore geometry buttons
+        (configMap["geometryButtons"] as? String)?.let {
+            val geometryPrefs = context.getSharedPreferences("geometry_reusable_buttons", android.content.Context.MODE_PRIVATE)
+            geometryPrefs.edit().putString("geometry_buttons", it).apply()
+        }
+
+        // Restore custom publishers prefs (raw JSON)
+        (configMap["customPublishersPrefs"] as? String)?.let {
+            val customPubPrefs = context.getSharedPreferences("custom_publishers_prefs", android.content.Context.MODE_PRIVATE)
+            customPubPrefs.edit().putString("custom_publishers", it).apply()
+        }
+
+        // Restore custom protocol actions prefs (raw JSON)
+        (configMap["customProtocolActionsPrefs"] as? String)?.let {
+            val customProtocolPrefs = context.getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
+            customProtocolPrefs.edit().putString("custom_protocol_actions", it).apply()
+            loadCustomProtocolActionsFromPrefs()
+        }
     }
 }
