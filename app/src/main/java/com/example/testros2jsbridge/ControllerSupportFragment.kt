@@ -24,10 +24,6 @@ import androidx.core.content.edit
     This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
 */
 
-// --- Button Rate Limiting ---
-    private val lastButtonMessageTime: MutableMap<String, Long> = mutableMapOf()
-    private val buttonMessageIntervalMs = 100L //100ms
-
 /*
     input:    tag - String, block - () -> Unit
     output:   None
@@ -46,6 +42,26 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 }
 
 class ControllerSupportFragment : Fragment() {
+
+    // --- Button Rate Limiting ---
+    private val lastButtonMessageTime: MutableMap<String, Long> = mutableMapOf()
+    private val buttonMessageIntervalMs = 100L //100ms
+
+    // --- Joystick Addressing Mode ---
+    private enum class JoystickAddressingMode(val displayName: String) { DIRECT("Direct"), INVERTED_ROTATED("Inverted/Rotated") }
+    private var joystickAddressingMode: JoystickAddressingMode = JoystickAddressingMode.DIRECT
+    private val PREFS_JOYSTICK_ADDRESSING = "joystick_addressing_mode"
+
+    private fun saveJoystickAddressingMode(mode: JoystickAddressingMode) {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
+        prefs.edit { putString(PREFS_JOYSTICK_ADDRESSING, mode.name) }
+    }
+
+    private fun loadJoystickAddressingMode(): JoystickAddressingMode {
+        val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
+        val name = prefs.getString(PREFS_JOYSTICK_ADDRESSING, JoystickAddressingMode.DIRECT.name)
+        return JoystickAddressingMode.values().find { it.name == name } ?: JoystickAddressingMode.DIRECT
+    }
 
     // --- Companion Object for Constants and Helpers ---
     companion object {
@@ -469,6 +485,33 @@ class ControllerSupportFragment : Fragment() {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 })
+
+                // Add dropdown for addressing mode
+                val addressingGroup = android.widget.LinearLayout(requireContext()).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    setPadding(8, 8, 8, 8)
+                }
+                val addressingLabel = TextView(requireContext()).apply {
+                    text = "Joystick Addressing Mode: "
+                    textSize = 15f
+                }
+                val addressingSpinner = android.widget.Spinner(requireContext())
+                val addressingModes = JoystickAddressingMode.values().map { it.displayName }
+                addressingSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, addressingModes).apply {
+                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                }
+                joystickAddressingMode = loadJoystickAddressingMode()
+                addressingSpinner.setSelection(JoystickAddressingMode.values().indexOf(joystickAddressingMode), false)
+                addressingSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                    override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                        joystickAddressingMode = JoystickAddressingMode.values()[position]
+                        saveJoystickAddressingMode(joystickAddressingMode)
+                    }
+                    override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+                }
+                addressingGroup.addView(addressingLabel)
+                addressingGroup.addView(addressingSpinner)
+                container.addView(addressingGroup, 1)
 
                 mappings.forEach { mapping ->
                     val group = android.widget.LinearLayout(requireContext()).apply {
@@ -1182,8 +1225,22 @@ class ControllerSupportFragment : Fragment() {
         remarks:  Processes joystick input and publishes messages if needed
     */
     private fun processJoystickInput(event: MotionEvent, device: InputDevice, historyPos: Int, mapping: JoystickMapping, forceSend: Boolean = false) {
-        val x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
-        val y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
+        var x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
+        var y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
+        // Apply addressing mode
+        when (joystickAddressingMode) {
+            JoystickAddressingMode.DIRECT -> {
+                // No change
+            }
+            JoystickAddressingMode.INVERTED_ROTATED -> {
+                // Rotate by 90 degrees and invert forward/backward
+                // Forward (y+) becomes right (x+), Backward (y-) becomes left (x-)
+                // Right (x+) becomes backward (y-), Left (x-) becomes forward (y+)
+                val temp = x
+                x = -y
+                y = temp
+            }
+        }
         val maxValue = mapping.max ?: 1.0f
         val stepValue = mapping.step ?: 0.2f
         val deadzoneValue = mapping.deadzone ?: 0.1f
