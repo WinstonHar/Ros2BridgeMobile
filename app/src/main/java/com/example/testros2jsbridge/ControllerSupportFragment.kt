@@ -593,6 +593,46 @@ class ControllerSupportFragment : Fragment() {
             appActionsAdapter = AppActionsAdapter(mutableListOf())
             appActionsList.adapter = appActionsAdapter
 
+            // Load sliders from prefs into ViewModel if not already loaded
+            val sliderPrefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
+            val sliderJson = sliderPrefs.getString("saved_slider_buttons", null)
+            if (!sliderJson.isNullOrEmpty()) {
+                val arr = JSONArray(sliderJson)
+                val sliders = mutableListOf<SliderButtonFragment.SliderButtonConfig>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    sliders.add(
+                        SliderButtonFragment.SliderButtonConfig(
+                            name = obj.optString("name", null),
+                            topic = obj.optString("topic", ""),
+                            type = obj.optString("type", ""),
+                            min = obj.optDouble("min", 0.0).toFloat(),
+                            max = obj.optDouble("max", 1.0).toFloat(),
+                            step = obj.optDouble("step", 0.1).toFloat(),
+                            value = obj.optDouble("value", 0.0).toFloat()
+                        )
+                    )
+                }
+                sliderControllerViewModel.setSliders(
+                    sliders.filter { it.type.isNotBlank() && it.topic.isNotBlank() }
+                        .map { config ->
+                            SliderControllerViewModel.SliderState(
+                                name = config.name ?: "",
+                                topic = config.topic,
+                                type = config.type,
+                                min = config.min,
+                                max = config.max,
+                                step = config.step,
+                                value = config.value
+                            )
+                        }
+                )
+            }
+
+            // Load custom protocol actions from prefs into RosViewModel
+            rosViewModel.loadCustomProtocolActionsFromPrefs()
+            
+
             // Observe custom protocol actions and update app actions list and ABXY spinners
             viewLifecycleOwner.lifecycleScope.launch {
                 rosViewModel.customProtocolActions.collectLatest { customActions ->
