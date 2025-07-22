@@ -1185,69 +1185,58 @@ class ControllerSupportFragment : Fragment() {
     */
     fun onControllerMotionEvent(event: MotionEvent): Boolean {
         val dev = event.device ?: return false
-        var handled = false
-        // Joystick mappings
-        val mappings = loadJoystickMappings()
-        if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK && event.action == MotionEvent.ACTION_MOVE) {
-            
-            for (mapping in mappings) {
-                // Create local immutable copies to allow for smart casting
-                val currentTopic = mapping.topic
-                val currentType = mapping.type
 
-                // Check that the required values are not null before proceeding
-                if (currentTopic != null && currentType != null) {
-                    val x = getCenteredAxis(event, dev, mapping.axisX, -1, mapping)
-                    val y = getCenteredAxis(event, dev, mapping.axisY, -1, mapping)
-
-                    if (currentType == "geometry_msgs/msg/TwistStamped") {
-                        val header = "{\"stamp\":\"now\",\"frame_id\":\"base_link\"}"
-                        val twist = "{\"linear\":{\"x\":$x,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":$y}}"
-                        val msg = "{\"header\":$header,\"twist\":$twist}"
-                        // Use the safe, non-null local variables
-                        publishRosAction(currentTopic, currentType, msg)
-                    } else if (currentType == "geometry_msgs/msg/Twist") {
-                        val msg = "{\"linear\":{\"x\":$x,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":$y}}"
-                        // Use the safe, non-null local variables
-                        publishRosAction(currentTopic, currentType, msg)
+        if (event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK) {
+            when (event.action) {
+                MotionEvent.ACTION_MOVE -> {
+                    lastJoystickMappings = loadJoystickMappings() 
+                    lastJoystickDevice = dev
+                    lastJoystickEvent?.recycle()
+                    lastJoystickEvent = MotionEvent.obtain(event)
+                    if (!joystickResendActive) {
+                        joystickResendActive = true
+                        joystickPublishRate = loadJoystickPublishRate()
+                        val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
+                        joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
                     }
-                    handled = true
+                    return true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    joystickResendHandler.removeCallbacks(joystickResendRunnable)
+                    joystickResendActive = false
+                    val mappingsToStop = lastJoystickMappings
+                    if (mappingsToStop != null) {
+                        for (mapping in mappingsToStop) {
+                            val topic = mapping.topic
+                            val type = mapping.type
+                            if (!topic.isNullOrEmpty() && !type.isNullOrEmpty()) {
+                                android.util.Log.d(TAG, "Sending explicit STOP to topic: $topic")
+                                val rosType = if (type.contains("/")) type else "geometry_msgs/msg/Twist"
+                                val msg = when (rosType){
+                                    "geometry_msgs/msg/TwistStamped" -> {
+                                        val header = "{\"stamp\":\"now\",\"frame_id\":\"base_link\"}"
+                                        val twist = "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                                        "{\"header\":$header,\"twist\":$twist}"
+                                    }
+                                    "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                                    else -> "{}"
+                                }
+                                publishRosAction(topic, rosType, msg)
+                            }
+                        }
+                    }
+
+                    lastJoystickMappings = null
+                    lastJoystickDevice = null
+                    lastJoystickEvent?.recycle()
+                    lastJoystickEvent = null
+                    lastJoystickSent.clear()
+                    return true
                 }
             }
-            // Start periodic resend
-            lastJoystickMappings = mappings
-            lastJoystickDevice = dev
-            lastJoystickEvent = MotionEvent.obtain(event)
-
-            joystickResendHandler.removeCallbacks(joystickResendRunnable)
-            joystickResendActive = true
-            joystickPublishRate = loadJoystickPublishRate()
-            val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
-            joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
-        
-        } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
-            // Stop periodic resend
-            joystickResendHandler.removeCallbacks(joystickResendRunnable)
-            joystickResendActive = false
-            lastJoystickMappings = null
-            lastJoystickDevice = null
-            lastJoystickEvent = null
         }
-        // Log axes for debug
-        val axes = listOf(
-            MotionEvent.AXIS_X, MotionEvent.AXIS_Y, MotionEvent.AXIS_Z,
-            MotionEvent.AXIS_RX, MotionEvent.AXIS_RY, MotionEvent.AXIS_RZ,
-            MotionEvent.AXIS_LTRIGGER, MotionEvent.AXIS_RTRIGGER
-        )
-        val sb = StringBuilder("Motion: ${dev.name} (id=${dev.id})\n")
-        for (axis in axes) {
-            val v = event.getAxisValue(axis)
-            if (v != 0f) {
-                sb.append("  ${MotionEvent.axisToString(axis)}: $v\n")
-            }
-        }
-        appendEventLog(sb.toString())
-        return handled
+        return false
     }
 
     /*
@@ -1284,66 +1273,77 @@ class ControllerSupportFragment : Fragment() {
     */
     private fun processJoystickInput(event: MotionEvent, device: InputDevice, historyPos: Int, mapping: JoystickMapping, forceSend: Boolean = false) {
         if (mapping.topic.isNullOrEmpty() || mapping.type.isNullOrEmpty()) return
+        
         var x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
         var y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
-        // Apply addressing mode
+        
         when (joystickAddressingMode) {
-            JoystickAddressingMode.DIRECT -> {
-                // No change
-            }
+            JoystickAddressingMode.DIRECT -> { /* No change */ }
             JoystickAddressingMode.INVERTED_ROTATED -> {
-                // Rotate by 90 degrees and invert forward/backward
-                // Forward (y+) becomes right (x+), Backward (y-) becomes left (x-)
-                // Right (x+) becomes backward (y-), Left (x-) becomes forward (y+)
                 val temp = x
                 x = -y
                 y = temp
             }
         }
+
         val maxValue = mapping.max ?: 1.0f
         val stepValue = mapping.step ?: 0.2f
         val deadzoneValue = mapping.deadzone ?: 0.1f
-        // Quantize to step (step is in user units, between deadzone and max)
-        val quantX = if (x != 0f) sign(x) * (ceil(((abs(x) - deadzoneValue).toDouble() / stepValue.toDouble())).toInt() * stepValue + deadzoneValue) else 0f
-        val quantY = if (y != 0f) sign(y) * (ceil(((abs(y) - deadzoneValue).toDouble() / stepValue.toDouble())).toInt() * stepValue + deadzoneValue) else 0f
-        // Clamp to max
+        
+        val quantX = if (x != 0f) sign(x) * (ceil(((abs(x) - deadzoneValue) / stepValue)).toInt() * stepValue + deadzoneValue) else 0f
+        val quantY = if (y != 0f) sign(y) * (ceil(((abs(y) - deadzoneValue) / stepValue)).toInt() * stepValue + deadzoneValue) else 0f
+        
         val clampedX = quantX.coerceIn(-maxValue, maxValue)
         val clampedY = quantY.coerceIn(-maxValue, maxValue)
-        val displayNameKey = mapping.displayName ?: ""
+        
+        val displayNameKey = mapping.displayName
         val last = lastJoystickSent[displayNameKey]
+        val rosType = if ((mapping.type ?: "").contains("/")) mapping.type!! else "geometry_msgs/msg/${mapping.type}"
+        val topic = mapping.topic!!
 
-        // Only send stop if previously nonzero and now truly centered (not just in deadzone)
-        // Always ensure mapping.type is fully qualified
-        val rosType = if ((mapping.type ?: "").contains("/")) mapping.type ?: "geometry_msgs/msg/Twist" else "geometry_msgs/msg/${mapping.type ?: "Twist"}"
-        val topic = mapping.topic ?: return
+        // --- STOP LOGIC ---
         if (clampedX == 0f && clampedY == 0f) {
             if (last != null && (last.first != 0f || last.second != 0f)) {
                 lastJoystickSent[displayNameKey] = 0f to 0f
+                
                 val msg = when (rosType) {
+                    "geometry_msgs/msg/TwistStamped" -> {
+                        val header = "{\"stamp\":\"now\",\"frame_id\":\"base_link\"}"
+                        val twist = "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                        "{\"header\":$header,\"twist\":$twist}"
+                    }
                     "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
                     "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
                     else -> "{}"
                 }
-                rosViewModel.advertiseTopic(topic, rosType)
-                rosViewModel.publishCustomRawMessage(topic, rosType, msg)
+                
+                if (msg != "{}") {
+                    publishRosAction(topic, rosType, msg)
+                }
             }
-            // Do not keep sending stop if already at zero
             return
         }
 
-        // Only send if changed or forceSend is true, and not in deadzone
+        // --- MOVEMENT LOGIC ---
         if (forceSend || last == null || last.first != clampedX || last.second != clampedY) {
             lastJoystickSent[displayNameKey] = clampedX to clampedY
+
             val msg = when (rosType) {
-                "geometry_msgs/msg/Twist" -> "{" +
-                        "\"linear\": {\"x\": ${-clampedY}, \"y\": 0.0, \"z\": 0.0}," +
-                        "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $clampedX}" +
-                        "}"
+                "geometry_msgs/msg/TwistStamped" -> {
+                    val header = "{\"stamp\":\"now\",\"frame_id\":\"base_link\"}"
+                    val twist = "{\"linear\":{\"x\":${-clampedY},\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":${clampedX}}}"
+                    "{\"header\":$header,\"twist\":$twist}"
+                }
+                "geometry_msgs/msg/Twist" -> {
+                    "{\"linear\":{\"x\":${-clampedY},\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":${clampedX}}}"
+                }
                 "geometry_msgs/msg/Vector3" -> "{\"x\":$clampedX,\"y\":0.0,\"z\":${-clampedY}}"
                 else -> "{}"
             }
-            rosViewModel.advertiseTopic(topic, rosType)
-            rosViewModel.publishCustomRawMessage(topic, rosType, msg)
+            
+            if (msg != "{}") {
+                publishRosAction(topic, rosType, msg)
+            }
         }
     }
 
