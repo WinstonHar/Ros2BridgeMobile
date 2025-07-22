@@ -784,7 +784,22 @@ class ControllerSupportFragment : Fragment() {
                 if (action.source.isNotEmpty()) {
                     append("Source: ").append(action.source).append('\n')
                 }
-                append("Msg: ").append(action.msg.ifEmpty { "<not set>" })
+                if (action.source == "SliderIncrement" || action.source == "SliderDecrement") {
+                    val idx = action.msg.toIntOrNull()
+                    val sliderStates = sliderControllerViewModel.sliders.value
+                    val slider = sliderStates.getOrNull(idx ?: -1)
+                    if (slider != null) {
+                        val nextValue = if (action.source == "SliderIncrement") slider.value + slider.step else slider.value - slider.step
+                        val outOfBounds = nextValue > slider.max || nextValue < slider.min
+                        append("Value: ").append(
+                            if (outOfBounds) slider.value.toString()
+                            else slider.value.toString() + if (action.source == "SliderIncrement") " (+${slider.step})" else " (-${slider.step})"
+                        )
+                        append('\n')
+                    }
+                } else {
+                    append("Msg: ").append(action.msg.ifEmpty { "<not set>" })
+                }
             }.trimEnd('\n')
             holder.detailsView.text = details
         }
