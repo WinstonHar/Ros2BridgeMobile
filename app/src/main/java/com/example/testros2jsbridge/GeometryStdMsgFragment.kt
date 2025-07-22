@@ -421,8 +421,8 @@ class GeometryStdMsgFragment : Fragment() {
                     .setTitle("Save Message Button")
                     .setView(labelInput)
                     .setPositiveButton("Save") { _, _ ->
-                        val label = labelInput.text.toString().ifBlank { selectedType }
-                        savedMessages.add(ReusableMsgButton(label, topic, selectedType, filledMessage))
+                        val label = labelInput.text.toString().ifBlank { "geometry_msgs/msg/$selectedType" }
+                        savedMessages.add(ReusableMsgButton(label, topic, "geometry_msgs/msg/$selectedType", filledMessage))
                         saveButtonsToPrefs()
                         refreshSavedButtons()
                     }

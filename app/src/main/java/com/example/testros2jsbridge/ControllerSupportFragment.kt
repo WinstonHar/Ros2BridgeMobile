@@ -211,7 +211,7 @@ class ControllerSupportFragment : Fragment() {
                 deadzone = obj.optDouble("deadzone", 0.1).toFloat()
             )
         }
-        if (list.isEmpty()) {
+        if (list.isEmpty() && joystickMappings.isEmpty()) {
             list.add(JoystickMapping("Left Stick"))
             list.add(JoystickMapping("Right Stick"))
         }
@@ -657,7 +657,7 @@ class ControllerSupportFragment : Fragment() {
                 arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*")
             )
         }
-        
+
         return view
     }
 
@@ -929,7 +929,7 @@ class ControllerSupportFragment : Fragment() {
                 displayName = "Cycle Presets",
                 topic = "/ignore", // Not used, safe default
                 type = "Set",
-                source = "Controller",
+                source = "CyclePreset",
                 msg = ""
             )
         )
@@ -1060,10 +1060,12 @@ class ControllerSupportFragment : Fragment() {
             return true
         }
         val assignments = loadButtonAssignments(getControllerButtonList())
-        assignments[btnName]?.let {
-            triggerAppAction(it)
+        val assignedAction = assignments[btnName]
+        if (assignedAction != null) {
+            triggerAppAction(assignedAction)
             return true
         }
+        // Do nothing if not assigned
         return false
     }
 
@@ -1139,6 +1141,28 @@ class ControllerSupportFragment : Fragment() {
                 val nextIdx = if (presets.isNotEmpty()) (currentIdx + 1) % presets.size else 0
                 prefs.edit { putInt("selected_preset_idx", nextIdx) }
                 android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(nextIdx)?.name}")
+
+                // Update controller button assignments to match new preset
+                val newPreset = presets.getOrNull(nextIdx)
+                if (newPreset != null) {
+                    val abxy = newPreset.abxy
+                    val allActions = loadAvailableAppActions() + customProtocolAppActions
+                    val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
+                    // Always assign for Button A/B/X/Y
+                    listOf("A", "B", "X", "Y").forEach { btn ->
+                        val actionName = abxy[btn] ?: ""
+                        val action = allActions.find { it.displayName == actionName }
+                        if (action != null) {
+                            newAssignments["Button $btn"] = action
+                        }
+                        // If actionName is empty, do not assign
+                    }
+                    // Optionally, preserve other assignments (DPad, L1, etc.) if desired
+                    saveButtonAssignments(newAssignments)
+                    buttonAssignments.clear()
+                    buttonAssignments.putAll(newAssignments)
+                    setupControllerMappingUI(requireView())
+                }
             }
             else -> android.util.Log.d(TAG, "Triggered unknown action source: ${action.source}")
         }
@@ -1259,6 +1283,7 @@ class ControllerSupportFragment : Fragment() {
         remarks:  Processes joystick input and publishes messages if needed
     */
     private fun processJoystickInput(event: MotionEvent, device: InputDevice, historyPos: Int, mapping: JoystickMapping, forceSend: Boolean = false) {
+        if (mapping.topic.isNullOrEmpty() || mapping.type.isNullOrEmpty()) return
         var x = getCenteredAxis(event, device, mapping.axisX, historyPos, mapping)
         var y = getCenteredAxis(event, device, mapping.axisY, historyPos, mapping)
         // Apply addressing mode
@@ -1418,13 +1443,16 @@ class ControllerSupportFragment : Fragment() {
                         displayName = jm["displayName"] as? String ?: "",
                         max = (jm["max"] as? Float ?: (jm["max"] as? Double)?.toFloat() ?: (jm["max"] as? Number)?.toFloat() ?: 1.0f),
                         step = (jm["step"] as? Float ?: (jm["step"] as? Double)?.toFloat() ?: (jm["step"] as? Number)?.toFloat() ?: 0.2f),
-                        topic = jm["topic"] as? String ?: "",
-                        type = jm["type"] as? String ?: ""
+                        topic = jm["topic"] as? String,
+                        type = jm["type"] as? String
                     )
                 )
             }
         }
         android.util.Log.i("ControllerSupportFragment", "Imported joystickMappings: ${joystickMappings.size}")
+        // Save imported joystick mappings to persistent storage to avoid duplicates
+        saveJoystickMappings(joystickMappings)
+        // Prefill joystick fields in the UI after import
         controllerPresets.clear()
         val cpList = configMap["controllerPresets"] as? List<*> ?: emptyList<Any>()
         for (cp in cpList) {
@@ -1496,14 +1524,9 @@ class ControllerSupportFragment : Fragment() {
         } else {
             updateAppActions()
         }
-        // To fully refresh the UI, you may also want to call:
         setupPresetManagementUI(requireView())
         setupJoystickMappingUI(requireView())
         setupControllerMappingUI(requireView())
         android.util.Log.i("ControllerSupportFragment", "Import finished")
-        android.util.Log.i("ControllerSupportFragment", "Imported joystickMappings: $joystickMappings")
-        android.util.Log.i("ControllerSupportFragment", "Imported controllerPresets: $controllerPresets")
-        android.util.Log.i("ControllerSupportFragment", "Imported buttonAssignments: $buttonAssignments")
-        android.util.Log.i("ControllerSupportFragment", "Imported appActions: $appActions")
     }
 }
