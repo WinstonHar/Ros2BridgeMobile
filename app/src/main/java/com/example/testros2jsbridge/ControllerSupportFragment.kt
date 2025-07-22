@@ -978,13 +978,22 @@ class ControllerSupportFragment : Fragment() {
             }
         }
 
-        //Add Cycle Presets action
+        // Add Cycle Presets actions
         actions.add(
             AppAction(
-                displayName = "Cycle Presets",
+                displayName = "Cycle Presets Forwards",
                 topic = "/ignore", // Not used, safe default
                 type = "Set",
-                source = "CyclePreset",
+                source = "CyclePresetForward",
+                msg = ""
+            )
+        )
+        actions.add(
+            AppAction(
+                displayName = "Cycle Presets Backwards",
+                topic = "/ignore",
+                type = "Set",
+                source = "CyclePresetBackward",
                 msg = ""
             )
         )
@@ -1190,7 +1199,7 @@ class ControllerSupportFragment : Fragment() {
                 val message = action.msg.ifEmpty { getDefaultMessage(action) }
                 publishRosAction(action.topic, action.type, message)
             }
-            "CyclePreset" -> {
+            "CyclePreset", "CyclePresetForward" -> {
                 val presets = loadControllerPresets()
                 val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
                 val currentIdx = prefs.getInt("selected_preset_idx", 0)
@@ -1204,16 +1213,46 @@ class ControllerSupportFragment : Fragment() {
                     val abxy = newPreset.abxy
                     val allActions = loadAvailableAppActions() + customProtocolAppActions
                     val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
-                    // Always assign for Button A/B/X/Y
+                    listOf("A", "B", "X", "Y").forEach { btn ->
+                        newAssignments.remove("Button $btn")
+                    }
                     listOf("A", "B", "X", "Y").forEach { btn ->
                         val actionName = abxy[btn] ?: ""
                         val action = allActions.find { it.displayName == actionName }
                         if (action != null) {
                             newAssignments["Button $btn"] = action
                         }
-                        // If actionName is empty, do not assign
                     }
-                    // Optionally, preserve other assignments (DPad, L1, etc.) if desired
+                    saveButtonAssignments(newAssignments)
+                    buttonAssignments.clear()
+                    buttonAssignments.putAll(newAssignments)
+                    setupControllerMappingUI(requireView())
+                }
+            }
+            "CyclePresetBackward" -> {
+                val presets = loadControllerPresets()
+                val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
+                val currentIdx = prefs.getInt("selected_preset_idx", 0)
+                val prevIdx = if (presets.isNotEmpty()) (currentIdx - 1 + presets.size) % presets.size else 0
+                prefs.edit { putInt("selected_preset_idx", prevIdx) }
+                android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(prevIdx)?.name}")
+
+                // Update controller button assignments to match new preset
+                val newPreset = presets.getOrNull(prevIdx)
+                if (newPreset != null) {
+                    val abxy = newPreset.abxy
+                    val allActions = loadAvailableAppActions() + customProtocolAppActions
+                    val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
+                    listOf("A", "B", "X", "Y").forEach { btn ->
+                        newAssignments.remove("Button $btn")
+                    }
+                    listOf("A", "B", "X", "Y").forEach { btn ->
+                        val actionName = abxy[btn] ?: ""
+                        val action = allActions.find { it.displayName == actionName }
+                        if (action != null) {
+                            newAssignments["Button $btn"] = action
+                        }
+                    }
                     saveButtonAssignments(newAssignments)
                     buttonAssignments.clear()
                     buttonAssignments.putAll(newAssignments)
