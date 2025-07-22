@@ -996,10 +996,11 @@ class ControllerSupportFragment : Fragment() {
         input:    None
         output:   List<String>
         remarks:  Returns a list of common controller button names
+        These were removed as they were unsettable due to ui connection "DPad Up", "DPad Down", "DPad Left", "DPad Right",
     */
+
     private fun getControllerButtonList(): List<String> = listOf(
         "Button A", "Button B", "Button X", "Button Y",
-        "DPad Up", "DPad Down", "DPad Left", "DPad Right",
         "L1", "R1", "L2", "R2", "Start", "Select"
     )
 
