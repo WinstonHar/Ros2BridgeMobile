@@ -127,11 +127,8 @@ class ControllerOverviewActivity : AppCompatActivity() {
             "A" to findViewById<TextView>(R.id.label_a)
         )
         abxyLabels.forEach { (key, tv) ->
-            val action = assignments["Button $key"]
             tv.text = key
-            tv.setOnClickListener {
-                showActionDetails(action, tv)
-            }
+            tv.setOnClickListener(null)
         }
         // Populate ABXY assignment and message fields
         val abxyAssignmentIds = mapOf(
@@ -140,21 +137,14 @@ class ControllerOverviewActivity : AppCompatActivity() {
             "B" to R.id.assignment_b,
             "A" to R.id.assignment_a
         )
-        val abxyMsgIds = mapOf(
-            "Y" to R.id.msg_y,
-            "X" to R.id.msg_x,
-            "B" to R.id.msg_b,
-            "A" to R.id.msg_a
-        )
+        
         abxyAssignmentIds.forEach { (key, id) ->
             val tv = findViewById<TextView>(id)
             val action = assignments["Button $key"]
             tv.text = action?.displayName ?: "<none>"
-        }
-        abxyMsgIds.forEach { (key, id) ->
-            val tv = findViewById<TextView>(id)
-            val action = assignments["Button $key"]
-            tv.text = action?.msg ?: ""
+            tv.setOnClickListener {
+                showActionDetails(action, tv)
+            }
         }
         
         // Triggers
@@ -169,15 +159,6 @@ class ControllerOverviewActivity : AppCompatActivity() {
         val rightJoystick = joystickMappings.getOrNull(1)
         setJoystickAssignment(R.id.assignment_left_joystick, leftJoystick)
         setJoystickAssignment(R.id.assignment_right_joystick, rightJoystick)
-        // Populate joystick info fields
-        val leftInfoTv = findViewById<TextView>(R.id.info_left_joystick)
-        val rightInfoTv = findViewById<TextView>(R.id.info_right_joystick)
-        leftInfoTv.text = leftJoystick?.let {
-            "Topic: ${it.topic}\nType: ${it.type}\nMax: ${it.max}\nStep: ${it.step}\nDeadzone: ${it.deadzone}"
-        } ?: ""
-        rightInfoTv.text = rightJoystick?.let {
-            "Topic: ${it.topic}\nType: ${it.type}\nMax: ${it.max}\nStep: ${it.step}\nDeadzone: ${it.deadzone}"
-        } ?: ""
 
         // Select/Start
         setAssignmentLabel(R.id.assignment_select, assignments["Select"])
