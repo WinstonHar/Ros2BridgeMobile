@@ -48,6 +48,48 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 
 class ControllerSupportFragment : Fragment() {
 
+    fun cyclePreset(next: Boolean = true) {
+        val action = if (next) {
+            AppAction(
+                displayName = "Cycle Presets Forwards",
+                topic = "/ignore",
+                type = "Set",
+                source = "CyclePresetForward",
+                msg = ""
+            )
+        } else {
+            AppAction(
+                displayName = "Cycle Presets Backwards",
+                topic = "/ignore",
+                type = "Set",
+                source = "CyclePresetBackward",
+                msg = ""
+            )
+        }
+        triggerAppAction(action)
+    }
+
+    // Handler for key down events
+    fun handleKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event == null) return false
+        return onControllerKeyEvent(event)
+    }
+
+    // Handler for key up events
+    fun handleKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        // Optionally handle key up events if needed
+        return false
+    }
+
+    // Handler for generic motion events
+    fun handleGenericMotionEvent(event: MotionEvent?): Boolean {
+        if (event == null) return false
+        return onControllerMotionEvent(event)
+    }
+
+    // Callback for activity to set
+    var presetOverlayCallback: ControllerOverviewActivity.PresetOverlayCallback? = null
+
     // --- Config Data ---
     private val joystickMappings: MutableList<JoystickMapping> = mutableListOf()
     private val controllerPresets: MutableList<ControllerPreset> = mutableListOf()
@@ -198,7 +240,7 @@ class ControllerSupportFragment : Fragment() {
         output:   MutableList<JoystickMapping>
         remarks:  Loads joystick mappings from SharedPreferences
     */
-    private fun loadJoystickMappings(): MutableList<JoystickMapping> {
+    fun loadJoystickMappings(): MutableList<JoystickMapping> {
         val list = loadListFromPrefs(requireContext(), PREFS_JOYSTICK_MAPPINGS, "mappings") { obj ->
             JoystickMapping(
                 displayName = obj.optString("displayName", "Joystick"),
@@ -285,7 +327,7 @@ class ControllerSupportFragment : Fragment() {
         output:   MutableList<ControllerPreset>
         remarks:  Loads controller presets from SharedPreferences
     */
-    private fun loadControllerPresets(): MutableList<ControllerPreset> {
+    fun loadControllerPresets(): MutableList<ControllerPreset> {
         val list = loadListFromPrefs(requireContext(), PREFS_CONTROLLER_PRESETS, "presets") { obj ->
             val abxyMap = mutableMapOf<String, String>()
             obj.optJSONObject("abxy")?.let { abxyObj ->
@@ -1008,7 +1050,7 @@ class ControllerSupportFragment : Fragment() {
         These were removed as they were unsettable due to ui connection "DPad Up", "DPad Down", "DPad Left", "DPad Right",
     */
 
-    private fun getControllerButtonList(): List<String> = listOf(
+    fun getControllerButtonList(): List<String> = listOf(
         "Button A", "Button B", "Button X", "Button Y",
         "L1", "R1", "L2", "R2", "Start", "Select"
     )
@@ -1041,7 +1083,7 @@ class ControllerSupportFragment : Fragment() {
         output:   MutableMap<String, AppAction>
         remarks:  Loads controller button assignments from SharedPreferences
     */
-    private fun loadButtonAssignments(controllerButtons: List<String>): MutableMap<String, AppAction> {
+    fun loadButtonAssignments(controllerButtons: List<String>): MutableMap<String, AppAction> {
         val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_ASSIGN, Context.MODE_PRIVATE)
         val json = prefs.getString("assignments", null)
         val map = mutableMapOf<String, AppAction>()
@@ -1139,7 +1181,7 @@ class ControllerSupportFragment : Fragment() {
         output:   String?
         remarks:  Maps Android keyCode to button names, follows xbox layout
     */
-    private fun keyCodeToButtonName(keyCode: Int): String? {
+    fun keyCodeToButtonName(keyCode: Int): String? {
         return when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_A -> "Button A"
             KeyEvent.KEYCODE_BUTTON_B -> "Button B"
@@ -1228,6 +1270,8 @@ class ControllerSupportFragment : Fragment() {
                     buttonAssignments.putAll(newAssignments)
                     setupControllerMappingUI(requireView())
                 }
+               presetOverlayCallback?.onPresetCycled()
+               presetOverlayCallback?.onShowPresetsOverlay()
             }
             "CyclePresetBackward" -> {
                 val presets = loadControllerPresets()
@@ -1258,6 +1302,8 @@ class ControllerSupportFragment : Fragment() {
                     buttonAssignments.putAll(newAssignments)
                     setupControllerMappingUI(requireView())
                 }
+               presetOverlayCallback?.onPresetCycled()
+               presetOverlayCallback?.onShowPresetsOverlay()
             }
             else -> android.util.Log.d(TAG, "Triggered unknown action source: ${action.source}")
         }

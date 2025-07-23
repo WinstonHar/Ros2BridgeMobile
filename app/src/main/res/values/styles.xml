@@ -1,0 +1,20 @@
+<resources>
+    <style name="AbxyButton">
+        <item name="android:layout_width">64dp</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:backgroundTint">@color/purple_500</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:elevation">4dp</item>
+    </style>
+    <style name="TriggerLabel">
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:paddingBottom">2dp</item>
+    </style>
+    <style name="AssignmentLabel">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@android:color/darker_gray</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+</resources>

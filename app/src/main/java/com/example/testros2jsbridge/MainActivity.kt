@@ -131,6 +131,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // Open Controller Overview UI
+        findViewById<MaterialButton>(R.id.button_open_controller_overview).setOnClickListener {
+            val intent = android.content.Intent(this, ControllerOverviewActivity::class.java)
+            startActivity(intent)
+        }
         // Always register rosViewModel as a listener for rosbridge connection events
         RosbridgeConnectionManager.addListener(rosViewModel)
 

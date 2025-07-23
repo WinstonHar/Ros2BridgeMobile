@@ -168,6 +168,15 @@
                 android:text="Open ROS2 Topic Subscriber"
                 android:layout_marginTop="16dp"
                 android:layout_marginBottom="8dp" />
+                
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_open_controller_overview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Open Controller Overview UI"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp" />
+
 
         </LinearLayout>
 
