@@ -73,13 +73,15 @@
         app:layout_constraintVertical_bias="0.5">
 
         <!-- Y Button (Top, centered) -->
-        <TextView
-            android:id="@+id/label_y"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_y"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
             android:text="Y"
+            android:textColor="@color/darker_gray"
             android:textSize="30sp"
             android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -90,18 +92,20 @@
             android:textSize="24sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/label_y"
+            app:layout_constraintTop_toBottomOf="@id/button_y"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- X and B horizontal chain with fixed spacer -->
-        <TextView
-            android:id="@+id/label_x"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_x"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
             android:text="X"
+            android:textColor="@color/darker_gray"
             android:textSize="30sp"
             android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/assignment_y"
             app:layout_constraintEnd_toStartOf="@id/x_b_spacer"
             app:layout_constraintHorizontal_chainStyle="packed"
@@ -111,18 +115,20 @@
             android:id="@+id/x_b_spacer"
             android:layout_width="106dp"
             android:layout_height="0dp"
-            app:layout_constraintTop_toTopOf="@id/label_x"
-            app:layout_constraintBottom_toBottomOf="@id/label_x"
-            app:layout_constraintStart_toEndOf="@id/label_x"
-            app:layout_constraintEnd_toStartOf="@id/label_b" />
+            app:layout_constraintTop_toTopOf="@id/button_x"
+            app:layout_constraintBottom_toBottomOf="@id/button_x"
+            app:layout_constraintStart_toEndOf="@id/button_x"
+            app:layout_constraintEnd_toStartOf="@id/button_b" />
 
-        <TextView
-            android:id="@+id/label_b"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_b"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
             android:text="B"
+            android:textColor="@color/darker_gray"
             android:textSize="30sp"
             android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/assignment_y"
             app:layout_constraintStart_toEndOf="@id/x_b_spacer"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -134,9 +140,9 @@
             android:textSize="24sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/label_x"
-            app:layout_constraintStart_toStartOf="@id/label_x"
-            app:layout_constraintEnd_toEndOf="@id/label_x" />
+            app:layout_constraintTop_toBottomOf="@id/button_x"
+            app:layout_constraintStart_toStartOf="@id/button_x"
+            app:layout_constraintEnd_toEndOf="@id/button_x" />
 
         <!-- B assignment -->
         <TextView
@@ -145,18 +151,20 @@
             android:textSize="24sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/label_b"
-            app:layout_constraintStart_toStartOf="@id/label_b"
-            app:layout_constraintEnd_toEndOf="@id/label_b" />
+            app:layout_constraintTop_toBottomOf="@id/button_b"
+            app:layout_constraintStart_toStartOf="@id/button_b"
+            app:layout_constraintEnd_toEndOf="@id/button_b" />
 
         <!-- A Button (Bottom, centered below X and B) -->
-        <TextView
-            android:id="@+id/label_a"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_a"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
             android:text="A"
+            android:textColor="@color/darker_gray"
             android:textSize="30sp"
             android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
             app:layout_constraintTop_toBottomOf="@id/assignment_x"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
@@ -167,7 +175,7 @@
             android:textSize="24sp"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toBottomOf="@id/label_a"
+            app:layout_constraintTop_toBottomOf="@id/button_a"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 

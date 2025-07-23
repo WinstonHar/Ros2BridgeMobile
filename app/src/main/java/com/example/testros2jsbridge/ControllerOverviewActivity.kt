@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.example.testros2jsbridge.ControllerSupportFragment.AppAction
 import com.example.testros2jsbridge.ControllerSupportFragment.JoystickMapping
+import com.google.android.material.button.MaterialButton
 
 class ControllerOverviewActivity : AppCompatActivity() {
     private var overlayHideRunnable: Runnable? = null
@@ -90,6 +91,7 @@ class ControllerOverviewActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContentView(R.layout.activity_controller_overview)
 
         findViewById<View>(R.id.button_back_to_main).setOnClickListener {
@@ -113,22 +115,26 @@ class ControllerOverviewActivity : AppCompatActivity() {
         // Set the callback so fragment can notify activity
         controllerFragment.presetOverlayCallback = presetOverlayCallback
 
+        findViewById<MaterialButton>(R.id.button_y).setOnClickListener {
+        simulateControllerButtonPress("Button Y")
+        }
+        findViewById<MaterialButton>(R.id.button_x).setOnClickListener {
+            simulateControllerButtonPress("Button X")
+        }
+        findViewById<MaterialButton>(R.id.button_b).setOnClickListener {
+            simulateControllerButtonPress("Button B")
+        }
+        findViewById<MaterialButton>(R.id.button_a).setOnClickListener {
+            simulateControllerButtonPress("Button A")
+        }
+
         setupUi()
     }
 
     private fun setupUi() {
         // ABXY assignments (now TextViews)
         val assignments = controllerFragment.loadButtonAssignments(controllerFragment.getControllerButtonList())
-        val abxyLabels = mapOf(
-            "Y" to findViewById<TextView>(R.id.label_y),
-            "X" to findViewById<TextView>(R.id.label_x),
-            "B" to findViewById<TextView>(R.id.label_b),
-            "A" to findViewById<TextView>(R.id.label_a)
-        )
-        abxyLabels.forEach { (key, tv) ->
-            tv.text = key
-            tv.setOnClickListener(null)
-        }
+
         // Populate ABXY assignment and message fields
         val abxyAssignmentIds = mapOf(
             "Y" to R.id.assignment_y,
@@ -251,5 +257,13 @@ class ControllerOverviewActivity : AppCompatActivity() {
             .setPositiveButton("OK", null)
             .create()
         dialog.show()
+    }
+
+    private fun simulateControllerButtonPress(btnName: String) {
+        val assignments = controllerFragment.loadButtonAssignments(controllerFragment.getControllerButtonList())
+        val assignedAction = assignments[btnName]
+        if (assignedAction != null) {
+            controllerFragment.triggerAppAction(assignedAction)
+        }
     }
 }

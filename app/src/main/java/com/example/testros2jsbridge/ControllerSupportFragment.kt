@@ -1202,7 +1202,7 @@ class ControllerSupportFragment : Fragment() {
     }
 
     // --- Trigger App Action ---
-    private fun triggerAppAction(action: AppAction) {
+    fun triggerAppAction(action: AppAction) {
         // Helper to get the default message if the action's message is empty
         fun getDefaultMessage(action: AppAction): String {
             return when (action.source) {
