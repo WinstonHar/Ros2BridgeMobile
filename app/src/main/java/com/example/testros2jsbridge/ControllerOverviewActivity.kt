@@ -106,7 +106,6 @@ class ControllerOverviewActivity : AppCompatActivity() {
             controllerFragment = existing
         } else {
             controllerFragment = ControllerSupportFragment()
-            controllerFragment.retainInstance = true
             fragMgr.beginTransaction()
                 .add(controllerFragment, "ControllerSupportFragment")
                 .commitNow()
@@ -177,9 +176,18 @@ class ControllerOverviewActivity : AppCompatActivity() {
             val subActions = preset.abxy.values.filter { it.isNotEmpty() }.joinToString(", ")
             presetView.findViewById<TextView>(R.id.preset_subactions).text = subActions
             if (idx == selectedIdx) {
-                presetView.setBackgroundResource(R.color.purple_200)
+                presetView.setBackgroundColor(resources.getColor(R.color.preset_selected_bg, theme))
+                presetView.findViewById<TextView>(R.id.preset_name).setTextColor(resources.getColor(R.color.preset_selected_text, theme))
+                presetView.findViewById<TextView>(R.id.preset_subactions).setTextColor(resources.getColor(R.color.preset_selected_text, theme))
             }
             overlayList.addView(presetView)
+        }
+        val scrollView = findViewById<android.widget.HorizontalScrollView>(R.id.presets_overlay_container)
+        val selectedView = overlayList.getChildAt(selectedIdx)
+        selectedView?.let {
+            scrollView.post {
+                scrollView.smoothScrollTo(it.left, 0)
+            }
         }
         // Hide overlay by default
         overlayContainer.visibility = View.GONE

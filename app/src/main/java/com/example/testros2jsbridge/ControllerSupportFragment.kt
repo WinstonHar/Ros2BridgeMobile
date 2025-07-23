@@ -645,7 +645,7 @@ class ControllerSupportFragment : Fragment() {
                     val obj = arr.getJSONObject(i)
                     sliders.add(
                         SliderButtonFragment.SliderButtonConfig(
-                            name = obj.optString("name", null),
+                            name = obj.optString("name", null.toString()),
                             topic = obj.optString("topic", ""),
                             type = obj.optString("type", ""),
                             min = obj.optDouble("min", 0.0).toFloat(),
