@@ -1201,7 +1201,11 @@ class ControllerSupportFragment : Fragment() {
         }
     }
 
-    // --- Trigger App Action ---
+    /*
+        input:    action - AppAction
+        output:   None
+        remarks:  triggers action for each respective source in the expected way
+    */
     fun triggerAppAction(action: AppAction) {
         // Helper to get the default message if the action's message is empty
         fun getDefaultMessage(action: AppAction): String {
