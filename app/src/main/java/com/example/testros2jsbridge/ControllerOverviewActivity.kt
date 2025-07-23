@@ -156,7 +156,7 @@ class ControllerOverviewActivity : AppCompatActivity() {
             val action = assignments["Button $key"]
             tv.text = action?.msg ?: ""
         }
-
+        
         // Triggers
         setAssignmentLabel(R.id.assignment_l1, assignments["L1"])
         setAssignmentLabel(R.id.assignment_l2, assignments["L2"])
