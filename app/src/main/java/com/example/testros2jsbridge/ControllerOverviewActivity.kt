@@ -8,12 +8,56 @@ import androidx.appcompat.app.AppCompatActivity
 import com.example.testros2jsbridge.ControllerSupportFragment.AppAction
 import com.example.testros2jsbridge.ControllerSupportFragment.JoystickMapping
 import com.google.android.material.button.MaterialButton
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+
+/*
+New UI for end users to be able to interact with controller without having to use the UI of the controller fragment.
+Allows for usage of controller fragment but with cleaner more logical descriptions for assigned buttons.
+Allows for image background during controller usage.
+ */
 
 class ControllerOverviewActivity : AppCompatActivity() {
     private var overlayHideRunnable: Runnable? = null
     private val overlayHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private lateinit var controllerFragment: ControllerSupportFragment
 
+    private val repeatIntervalMs = 100L // 100 ms
+    private var repeatHandler: android.os.Handler? = null
+    private var repeatRunnable: Runnable? = null
+
+    /*
+        input:    buttonID - Int, btnName - String
+        output:   None
+        remarks:  triggers simulateControllerButtonPress via repeat 100ms loops of button press
+    */
+    private fun setupRepeatButton(buttonId: Int, btnName: String) {
+        val button = findViewById<MaterialButton>(buttonId)
+        button.setOnTouchListener { v, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    simulateControllerButtonPress(btnName)
+                    repeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                    repeatRunnable = object : Runnable {
+                        override fun run() {
+                            simulateControllerButtonPress(btnName)
+                            repeatHandler?.postDelayed(this, repeatIntervalMs)
+                        }
+                    }
+                    repeatHandler?.postDelayed(repeatRunnable!!, repeatIntervalMs)
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    repeatHandler?.removeCallbacks(repeatRunnable!!)
+                    repeatHandler = null
+                    repeatRunnable = null
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    
     // Callback for fragment to notify activity when cycling presets
     interface PresetOverlayCallback {
         fun onShowPresetsOverlay()
@@ -29,7 +73,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         }
     }
 
-    // Intercept controller events before UI consumes them
+    /*
+        input:    event (controller events ie button press etc) - Boolean
+        output:   key event
+        remarks:  Intercept controller events before UI consumes them
+    */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
@@ -59,15 +107,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
-        if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
-            val handled = controllerFragment.handleGenericMotionEvent(event)
-            if (handled) return true
-        }
-        return super.dispatchGenericMotionEvent(event)
-    }
-
-    // Forward key and motion events to fragment using custom handler methods
+    /*
+        input:    keyCode - int, event - keyEvent
+        output:   key event passthrough
+        remarks:  Forward key and motion events to fragment using custom handler methods
+    */
     override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent?): Boolean {
         if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
             controllerFragment.handleKeyDown(keyCode, event)
@@ -75,6 +119,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    /*
+        input:    keyCode - Int, event - keyEvent
+        output:   key Event passthrough
+        remarks:  not currently used, but can be integrated for better responsiveness
+    */
     override fun onKeyUp(keyCode: Int, event: android.view.KeyEvent?): Boolean {
         if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
             controllerFragment.handleKeyUp(keyCode, event)
@@ -82,16 +131,13 @@ class ControllerOverviewActivity : AppCompatActivity() {
         return super.onKeyUp(keyCode, event)
     }
 
-    override fun onGenericMotionEvent(event: android.view.MotionEvent?): Boolean {
-        if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
-            controllerFragment.handleGenericMotionEvent(event)
-        }
-        return super.onGenericMotionEvent(event)
-    }
-
+    /*
+        input:    savedInstaceState - bundle (previous state of ui if existing)
+        output:   None
+        remarks:  Navigates to main activity upon button press, uses controller support fragment as callback for key event action passthrough, init ui, allows for background image if subscribed to
+    */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_controller_overview)
 
         findViewById<View>(R.id.button_back_to_main).setOnClickListener {
@@ -115,22 +161,40 @@ class ControllerOverviewActivity : AppCompatActivity() {
         // Set the callback so fragment can notify activity
         controllerFragment.presetOverlayCallback = presetOverlayCallback
 
-        findViewById<MaterialButton>(R.id.button_y).setOnClickListener {
-        simulateControllerButtonPress("Button Y")
+        setupRepeatButton(R.id.button_y, "Button Y")
+        setupRepeatButton(R.id.button_x, "Button X")
+        setupRepeatButton(R.id.button_b, "Button B")
+        setupRepeatButton(R.id.button_a, "Button A")
+
+        // Obtain RosViewModel from Application (same as in Ros2TopicSubscriberActivity)
+        val app = application as MyApp
+        val rosViewModel = androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        ).get(RosViewModel::class.java)
+
+        val backgroundImageView = findViewById<android.widget.ImageView>(R.id.backgroundImageView)
+        lifecycleScope.launch {
+            rosViewModel.latestBitmap.collect { bitmap ->
+                if (bitmap != null) {
+                    backgroundImageView.setImageBitmap(bitmap)
+                    backgroundImageView.visibility = android.view.View.VISIBLE
+                } else {
+                    backgroundImageView.setImageDrawable(null)
+                    backgroundImageView.visibility = android.view.View.GONE
+                }
+            }
         }
-        findViewById<MaterialButton>(R.id.button_x).setOnClickListener {
-            simulateControllerButtonPress("Button X")
-        }
-        findViewById<MaterialButton>(R.id.button_b).setOnClickListener {
-            simulateControllerButtonPress("Button B")
-        }
-        findViewById<MaterialButton>(R.id.button_a).setOnClickListener {
-            simulateControllerButtonPress("Button A")
-        }
+        
 
         setupUi()
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Does the bulk of the work connecting logic to UI for buttons
+    */
     private fun setupUi() {
         // ABXY assignments (now TextViews)
         val assignments = controllerFragment.loadButtonAssignments(controllerFragment.getControllerButtonList())
@@ -199,7 +263,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         overlayContainer.visibility = View.GONE
     }
 
-    // Call this to show the overlay (e.g., when cycling presets)
+    /*
+        input:    None
+        output:   None
+        remarks:  Call this to show the overlay (e.g., when cycling presets)
+    */
     private fun showPresetsOverlay() {
         val overlayContainer = findViewById<View>(R.id.presets_overlay_container)
         overlayContainer.visibility = View.VISIBLE
@@ -212,12 +280,21 @@ class ControllerOverviewActivity : AppCompatActivity() {
         overlayHandler.postDelayed(overlayHideRunnable!!, 1500)
     }
 
-    // Call this to hide the overlay
+    /*
+        input:    None
+        output:   None
+        remarks:  Call to hide overlay
+    */
     private fun hidePresetsOverlay() {
         val overlayContainer = findViewById<View>(R.id.presets_overlay_container)
         overlayContainer.visibility = View.GONE
     }
 
+    /*
+        input:    id - int, action - AppAction (custom framework for app action)
+        output:   None
+        remarks:  Setter for button app action label
+    */
     private fun setAssignmentLabel(id: Int, action: AppAction?) {
         val tv = findViewById<TextView>(id)
         tv.text = action?.displayName ?: "<none>"
@@ -226,19 +303,52 @@ class ControllerOverviewActivity : AppCompatActivity() {
         }
     }
 
+    /*
+        input:    id - int, mapping - joystick map
+        output:   None
+        remarks:  sets map of joystick, listener for details for joystick
+    */
     private fun setJoystickAssignment(id: Int, mapping: JoystickMapping?) {
         val tv = findViewById<TextView>(id)
-        tv.text = mapping?.displayName ?: "<none>"
+        tv.text = if (mapping != null) {
+            "${mapping.type ?: "Unassigned"}"
+        } else {
+            "<none>"
+        }
         tv.setOnClickListener {
             showJoystickDetails(mapping, tv)
         }
     }
 
+    /*
+        input:    event - motionEvent
+        output:   Boolean
+        remarks:  Consumes controller event for joystick
+    */
+    override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+        if (::controllerFragment.isInitialized && controllerFragment.isAdded) {
+            if (controllerFragment.handleGenericMotionEvent(event)) {
+                return true
+            }
+        }
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    /*
+        input:    Int
+        output:   perfs idx id - int
+        remarks:  passes in from shared preferences ID of controller
+    */
     private fun getSelectedPresetIdx(): Int {
         val prefs = this@ControllerOverviewActivity.getSharedPreferences("controller_presets", android.content.Context.MODE_PRIVATE)
         return prefs.getInt("selected_preset_idx", 0)
     }
 
+    /*
+        input:   action - AppAction, anchor - View 
+        output:  None 
+        remarks: logic for popup for more info listener for app actions 
+    */
     private fun showActionDetails(action: AppAction?, anchor: View) {
         if (action == null) return
         val dialog = android.app.AlertDialog.Builder(this@ControllerOverviewActivity)
@@ -249,6 +359,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /*
+        input:    mapping - JoystickMapping, anchor - View
+        output:   None
+        remarks:  creates pop up dialogue for joystick when pressed (backend logic)
+    */
     private fun showJoystickDetails(mapping: JoystickMapping?, anchor: View) {
         if (mapping == null) return
         val dialog = android.app.AlertDialog.Builder(this@ControllerOverviewActivity)
@@ -259,6 +374,11 @@ class ControllerOverviewActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    /*
+        input:    btnName - String
+        output:   None
+        remarks:  function that passes action in this activity to controller fragment for processing
+    */
     private fun simulateControllerButtonPress(btnName: String) {
         val assignments = controllerFragment.loadButtonAssignments(controllerFragment.getControllerButtonList())
         val assignedAction = assignments[btnName]
