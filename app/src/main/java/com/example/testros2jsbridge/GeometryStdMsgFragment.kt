@@ -826,6 +826,7 @@ class GeometryStdMsgFragment : Fragment() {
         layout.addView(editText)
         return layout
     }
+    
     /*
         input:    None
         output:   None

@@ -48,6 +48,11 @@ private fun runWithResourceErrorCatching(tag: String = "ControllerSupport", bloc
 
 class ControllerSupportFragment : Fragment() {
 
+    /*
+        input:    next - boolean
+        output:   None
+        remarks:  creates the app actions for cycling presets forwards and backwards
+    */
     fun cyclePreset(next: Boolean = true) {
         val action = if (next) {
             AppAction(
@@ -69,19 +74,31 @@ class ControllerSupportFragment : Fragment() {
         triggerAppAction(action)
     }
 
-    // Handler for key down events
+    /*
+        input:    keyCode - Int, event - KeyEvent
+        output:   None
+        remarks:  Handler for key down events
+    */
     fun handleKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (event == null) return false
         return onControllerKeyEvent(event)
     }
 
-    // Handler for key up events
+    /*
+        input:    keyCode - Int, event - KeyEvent
+        output:   None
+        remarks:  Handler for key up events
+    */
     fun handleKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
-        // Optionally handle key up events if needed
+        //not implemeneted
         return false
     }
 
-    // Handler for generic motion events
+    /*
+        input:    event - MotionEvent
+        output:   None
+        remarks:  Handler for generic motion events
+    */
     fun handleGenericMotionEvent(event: MotionEvent?): Boolean {
         if (event == null) return false
         return onControllerMotionEvent(event)
@@ -101,11 +118,21 @@ class ControllerSupportFragment : Fragment() {
     private var joystickAddressingMode: JoystickAddressingMode = JoystickAddressingMode.DIRECT
     private val PREFS_JOYSTICK_ADDRESSING = "joystick_addressing_mode"
 
+    /*
+        input:    mode - JoystickAddressingMode
+        output:   None
+        remarks:  Saves the selected joystick addressing mode to shared preferences
+    */
     private fun saveJoystickAddressingMode(mode: JoystickAddressingMode) {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         prefs.edit { putString(PREFS_JOYSTICK_ADDRESSING, mode.name) }
     }
 
+    /*
+        input:    None
+        output:   joystick addressing mode (or direct by default)
+        remarks:  returns users selected addressing mode from sharedpreferences
+    */
     private fun loadJoystickAddressingMode(): JoystickAddressingMode {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         val name = prefs.getString(PREFS_JOYSTICK_ADDRESSING, JoystickAddressingMode.DIRECT.name)
@@ -371,7 +398,11 @@ class ControllerSupportFragment : Fragment() {
 
         fun getAppActionNames() = listOf("") + (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
 
-        // Helper to setup a single action spinner
+        /*
+            input:    spinner - android selector, action - list[strings], selected value - String
+            output:   None
+            remarks:  helper to setup a single action spinner
+        */
         fun setupActionSpinner(spinner: android.widget.Spinner, actions: List<String>, selectedValue: String) {
             val listener = spinner.onItemSelectedListener
             spinner.onItemSelectedListener = null // Avoid re-triggering events
@@ -385,6 +416,11 @@ class ControllerSupportFragment : Fragment() {
             spinner.onItemSelectedListener = listener // Restore listener
         }
 
+        /*
+            input:    None
+            output:   None
+            remarks:  refresh for UI, updates fields
+        */
         fun updateUI() {
             if (presets.isEmpty()) {
                 presets.add(ControllerPreset("Default"))
@@ -420,6 +456,11 @@ class ControllerSupportFragment : Fragment() {
             }
         }
 
+        /*
+            input:    None
+            output:   None
+            remarks:  passes in selected preset value to be saved, then refreshes ui
+        */
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
             preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
@@ -1152,7 +1193,11 @@ class ControllerSupportFragment : Fragment() {
                (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)
     }
 
-    // --- Controller Key Event Handling (Refactored) ---
+    /*
+        input:    event - KeyEvent
+        output:   Boolean
+        remarks:  controller for key event handling
+    */
     fun onControllerKeyEvent(event: KeyEvent): Boolean {
         if (event.action != KeyEvent.ACTION_DOWN) return false
         val btnName = keyCodeToButtonName(event.keyCode) ?: return false
@@ -1513,16 +1558,31 @@ class ControllerSupportFragment : Fragment() {
 
     private val PREFS_JOYSTICK_RATE = "joystick_publish_rate"
 
+    /*
+        input:    rate - int
+        output:   None
+        remarks:  saves joystick publishing rate to shared preference
+    */
     private fun saveJoystickPublishRate(rate: Int) {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         prefs.edit { putInt(PREFS_JOYSTICK_RATE, rate) }
     }
 
+    /*
+        input:    None
+        output:   Int
+        remarks:  Loads joystick publishing rate from shared prefrences
+    */
     private fun loadJoystickPublishRate(): Int {
         val prefs = requireContext().getSharedPreferences(PREFS_JOYSTICK_MAPPINGS, Context.MODE_PRIVATE)
         return prefs.getInt(PREFS_JOYSTICK_RATE, 5)
     }
 
+    /*
+        input:    out - OutputStream (file path)
+        output:   None
+        remarks:  Creates the info for export of data to yaml file
+    */
     fun exportConfigToStream(out: OutputStream) {
         val yaml = org.yaml.snakeyaml.Yaml()
         val latestJoystickMappings = loadJoystickMappings()
@@ -1572,6 +1632,11 @@ class ControllerSupportFragment : Fragment() {
         yaml.dump(configMap, OutputStreamWriter(out))
     }
 
+    /*
+        input:    inp - InputStream (filepath)
+        output:   None
+        remarks:  Imports the app actions and other data from yaml file selected by user
+    */
     fun importConfigFromStream(inp: InputStream) {
         android.util.Log.i("ControllerSupportFragment", "Import started")
         val yaml = org.yaml.snakeyaml.Yaml()

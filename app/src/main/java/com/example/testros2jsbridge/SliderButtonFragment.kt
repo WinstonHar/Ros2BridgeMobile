@@ -442,7 +442,7 @@ class SliderButtonFragment : Fragment() {
     private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
 
     /*
-        input:    ...fields for slider config...
+        input:    fields for slider config
         output:   None
         remarks:  Data class for slider button configuration
     */
