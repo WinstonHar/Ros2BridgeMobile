@@ -16,6 +16,8 @@ Key features:
 - Jetpack Compose tab for interactive message history and UI navigation
 - Persistent storage for user preferences, custom actions, and publishers
 - Modern UI with fragment switching, dropdowns, and configuration panels
+- Export and import created profiles with app actions
+- Custom user settable presets for yxba buttons cyclable forwards and backwards
 
 Built with Kotlin, Jetpack Compose, and Android best practices. Networking uses OkHttp; message handling uses kotlinx.serialization and Gson.
 
@@ -42,6 +44,7 @@ Built with Kotlin, Jetpack Compose, and Android best practices. Networking uses 
 
 **Tested Equipment**
 - Android 12 - Sony Xperia 1 II XQ-AT51 58.A.7.93
+- Android 13 - Retroid Pocket 4 Pro TP1A.220624.014
 - Ros2 - Noble, Jazzy
 - Android Studio 2025.1.1
 ## Usage
@@ -71,7 +74,7 @@ Specific instructions for using controller input for remote robot movement.
 9. On the left you can see the Available App Actions showing all your saved buttons, check to make sure they are correct, if not you can go back to the Geometry Standard Messages page and delete and rewrite a fixed version. The arrow in the center colapses this pane.
 10. Assign controller buttons to actions. Note: They layout for android controller support follows the xbox layout.
 11. Below is stick controls. Input 1 is tracked topic. Input 2 is message type. Input 3 is max value. Input 4 is step value(to control sensitivity/accelleration). Input 5 is deadzone (min value). Then save.
-12. From here when you leave this action open the controller inputs (when connected to the bluetooth of the phone) will be mapped to the inputs you assigned.
+12. From here when you leave this action open the controller inputs (when connected to the bluetooth of the phone) will be mapped to the inputs you assigned. You can also access these controls via the controller overview ui button at the bottom of the screen.
 
 **Screenshots:**
 <div align="center">
@@ -117,6 +120,18 @@ The "srv" folder should contain .srv files
 
 After adding in files to the respective folders they will show in the UI in their respective categories in a checkbox list. From there users can select which ones they want to use in the application and set custom buttons with prefilled values to use on the controller. 
 Right now I have filters for text casing to exclude hint values. So only snake case variables in the files will be fillable while variables in all caps will be locked. This can be used to show what values correspond to different functions for fillable variables without writing external docs.
+
+NOTE: In order to get custom protocols working at least with the version of rosbridge I am using you need to manually add the imports to the __init__.py file for the actions into the incorrect folders in order for rosbridge to find them. 
+
+Example: For the action RunPose I need to manually make these imports
+- msgs/srv/__init__.py -> from msgs.action._run_pose import RunPose_SendGoal, RunPose_GetResult
+- msgs/action/__init__.py -> from ._run_pose import RunPose_Feedback, RunPose_Result, RunPose_Goal, RunPose_SendGoal, RunPose_GetResult
+- msgs/msg/__init__.py -> from msgs.action import RunPose_Feedback, RunPose_Result, RunPose_Goal
+
+This has to be done for every action type you want to support. If you fail to do these imports rosbridge will say the funcitions for x action cannot be found and refuse to send said action.
+
+**Horizontal UI Improvements**
+Now accessible in the main activity UI at the bottom there is a controller overview UI! After setting up your connection to ros via ip/port selector and importing or creating your app actions you can now use your connected controller with a clean UI showing only simple large descriptions of what each button is set to. Additionally if you use the preset selector the center yxba buttons cycle and a pop up UI showing all available presets appears for 1.5 seconds. Additionally if you subscribe to an image feed it will replace the background of the ui allowing for image feed viewing while controlling your robot. YXBA buttons on the screen are also functional. Selecting subtext on the screen will show a detailed description of the app action.
 
 ## Credits
 - Developed by WinstonHar
