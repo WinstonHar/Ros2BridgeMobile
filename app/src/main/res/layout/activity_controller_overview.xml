@@ -239,6 +239,5 @@
         android:layout_margin="8dp"
         app:layout_constraintTop_toBottomOf="@id/left_joystick_container"
         app:layout_constraintBottom_toTopOf="@id/presets_overlay_container"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"/>
 </androidx.constraintlayout.widget.ConstraintLayout>
