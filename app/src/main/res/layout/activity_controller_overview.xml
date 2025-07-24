@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Background image for ROS2 topic image -->
+    <ImageView
+        android:id="@+id/backgroundImageView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
+        android:adjustViewBounds="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Top left: L1, L2 assignments -->
+    <LinearLayout
+        android:id="@+id/left_triggers_container"
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+        <TextView android:id="@+id/label_l1" android:text="L1" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_l1" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/label_l2" android:text="L2" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_l2" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+    </LinearLayout>
+
+    <!-- Top right: R1, R2 assignments -->
+    <LinearLayout
+        android:id="@+id/right_triggers_container"
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <TextView android:id="@+id/label_r1" android:text="R1" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_r1" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/label_r2" android:text="R2" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_r2" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+    </LinearLayout>
+
+    <!-- Center left: Left joystick assignment -->
+    <LinearLayout
+        android:id="@+id/left_joystick_container"
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/left_triggers_container"
+        app:layout_constraintBottom_toBottomOf="parent">
+        <TextView android:id="@+id/label_left_joystick" android:text="Left Joystick" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_left_joystick" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+    </LinearLayout>
+
+    <!-- Center right: Right joystick assignment -->
+    <LinearLayout
+        android:id="@+id/right_joystick_container"
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/right_triggers_container"
+        app:layout_constraintBottom_toBottomOf="parent">
+        <TextView android:id="@+id/label_right_joystick" android:text="Right Joystick" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_right_joystick" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+    </LinearLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/abxy_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintVertical_bias="0.5">
+
+        <!-- Y Button (Top, centered) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_y"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
+            android:text="Y"
+            android:textColor="@color/darker_gray"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/assignment_y"
+            android:text="none"
+            android:textSize="24sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/button_y"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- X and B horizontal chain with fixed spacer -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_x"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
+            android:text="X"
+            android:textColor="@color/darker_gray"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/assignment_y"
+            app:layout_constraintEnd_toStartOf="@id/x_b_spacer"
+            app:layout_constraintHorizontal_chainStyle="packed"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <View
+            android:id="@+id/x_b_spacer"
+            android:layout_width="106dp"
+            android:layout_height="0dp"
+            app:layout_constraintTop_toTopOf="@id/button_x"
+            app:layout_constraintBottom_toBottomOf="@id/button_x"
+            app:layout_constraintStart_toEndOf="@id/button_x"
+            app:layout_constraintEnd_toStartOf="@id/button_b" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_b"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
+            android:text="B"
+            android:textColor="@color/darker_gray"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/assignment_y"
+            app:layout_constraintStart_toEndOf="@id/x_b_spacer"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- X assignment -->
+        <TextView
+            android:id="@+id/assignment_x"
+            android:text="none"
+            android:textSize="24sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/button_x"
+            app:layout_constraintStart_toStartOf="@id/button_x"
+            app:layout_constraintEnd_toEndOf="@id/button_x" />
+
+        <!-- B assignment -->
+        <TextView
+            android:id="@+id/assignment_b"
+            android:text="none"
+            android:textSize="24sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/button_b"
+            app:layout_constraintStart_toStartOf="@id/button_b"
+            app:layout_constraintEnd_toEndOf="@id/button_b" />
+
+        <!-- A Button (Bottom, centered below X and B) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_a"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:backgroundTint="@color/light_gray"
+            android:text="A"
+            android:textColor="@color/darker_gray"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/assignment_x"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/assignment_a"
+            android:text="none"
+            android:textSize="24sp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintTop_toBottomOf="@id/button_a"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Select and Start above bottom bar, below right joystick -->
+    <LinearLayout
+        android:id="@+id/select_start_container"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:gravity="end"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <TextView android:id="@+id/label_select" android:text="Select" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_select" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/label_start" android:text="Start" style="@style/TriggerLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+        <TextView android:id="@+id/assignment_start" style="@style/AssignmentLabel" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" />
+    </LinearLayout>
+
+
+    <!-- Overlay: Full presets list, horizontal scroll, anchored to bottom, fixed height, initially hidden -->
+    <HorizontalScrollView
+        android:id="@+id/presets_overlay_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"
+        android:background="?android:attr/windowBackground"
+        android:fillViewport="false">
+        <LinearLayout
+            android:id="@+id/presets_overlay_list"
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:padding="12dp" />
+    </HorizontalScrollView>
+
+    <!-- Button to swap back to MainActivity -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_back_to_main"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Back to Main"
+        android:layout_margin="8dp"
+        app:layout_constraintTop_toBottomOf="@id/left_joystick_container"
+        app:layout_constraintBottom_toTopOf="@id/presets_overlay_container"
+        app:layout_constraintStart_toStartOf="parent"/>
+</androidx.constraintlayout.widget.ConstraintLayout>

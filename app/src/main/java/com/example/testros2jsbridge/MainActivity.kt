@@ -1,5 +1,7 @@
 package com.example.testros2jsbridge
 
+import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
 import androidx.appcompat.app.AppCompatActivity
@@ -10,39 +12,30 @@ import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
-import androidx.activity.viewModels
 import android.widget.AutoCompleteTextView
 import android.widget.ArrayAdapter
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.runtime.*
 import androidx.compose.material3.*
 import com.google.android.material.button.MaterialButton
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.SharedPreferences
 import android.text.Editable
 import android.text.TextWatcher
 import android.content.Context
@@ -50,6 +43,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.fragment.app.Fragment
 import androidx.compose.ui.res.colorResource
+import androidx.core.content.edit
 
 /*
     MainActivity provides the main entry point for the app UI, handling connection to rosbridge, fragment switching, and message history display.
@@ -58,6 +52,34 @@ import androidx.compose.ui.res.colorResource
 */
 
 class MainActivity : AppCompatActivity() {
+    // File picker launchers for export/import config
+    val exportConfigLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/x-yaml")) { uri: Uri? ->
+        uri?.let {
+            val frag = supportFragmentManager.findFragmentByTag("ControllerSupportFragment") as? ControllerSupportFragment
+            if (frag != null && frag.isVisible) {
+                contentResolver.openOutputStream(uri)?.let { out ->
+                    frag.exportConfigToStream(out)
+                }
+            } else {
+                android.widget.Toast.makeText(this, "ControllerSupportFragment must be visible to export config!", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val importConfigLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            val frag = supportFragmentManager.findFragmentByTag("ControllerSupportFragment") as? ControllerSupportFragment
+            if (frag != null && frag.isVisible) {
+                contentResolver.openInputStream(uri)?.let { inp ->
+                    frag.importConfigFromStream(inp)
+                }
+            } else {
+                android.widget.Toast.makeText(this, "ControllerSupportFragment must be visible to import config!", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
     private lateinit var openRos2SubscriberButton: MaterialButton
 
     /*
@@ -67,16 +89,24 @@ class MainActivity : AppCompatActivity() {
     */
     override fun onResume() {
         super.onResume()
-        // Workaround: reset the adapter after rotation to clear any stuck filter state
+        // Reset the adapter after rotation to clear any stuck filter state
         dropdown.post {
             val currentText = dropdown.text.toString()
             dropdown.setAdapter(null)
             dropdown.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions))
             dropdown.setText(currentText, false)
         }
+        // Ensure all topic subscriptions are (re-)registered to append to log
+        rosViewModel.resubscribeAllTopicsToLog()
     }
 
-    private val rosViewModel: RosViewModel by viewModels()
+    private val rosViewModel: RosViewModel by lazy {
+        val app = application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        )[RosViewModel::class.java]
+    }
 
     private lateinit var ipAddressEditText: TextInputEditText
     private lateinit var portEditText: TextInputEditText
@@ -102,6 +132,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        // Open Controller Overview UI
+        findViewById<MaterialButton>(R.id.button_open_controller_overview).setOnClickListener {
+            val intent = android.content.Intent(this, ControllerOverviewActivity::class.java)
+            startActivity(intent)
+        }
+        // Always register rosViewModel as a listener for rosbridge connection events
+        RosbridgeConnectionManager.addListener(rosViewModel)
 
         ipAddressEditText = findViewById(R.id.edittext_ip_address)
         portEditText = findViewById(R.id.edittext_port)
@@ -117,19 +154,19 @@ class MainActivity : AppCompatActivity() {
             portEditText.setText(savedPort)
         } else {
             portEditText.setText("9090")
-            prefs.edit().putString("port", "9090").apply()
+            prefs.edit { putString("port", "9090") }
         }
 
         ipAddressEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("ip_address", s?.toString() ?: "").apply()
+                prefs.edit { putString("ip_address", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
         portEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("port", s?.toString() ?: "").apply()
+                prefs.edit { putString("port", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -141,8 +178,8 @@ class MainActivity : AppCompatActivity() {
         disconnectButton = findViewById(R.id.button_disconnect)
 
         ipPortContainer = findViewById(R.id.layout_ip_port_container)
-        collapseIpPortButton = findViewById<MaterialButton>(R.id.button_collapse_ip_port)
-        expandIpPortButton = findViewById<MaterialButton>(R.id.button_expand_ip_port)
+        collapseIpPortButton = findViewById(R.id.button_collapse_ip_port)
+        expandIpPortButton = findViewById(R.id.button_expand_ip_port)
 
         // Collapsible logic
         collapseIpPortButton.setOnClickListener {
@@ -167,7 +204,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.dropdown_custom_publisher),
             "Geometry Standard Messages",
             getString(R.string.dropdown_slider_buttons),
-            "Controller Input Device"
+            "Controller Input Device",
+            "Import Custom Protocols"
         )
 
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions)
@@ -225,6 +263,7 @@ class MainActivity : AppCompatActivity() {
             2 -> showFragment(GeometryStdMsgFragment())
             3 -> showFragment(SliderButtonFragment())
             4 -> showFragment(ControllerSupportFragment())
+            5 -> showFragment(ImportCustomProtocolsFragment())
         }
     }
 
@@ -328,6 +367,8 @@ class MainActivity : AppCompatActivity() {
                     portEditText.isEnabled = false
                     connectButton.isEnabled = false
                     disconnectButton.isEnabled = true
+                    // After connecting, (re-)subscribe to all topics for log updates
+                    rosViewModel.resubscribeAllTopicsToLog()
                 }
             }
             override fun onDisconnected() {
@@ -363,6 +404,8 @@ class MainActivity : AppCompatActivity() {
     */
     override fun onDestroy() {
         rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
+        // Remove rosViewModel as a listener to avoid leaks
+        RosbridgeConnectionManager.removeListener(rosViewModel)
         super.onDestroy()
     }
 }

@@ -1,6 +1,5 @@
 package com.example.testros2jsbridge
 
-import com.example.testros2jsbridge.RosViewModel
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -8,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import com.google.android.material.textfield.TextInputEditText
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -18,8 +17,7 @@ This fragment shows up by default when launching the app. It doesn't do too much
 */
 
 class DefaultFragment : Fragment() {
-
-    private val rosViewModel: RosViewModel by activityViewModels()
+    private lateinit var rosViewModel: RosViewModel
     private var advertiseButton: Button? = null
     private var publishCustomMessageButton: Button? = null
     private var customMessageEditText: TextInputEditText? = null
@@ -33,6 +31,7 @@ class DefaultFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        rosViewModel = ViewModelProvider(requireActivity())[RosViewModel::class.java]
         val view = inflater.inflate(R.layout.activity_default, container, false)
         advertiseButton = view.findViewById(R.id.button_advertise)
         publishCustomMessageButton = view.findViewById(R.id.button_publish_custom_message)

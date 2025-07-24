@@ -83,25 +83,13 @@
                     android:text="Fetch Topics" />
             </LinearLayout>
 
-            <!-- Topic list and subscribe (discovered topics) -->
-            <LinearLayout
+            <!-- Multi-topic subscribe/unsubscribe: dynamic checkboxes using RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recycler_topics"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="8dp">
-                <Spinner
-                    android:id="@+id/spinner_topics"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="2"
-                    android:spinnerMode="dropdown" />
-                <Button
-                    android:id="@+id/button_subscribe_topic"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Subscribe" />
-            </LinearLayout>
+                android:layout_height="150dp"
+                android:layout_margin="8dp"
+                android:scrollbars="vertical" />
 
             <!-- Manual entry section (no dropdown, just fields and button) -->
             <LinearLayout
@@ -151,5 +139,13 @@
             android:textSize="14sp"
             android:textColor="@color/darker_gray" />
     </ScrollView>
+
+
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/image_compose_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@color/background_container" />
 
 </LinearLayout>

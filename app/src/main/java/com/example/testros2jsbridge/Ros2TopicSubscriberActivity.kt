@@ -1,23 +1,22 @@
 package com.example.testros2jsbridge
 
-import android.os.Bundle
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.EditText
-import android.widget.Button
-import androidx.appcompat.app.AppCompatActivity
-import okhttp3.*
-import okio.ByteString
-import org.json.JSONObject
-import java.util.concurrent.TimeUnit
-import android.content.SharedPreferences
 import android.content.Context
+import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import androidx.core.content.edit
 
 /*
     Ros2TopicSubscriberActivity provides a UI for subscribing to ROS2 topics via rosbridge, supporting both dynamic topic discovery and manual subscription.
@@ -25,6 +24,27 @@ import kotlinx.coroutines.launch
 */
 
 class Ros2TopicSubscriberActivity : AppCompatActivity() {
+    /*
+        input:    subs - List<Pair<String, String>>
+        output:   Boolean
+        remarks:  Checks if any image topic is subscribed.
+    */
+    private fun isImageTopicSubscribed(subs: List<Pair<String, String>>): Boolean {
+        return subs.any { it.second == "sensor_msgs/msg/Image" }
+    }
+    
+    private var autoRefreshJob: Job? = null
+    private val rosViewModel: RosViewModel by lazy {
+        val app = application as MyApp
+        androidx.lifecycle.ViewModelProvider(
+            app.appViewModelStore,
+            androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        )[RosViewModel::class.java]
+    }
+    private val logBuffer = StringBuilder()
+    private var logDirty = false
+    private val maxLogLines = 300
+    private var logUpdateJob: Job? = null
     private var rosbridgeListener: RosbridgeConnectionManager.Listener? = null
     private lateinit var logView: TextView
     private lateinit var logScrollView: ScrollView
@@ -37,16 +57,57 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private lateinit var manualTopicEditText: EditText
     private lateinit var manualTypeEditText: EditText
     private lateinit var subscribeManualButton: Button
-    // Supported message types for dynamic subscription
+    // Compose image state (bitmap now in ViewModel)
+    private val showImageState = androidx.compose.runtime.mutableStateOf(true)
+
     private val supportedTypes = setOf(
         "std_msgs/msg/String", "std_msgs/msg/Int32", "geometry_msgs/msg/Twist", "geometry_msgs/msg/PoseStamped",
         "sensor_msgs/msg/BatteryState", "sensor_msgs/msg/CameraInfo", "sensor_msgs/msg/ChannelFloat32", "sensor_msgs/msg/CompressedImage", "sensor_msgs/msg/FluidPressure", "sensor_msgs/msg/Illuminance", "sensor_msgs/msg/Image", "sensor_msgs/msg/Imu", "sensor_msgs/msg/JointState", "sensor_msgs/msg/Joy", "sensor_msgs/msg/JoyFeedback", "sensor_msgs/msg/JoyFeedbackArray", "sensor_msgs/msg/LaserEcho", "sensor_msgs/msg/LaserScan", "sensor_msgs/msg/MagneticField", "sensor_msgs/msg/MultiDOFJointState", "sensor_msgs/msg/MultiEchoLaserScan", "sensor_msgs/msg/NavSatFix", "sensor_msgs/msg/NavSatStatus", "sensor_msgs/msg/PointCloud", "sensor_msgs/msg/PointCloud2", "sensor_msgs/msg/PointField", "sensor_msgs/msg/Range", "sensor_msgs/msg/RegionOfInterest", "sensor_msgs/msg/RelativeHumidity", "sensor_msgs/msg/Temperature", "sensor_msgs/msg/TimeReference",
         "geometry_msgs/msg/Accel", "geometry_msgs/msg/AccelStamped", "geometry_msgs/msg/AccelWithCovariance", "geometry_msgs/msg/AccelWithCovarianceStamped", "geometry_msgs/msg/Inertia", "geometry_msgs/msg/InertiaStamped", "geometry_msgs/msg/Point", "geometry_msgs/msg/Point32", "geometry_msgs/msg/PointStamped", "geometry_msgs/msg/Polygon", "geometry_msgs/msg/PolygonInstance", "geometry_msgs/msg/PolygonInstanceStamped", "geometry_msgs/msg/PolygonStamped", "geometry_msgs/msg/Pose", "geometry_msgs/msg/Pose2D", "geometry_msgs/msg/PoseArray", "geometry_msgs/msg/PoseStamped", "geometry_msgs/msg/PoseWithCovariance", "geometry_msgs/msg/PoseWithCovarianceStamped", "geometry_msgs/msg/Quaternion", "geometry_msgs/msg/QuaternionStamped", "geometry_msgs/msg/Transform", "geometry_msgs/msg/TransformStamped", "geometry_msgs/msg/Twist", "geometry_msgs/msg/TwistStamped", "geometry_msgs/msg/TwistWithCovariance", "geometry_msgs/msg/TwistWithCovarianceStamped", "geometry_msgs/msg/Vector3", "geometry_msgs/msg/Vector3Stamped", "geometry_msgs/msg/VelocityStamped", "geometry_msgs/msg/Wrench", "geometry_msgs/msg/WrenchStamped",
         "std_msgs/msg/Bool", "std_msgs/msg/Byte", "std_msgs/msg/ByteMultiArray", "std_msgs/msg/Char", "std_msgs/msg/ColorRGBA", "std_msgs/msg/Empty", "std_msgs/msg/Float32", "std_msgs/msg/Float32MultiArray", "std_msgs/msg/Float64", "std_msgs/msg/Float64MultiArray", "std_msgs/msg/Header", "std_msgs/msg/Int16", "std_msgs/msg/Int16MultiArray", "std_msgs/msg/Int32MultiArray", "std_msgs/msg/Int64", "std_msgs/msg/Int64MultiArray", "std_msgs/msg/Int8", "std_msgs/msg/Int8MultiArray", "std_msgs/msg/MultiArrayDimension", "std_msgs/msg/MultiArrayLayout", "std_msgs/msg/String", "std_msgs/msg/UInt16", "std_msgs/msg/UInt16MultiArray", "std_msgs/msg/UInt32", "std_msgs/msg/UInt32MultiArray", "std_msgs/msg/UInt64", "std_msgs/msg/UInt64MultiArray", "std_msgs/msg/UInt8", "std_msgs/msg/UInt8MultiArray"
     )
-    // List of discovered topics and types
     private var discoveredTopics: List<Pair<String, String>> = emptyList()
-    private var selectedTopic: Pair<String, String>? = null
+    private var topicAdapter: TopicCheckboxAdapter? = null
+
+    /*
+        input:    data - ByteArray, width - Int, height - Int
+        output:   Bitmap
+        remarks:  Decodes RGB8 image data to a Bitmap.
+    */
+    private fun decodeRgb8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
+        val pixels = IntArray(width * height)
+        var i = 0
+        var j = 0
+        while (i < data.size && j < pixels.size) {
+            val r = data[i].toInt() and 0xFF
+            val g = data[i + 1].toInt() and 0xFF
+            val b = data[i + 2].toInt() and 0xFF
+            pixels[j] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            i += 3
+            j += 1
+        }
+        return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    }
+
+    /*
+        input:    data - ByteArray, width - Int, height - Int
+        output:   Bitmap
+        remarks:  Decodes BGR8 image data to a Bitmap.
+    */
+    private fun decodeBgr8ToBitmap(data: ByteArray, width: Int, height: Int): android.graphics.Bitmap {
+        val pixels = IntArray(width * height)
+        var i = 0
+        var j = 0
+        while (i < data.size && j < pixels.size) {
+            val b = data[i].toInt() and 0xFF
+            val g = data[i + 1].toInt() and 0xFF
+            val r = data[i + 2].toInt() and 0xFF
+            pixels[j] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
+            i += 3
+            j += 1
+        }
+        return android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    }
 
     /*
         input:    savedInstanceState - Bundle?
@@ -56,8 +117,10 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ros2_topic_subscriber)
+
         logView = findViewById(R.id.logView)
         logScrollView = findViewById(R.id.logScrollView)
+        // imageView removed, now handled by ComposeView
         backToMainButton = findViewById(R.id.button_back_to_main)
         ipEditText = findViewById(R.id.edittext_ip_address_sub)
         portEditText = findViewById(R.id.edittext_port_sub)
@@ -70,11 +133,110 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         subscribeManualButton = findViewById(R.id.button_subscribe_manual)
 
         val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
-        val spinnerTopics = findViewById<android.widget.Spinner>(R.id.spinner_topics)
-        val subscribeButton: Button = findViewById(R.id.button_subscribe_topic)
+        val recyclerTopics = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_topics)
+
+        // Compose image state: subscribe to topic changes and update ComposeView
+        val imageComposeView = findViewById<androidx.compose.ui.platform.ComposeView>(R.id.image_compose_view)
+        imageComposeView.setContent {
+            val subsState = rosViewModel.subscribedTopics.collectAsState()
+            val hasImage = isImageTopicSubscribed(subsState.value.toList())
+            val bitmap by rosViewModel.latestBitmap.collectAsState()
+            // Reset showImageState if a new image topic is subscribed
+            androidx.compose.runtime.LaunchedEffect(hasImage) {
+                if (hasImage) showImageState.value = true
+            }
+            if (hasImage) {
+                androidx.compose.foundation.layout.Column {
+                    if (showImageState.value) {
+                        androidx.compose.material3.Button(onClick = { showImageState.value = false }) {
+                            androidx.compose.material3.Text("Hide Image")
+                        }
+                        if (bitmap != null) {
+                            androidx.compose.ui.viewinterop.AndroidView(
+                                factory = { ctx ->
+                                    android.widget.ImageView(ctx).apply {
+                                        setImageBitmap(bitmap)
+                                        adjustViewBounds = true
+                                        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                                    }
+                                },
+                                update = { it.setImageBitmap(bitmap) }
+                            )
+                        } else {
+                            androidx.compose.material3.Text("Waiting for image...", color = androidx.compose.ui.graphics.Color.Gray)
+                        }
+                    } else {
+                        androidx.compose.material3.Button(onClick = { showImageState.value = true }) {
+                            androidx.compose.material3.Text("Show Image")
+                        }
+                    }
+                }
+            }
+        }
+        logUpdateJob = lifecycleScope.launch {
+            while (true) {
+                if (logDirty) {
+                    logView.text = logBuffer.toString()
+                    logDirty = false
+                    logScrollView.post {
+                        logScrollView.fullScroll(android.view.View.FOCUS_UP)
+                    }
+                }
+                delay(200)
+            }
+        }
+
+        /*
+            input:    topics - List<Pair<String, String>>, subscribed - List<Pair<String, String>>
+            output:   None
+            remarks:  Updates the topic adapter with current subscriptions.
+        */
+        fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
+            val subscribedSet = subscribed.map { it.first }.toSet()
+            if (topicAdapter == null) {
+                topicAdapter = TopicCheckboxAdapter(
+                    topics = topics,
+                    subscribedTopics = subscribedSet,
+                    onCheckedChange = { topic, type, isChecked ->
+                        if (isChecked) {
+                            rosViewModel.addSubscribedTopic(topic, type)
+                            logView.text = "Subscribed to $topic ($type)\n" + logView.text
+                        } else {
+                            rosViewModel.removeSubscribedTopic(topic, type)
+                            logView.text = "Unsubscribed from $topic\n" + logView.text
+                        }
+                    }
+                )
+                recyclerTopics.adapter = topicAdapter
+                recyclerTopics.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+            } else {
+                topicAdapter!!.updateTopicsAndSubscribed(topics, subscribedSet)
+            }
+        }
+        // Initial adapter setup
+        updateTopicAdapterWithSubscriptions(discoveredTopics, rosViewModel.subscribedTopics.value.toList())
+
+        // --- Auto-fetch topics and enable auto-refresh if connected on activity start ---
+        if (RosbridgeConnectionManager.isConnected) {
+            autoRefreshCheckBox.isChecked = true
+            if (autoRefreshJob == null) {
+                autoRefreshJob = lifecycleScope.launch {
+                    while (autoRefreshCheckBox.isChecked) {
+                        runOnUiThread { fetchTopicsButton.performClick() }
+                        delay(1500)
+                    }
+                }
+            }
+            fetchTopicsButton.performClick()
+        }
+
+        lifecycleScope.launch {
+            rosViewModel.subscribedTopics.collect { subs ->
+                updateTopicAdapterWithSubscriptions(discoveredTopics, subs.toList())
+            }
+        }
 
         // --- Auto-refresh polling logic ---
-        var autoRefreshJob: Job? = null
         autoRefreshCheckBox.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 autoRefreshJob?.cancel()
@@ -87,6 +249,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 logView.text = "Auto-refresh enabled.\n" + logView.text
             } else {
                 autoRefreshJob?.cancel()
+                autoRefreshJob = null
                 logView.text = "Auto-refresh disabled.\n" + logView.text
             }
         }
@@ -99,40 +262,30 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
             val topic = manualTopicEditText.text.toString().trim()
             val type = manualTypeEditText.text.toString().trim()
-            // Validate topic
             if (topic.isEmpty()) {
                 manualTopicEditText.error = "Topic required"
                 logView.text = "Manual topic required.\n" + logView.text
                 return@setOnClickListener
             }
-            // Validate type
             if (type.isEmpty()) {
                 manualTypeEditText.error = "Type required"
                 logView.text = "Manual type required.\n" + logView.text
                 return@setOnClickListener
             }
-            // Validate type format: should be like pkg/msg/Type
             val typePattern = Regex("^[a-zA-Z0-9_]+/msg/[a-zA-Z0-9_]+$")
             if (!typePattern.matches(type)) {
                 manualTypeEditText.error = "Type must be in the form pkg/msg/Type (e.g. std_msgs/msg/String)"
                 logView.text = "Type format invalid. Use pkg/msg/Type (e.g. std_msgs/msg/String).\n" + logView.text
                 return@setOnClickListener
             }
-            // Optionally, check if type is in supportedTypes
             if (!supportedTypes.contains(type)) {
                 manualTypeEditText.error = "Type not in supported list"
                 logView.text = "Warning: Type '$type' is not in supported types.\n" + logView.text
-                // Allow to proceed, but warn
             }
-            val subscribeMsg = JSONObject()
-            subscribeMsg.put("op", "subscribe")
-            subscribeMsg.put("topic", topic)
-            subscribeMsg.put("type", type)
-            RosbridgeConnectionManager.send(subscribeMsg)
+            rosViewModel.addSubscribedTopic(topic, type)
             logView.text = "Manually subscribed to $topic ($type)\n" + logView.text
         }
 
-        // SharedPreferences for IP/Port sync
         val prefs = getSharedPreferences("ros2_prefs", Context.MODE_PRIVATE)
         val savedIp = prefs.getString("ip_address", "")
         val savedPort = prefs.getString("port", "")
@@ -143,19 +296,19 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             portEditText.setText(savedPort)
         } else {
             portEditText.setText("9090")
-            prefs.edit().putString("port", "9090").apply()
+            prefs.edit { putString("port", "9090") }
         }
 
         ipEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("ip_address", s?.toString() ?: "").apply()
+                prefs.edit { putString("ip_address", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
         portEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("port", s?.toString() ?: "").apply()
+                prefs.edit { putString("port", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -175,7 +328,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
 
         updateButtonStates(RosbridgeConnectionManager.isConnected)
 
-        // Fetch topics button logic
         fetchTopicsButton.setOnClickListener {
             if (!RosbridgeConnectionManager.isConnected) {
                 logView.text = "Not connected to rosbridge.\n" + logView.text
@@ -188,56 +340,38 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             RosbridgeConnectionManager.send(request)
         }
 
-        // Spinner selection logic
-        spinnerTopics.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, position: Int, id: Long) {
-                if (position >= 0 && position < discoveredTopics.size) {
-                    selectedTopic = discoveredTopics[position]
-                } else {
-                    selectedTopic = null
-                }
-            }
-
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {
-                selectedTopic = null
-            }
-        }
-
-        // Subscribe button logic
-        subscribeButton.setOnClickListener {
-            if (!RosbridgeConnectionManager.isConnected) {
-                logView.text = "Not connected to rosbridge.\n" + logView.text
-                return@setOnClickListener
-            }
-            val topicPair = selectedTopic
-            if (topicPair == null) {
-                logView.text = "No topic selected.\n" + logView.text
-                return@setOnClickListener
-            }
-            val (topic, type) = topicPair
-            val subscribeMsg = JSONObject()
-            subscribeMsg.put("op", "subscribe")
-            subscribeMsg.put("topic", topic)
-            subscribeMsg.put("type", type)
-            RosbridgeConnectionManager.send(subscribeMsg)
-            logView.text = "Subscribed to $topic ($type)\n" + logView.text
-        }
-
         rosbridgeListener = object : RosbridgeConnectionManager.Listener {
+
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge connects; updates UI and button states.
+            */
             override fun onConnected() {
                 runOnUiThread {
                     logView.text = "Connected to rosbridge\n" + logView.text
                     updateButtonStates(true)
                 }
             }
+
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge disconnects; updates UI and button states.
+            */
             override fun onDisconnected() {
                 runOnUiThread {
                     logView.text = "Disconnected\n" + logView.text
                     updateButtonStates(false)
                 }
             }
+            
+            /*
+                input:    text - String
+                output:   None
+                remarks:  Called when a message is received from rosbridge; handles topic/service responses and updates UI/log.
+            */
             override fun onMessage(text: String) {
-                // Handle rosapi topics_and_raw_types response
                 try {
                     val json = JSONObject(text)
                     if (json.optString("op") == "service_response" && json.optString("service") == "/rosapi/topics_and_raw_types") {
@@ -254,11 +388,17 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                                 }
                             }
                             discoveredTopics = filtered
-                            val topicNames = filtered.map { "${it.first}  [${it.second}]" }
-                            val adapter = android.widget.ArrayAdapter(this@Ros2TopicSubscriberActivity, android.R.layout.simple_spinner_item, topicNames)
-                            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+                            val availableTopicsSet = filtered.map { it.first }.toSet()
+                            val currentSubs = rosViewModel.subscribedTopics.value.toList()
+                            val toRemove = currentSubs.filter { !availableTopicsSet.contains(it.first) }
+                            for ((topic, type) in toRemove) {
+                                rosViewModel.removeSubscribedTopic(topic, type)
+                                runOnUiThread {
+                                    logView.text = "Auto-unsubscribed from $topic (no longer exists)\n" + logView.text
+                                }
+                            }
                             runOnUiThread {
-                                spinnerTopics.adapter = adapter
+                                updateTopicAdapterWithSubscriptions(filtered, rosViewModel.subscribedTopics.value.toList())
                                 if (filtered.isEmpty()) {
                                     logView.text = "No supported topics found.\n" + logView.text
                                 } else {
@@ -269,33 +409,146 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         return
                     }
                 } catch (_: Exception) {}
-                runOnUiThread {
-                    // Try to parse as a published topic message
+                try {
+                    val json = JSONObject(text)
+                    if (json.optString("op") == "publish") {
+                        val topic = json.optString("topic", "?")
+                        val msg = json.optJSONObject("msg")
+                        val type = discoveredTopics.find { it.first == topic }?.second
+            if (type == "sensor_msgs/msg/Image" && msg != null) {
+                            val width = msg.optInt("width", -1)
+                            val height = msg.optInt("height", -1)
+                            val encoding = msg.optString("encoding", "")
+                            val dataField = msg.opt("data")
+                            var byteArray: ByteArray? = null
+                            var dataPreview: String
+                            var dataLen = 0
+                            if (dataField is String) {
+                                try {
+                                    byteArray = android.util.Base64.decode(dataField, android.util.Base64.DEFAULT)
+                                    dataLen = byteArray.size
+                                    val previewLen = minOf(8, dataLen)
+                                    val previewBytes = byteArray.take(previewLen).joinToString(" ") { b ->
+                                        (b.toInt() and 0xFF).toString(16).padStart(2, '0')
+                                    }
+                                    dataPreview = "data[0..${previewLen - 1}]=[$previewBytes] (base64)"
+                                } catch (_: Exception) {
+                                    dataPreview = "data=[base64 decode error]"
+                                }
+                            } else if (dataField is org.json.JSONArray) {
+                                dataLen = dataField.length()
+                                val previewLen = minOf(8, dataLen)
+                                val previewBytes = (0 until previewLen).joinToString(" ") { idx ->
+                                    val v = dataField.getInt(idx)
+                                    v.toUByte().toString(16).padStart(2, '0')
+                                }
+                                dataPreview = "data[0..${previewLen - 1}]=[$previewBytes] (array)"
+                                byteArray = ByteArray(dataLen)
+                                for (i in 0 until dataLen) {
+                                    byteArray[i] = dataField.getInt(i).toByte()
+                                }
+                            } else {
+                                dataPreview = "data=[]"
+                            }
+                if (width > 0 && height > 0 && byteArray != null && (encoding == "rgb8" || encoding == "bgr8")) {
                     try {
-                        val json = JSONObject(text)
-                        if (json.optString("op") == "publish") {
-                            val topic = json.optString("topic", "?")
-                            val msg = json.optJSONObject("msg")
-                            logView.text = "RECEIVED: [${topic}] ${msg}\n" + logView.text
+                        val bitmap = if (encoding == "rgb8") {
+                            decodeRgb8ToBitmap(byteArray, width, height)
                         } else {
-                            logView.text = "INCOMING JSON: ${'$'}text\n" + logView.text
+                            decodeBgr8ToBitmap(byteArray, width, height)
                         }
+                        rosViewModel.latestBitmap.value = bitmap
+                        android.util.Log.d("Ros2TopicSubscriber", "Bitmap created: ${bitmap.width}x${bitmap.height}")
                     } catch (e: Exception) {
-                        logView.text = "INCOMING JSON: ${'$'}text\n" + logView.text
+                        rosViewModel.latestBitmap.value = null
+                        android.util.Log.e("Ros2TopicSubscriber", "Bitmap decode error: ${e.message}")
                     }
-                    logScrollView.post {
-                        logScrollView.fullScroll(android.view.View.FOCUS_UP)
+                    // Only auto-show if currently hidden and a new image topic is subscribed
+                    if (!showImageState.value) {
+                        // Do not force show; keep hidden until user toggles
                     }
                 }
+                            appendLogLine("RECEIVED: [$topic] sensor_msgs/msg/Image: width=$width, height=$height, encoding=$encoding, $dataPreview, data.length=$dataLen")
+                        } else {
+                            appendLogLine("RECEIVED: [${topic}] $msg")
+                        }
+                    } else {
+                        appendLogLine("INCOMING JSON: $text")
+                    }
+                } catch (e: Exception) {
+                    appendLogLine("INCOMING JSON: $text")
+                }
             }
+
+            /*
+                input:    line - String
+                output:   None
+                remarks:  Appends a log line to the log buffer and updates the UI/log history.
+            */
+            private fun appendLogLine(line: String) {
+                val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
+                synchronized(logBuffer) {
+                    logBuffer.insert(0, truncated + "\n")
+                    var lines = 0
+                    var idx = 0
+                    while (idx < logBuffer.length && lines < maxLogLines) {
+                        if (logBuffer[idx] == '\n') lines++
+                        idx++
+                    }
+                    if (idx < logBuffer.length) {
+                        logBuffer.setLength(idx)
+                    }
+                    logDirty = true
+                }
+                rosViewModel.appendToMessageHistory(line)
+            }
+
+            /*
+                input:    error - String
+                output:   None
+                remarks:  Called when a WebSocket error occurs; updates UI and button states.
+            */
             override fun onError(error: String) {
                 runOnUiThread {
-                    logView.text = "WebSocket error: ${'$'}error\n" + logView.text
+                    logView.text = "WebSocket error: $error\n" + logView.text
                     updateButtonStates(false)
                 }
             }
         }
         RosbridgeConnectionManager.addListener(rosbridgeListener!!)
+    }
+
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity resumes; updates topic adapter and auto-refresh job.
+    */
+    override fun onResume() {
+        super.onResume()
+        if (discoveredTopics.isNotEmpty() && topicAdapter != null) {
+            val subscribedSet = rosViewModel.subscribedTopics.value.map { it.first }.toSet()
+            topicAdapter!!.updateTopicsAndSubscribed(discoveredTopics, subscribedSet)
+        }
+        if (RosbridgeConnectionManager.isConnected && autoRefreshCheckBox.isChecked && autoRefreshJob == null) {
+            autoRefreshJob = lifecycleScope.launch {
+                val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
+                while (autoRefreshCheckBox.isChecked) {
+                    runOnUiThread { fetchTopicsButton.performClick() }
+                    delay(1500)
+                }
+            }
+        }
+    }
+
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity pauses; cancels auto-refresh job.
+    */
+    override fun onPause() {
+        super.onPause()
+        autoRefreshJob?.cancel()
+        autoRefreshJob = null
     }
 
     /*
@@ -316,6 +569,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         remarks:  Cleans up rosbridge listener on activity destroy.
     */
     override fun onDestroy() {
+        logUpdateJob?.cancel()
         rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
         super.onDestroy()
     }

@@ -7,6 +7,10 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="darker_gray">#979393</color>
+    <color name="darker_gray">#646262</color>
     <color name="background_container">#F5F5F5</color>
+    <color name="light_gray">#EEEEEE</color>
+    //preset colors for controller view
+    <color name="preset_selected_bg">#000000</color>
+    <color name="preset_selected_text">#FFFFFF</color>
 </resources>
