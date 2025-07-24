@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import android.content.Context
+import androidx.core.content.edit
 
 /*
     CustomProtocolsViewModel scans the msgs folder for .msg, .srv, and .action files and manages user selections for import.
@@ -26,7 +27,7 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
     private val _actions = MutableStateFlow<List<ProtocolFile>>(emptyList())
     val actions: StateFlow<List<ProtocolFile>> = _actions
 
-    private val _selected = MutableStateFlow<Set<String>>(loadSelectedFromPrefs())
+    private val _selected = MutableStateFlow(loadSelectedFromPrefs())
     val selected: StateFlow<Set<String>> = _selected
 
     /*
@@ -56,7 +57,7 @@ class CustomProtocolsViewModel(application: Application) : AndroidViewModel(appl
     */
     private fun saveSelectedToPrefs(selected: Set<String>) {
         val prefs = getPrefs()
-        prefs.edit().putStringSet(PREFS_SELECTED_KEY, selected).apply()
+        prefs.edit { putStringSet(PREFS_SELECTED_KEY, selected) }
     }
 
     /*

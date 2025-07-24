@@ -292,7 +292,6 @@ class ControllerSupportFragment : Fragment() {
     private var lastJoystickDevice: InputDevice? = null
     private var lastJoystickEvent: MotionEvent? = null
     private var joystickResendActive: Boolean = false
-    @Suppress("DEPRECATION")
     private val joystickResendHandler = android.os.Handler(android.os.Looper.getMainLooper())
     // Default to 5 times per second
     private var joystickPublishRate: Int = 5
@@ -389,9 +388,9 @@ class ControllerSupportFragment : Fragment() {
             "X" to root.findViewById<android.widget.Spinner>(R.id.spinner_xbtn),
             "Y" to root.findViewById<android.widget.Spinner>(R.id.spinner_ybtn)
         )
-        val addBtn = root.findViewById<android.widget.Button>(R.id.btn_add_preset)
-        val removeBtn = root.findViewById<android.widget.Button>(R.id.btn_remove_preset)
-        val saveBtn = root.findViewById<android.widget.Button>(R.id.btn_save_preset)
+        val addBtn = root.findViewById<Button>(R.id.btn_add_preset)
+        val removeBtn = root.findViewById<Button>(R.id.btn_remove_preset)
+        val saveBtn = root.findViewById<Button>(R.id.btn_save_preset)
 
         val presets = loadControllerPresets()
         var selectedIdx = 0
@@ -617,7 +616,7 @@ class ControllerSupportFragment : Fragment() {
                     val maxInput = createSettingInput(requireContext(), group, "Max value (e.g. 1.0)", mapping.max?.toString(), numberInputType)
                     val stepInput = createSettingInput(requireContext(), group, "Step (e.g. 0.2)", mapping.step?.toString(), numberInputType)
                     val deadzoneInput = createSettingInput(requireContext(), group, "Deadzone (e.g. 0.1)", mapping.deadzone?.toString(), numberInputType)
-                    val saveBtn = android.widget.Button(requireContext())
+                    val saveBtn = Button(requireContext())
                     saveBtn.text = "Save"
                     saveBtn.setOnClickListener {
                         viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {

@@ -1,7 +1,7 @@
 package com.example.testros2jsbridge
+
 import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContracts
-
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
 import androidx.appcompat.app.AppCompatActivity
@@ -43,6 +43,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.fragment.app.Fragment
 import androidx.compose.ui.res.colorResource
+import androidx.core.content.edit
 
 /*
     MainActivity provides the main entry point for the app UI, handling connection to rosbridge, fragment switching, and message history display.
@@ -104,7 +105,7 @@ class MainActivity : AppCompatActivity() {
         androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
             androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        ).get(RosViewModel::class.java)
+        )[RosViewModel::class.java]
     }
 
     private lateinit var ipAddressEditText: TextInputEditText
@@ -153,19 +154,19 @@ class MainActivity : AppCompatActivity() {
             portEditText.setText(savedPort)
         } else {
             portEditText.setText("9090")
-            prefs.edit().putString("port", "9090").apply()
+            prefs.edit { putString("port", "9090") }
         }
 
         ipAddressEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("ip_address", s?.toString() ?: "").apply()
+                prefs.edit { putString("ip_address", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
         portEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("port", s?.toString() ?: "").apply()
+                prefs.edit { putString("port", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -177,8 +178,8 @@ class MainActivity : AppCompatActivity() {
         disconnectButton = findViewById(R.id.button_disconnect)
 
         ipPortContainer = findViewById(R.id.layout_ip_port_container)
-        collapseIpPortButton = findViewById<MaterialButton>(R.id.button_collapse_ip_port)
-        expandIpPortButton = findViewById<MaterialButton>(R.id.button_expand_ip_port)
+        collapseIpPortButton = findViewById(R.id.button_collapse_ip_port)
+        expandIpPortButton = findViewById(R.id.button_expand_ip_port)
 
         // Collapsible logic
         collapseIpPortButton.setOnClickListener {

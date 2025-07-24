@@ -14,6 +14,7 @@ import kotlinx.serialization.KSerializer
 import org.yaml.snakeyaml.Yaml
 import java.io.InputStream
 import java.io.OutputStream
+import androidx.core.content.edit
 
 /* 
 RosViewModel is the main Android ViewModel for managing ROS2 communication and state in the app. 
@@ -600,9 +601,9 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     */
     fun publishCustomRawMessage(topicName: String, messageType: String, rawJson: String) {
         sendToBridge("Publish '$topicName'") {
-            val msgField = when {
-                messageType == "std_msgs/msg/String" -> buildJsonObject { put("data", rawJson) }
-                messageType == "std_msgs/msg/Bool" -> {
+            val msgField = when (messageType) {
+                "std_msgs/msg/String" -> buildJsonObject { put("data", rawJson) }
+                "std_msgs/msg/Bool" -> {
                     val asJson = try { Json.parseToJsonElement(rawJson) } catch (_: Exception) { null }
                     val boolVal = if (asJson is JsonObject && asJson["data"] != null) {
                         val dataVal = asJson["data"]
@@ -829,7 +830,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             obj.put("fields", fieldsObj)
             arr.put(obj)
         }
-        prefs.edit().putString("custom_protocol_actions", arr.toString()).apply()
+        prefs.edit { putString("custom_protocol_actions", arr.toString()) }
     }
     /*
         input:    None
@@ -990,7 +991,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         // Restore custom publishers
         (configMap["customPublishers"] as? List<Map<String, Any>>)?.let { list ->
             val publishers = list.map {
-                RosViewModel.CustomPublisher(
+                CustomPublisher(
                     topic = it["topic"] as? String ?: "",
                     messageType = it["messageType"] as? String ?: "",
                     message = it["message"] as? String ?: ""
@@ -1010,7 +1011,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
                     CustomProtocolsViewModel.ProtocolType.valueOf(protoMap["type"] as? String ?: "MSG")
                 )
                 val fieldValues = (it["fieldValues"] as? Map<String, String>) ?: emptyMap()
-                RosViewModel.CustomProtocolAction(label, proto, fieldValues)
+                CustomProtocolAction(label, proto, fieldValues)
             }
             setCustomProtocolActions(actions)
         }
@@ -1023,25 +1024,25 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         // Restore slider buttons
         (configMap["sliderButtons"] as? String)?.let {
             val sliderPrefs = context.getSharedPreferences("slider_buttons_prefs", android.content.Context.MODE_PRIVATE)
-            sliderPrefs.edit().putString("saved_slider_buttons", it).apply()
+            sliderPrefs.edit { putString("saved_slider_buttons", it) }
         }
 
         // Restore geometry buttons
         (configMap["geometryButtons"] as? String)?.let {
             val geometryPrefs = context.getSharedPreferences("geometry_reusable_buttons", android.content.Context.MODE_PRIVATE)
-            geometryPrefs.edit().putString("geometry_buttons", it).apply()
+            geometryPrefs.edit { putString("geometry_buttons", it) }
         }
 
         // Restore custom publishers prefs (raw JSON)
         (configMap["customPublishersPrefs"] as? String)?.let {
             val customPubPrefs = context.getSharedPreferences("custom_publishers_prefs", android.content.Context.MODE_PRIVATE)
-            customPubPrefs.edit().putString("custom_publishers", it).apply()
+            customPubPrefs.edit { putString("custom_publishers", it) }
         }
 
         // Restore custom protocol actions prefs (raw JSON)
         (configMap["customProtocolActionsPrefs"] as? String)?.let {
             val customProtocolPrefs = context.getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
-            customProtocolPrefs.edit().putString("custom_protocol_actions", it).apply()
+            customProtocolPrefs.edit { putString("custom_protocol_actions", it) }
             loadCustomProtocolActionsFromPrefs()
         }
     }

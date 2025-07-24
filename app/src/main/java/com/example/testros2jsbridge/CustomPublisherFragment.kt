@@ -1,6 +1,5 @@
 package com.example.testros2jsbridge
 
-import com.example.testros2jsbridge.RosViewModel
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,6 +15,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.google.gson.Gson
+import androidx.core.content.edit
 
 /*
     This fragment allows users to create, save, and manage custom publisher buttons for sending standard ROS messages with user-defined content.
@@ -356,7 +356,7 @@ class CustomPublisherFragment : Fragment() {
             obj.put("msg", pub.message)
             arr.put(obj)
         }
-        prefs.edit().putString(SAVED_BUTTONS_KEY, arr.toString()).apply()
+        prefs.edit { putString(SAVED_BUTTONS_KEY, arr.toString()) }
     }
 
     /*

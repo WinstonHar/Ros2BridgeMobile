@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import com.google.android.material.slider.Slider
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.core.content.edit
 
 /*
     This fragment provides a UI for creating, saving, and publishing slider-based ROS messages.
@@ -64,7 +65,7 @@ class SliderButtonFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val arr = JSONArray()
         for (btn in savedButtons) arr.put(btn.toJson())
-        prefs.edit().putString(PREFS_KEY, arr.toString()).apply()
+        prefs.edit { putString(PREFS_KEY, arr.toString()) }
     }
 
     /*
@@ -437,7 +438,7 @@ class SliderButtonFragment : Fragment() {
         androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
             androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        ).get(RosViewModel::class.java)
+        )[RosViewModel::class.java]
     }
     private val sliderControllerViewModel: SliderControllerViewModel by activityViewModels()
 
@@ -545,7 +546,7 @@ class SliderButtonFragment : Fragment() {
             viewLifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 sliderControllerViewModel.sliders.collect { sliderStates ->
                     for (sliderState in sliderStates) {
-                        val key = sliderState.name ?: sliderState.topic
+                        val key = sliderState.name
                         val uiSlider = sliderMap[key]
                         if (uiSlider != null) {
                             // Only update if value differs to avoid infinite loop

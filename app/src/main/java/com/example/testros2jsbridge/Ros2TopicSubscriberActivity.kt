@@ -1,29 +1,22 @@
 package com.example.testros2jsbridge
 
-import android.os.Bundle
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.EditText
-import android.widget.Button
-import androidx.appcompat.app.AppCompatActivity
-import okhttp3.*
-import okio.ByteString
-import org.json.JSONObject
-import java.util.concurrent.TimeUnit
-import android.content.SharedPreferences
 import android.content.Context
+import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.Button
+import android.widget.EditText
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import org.json.JSONObject
+import androidx.core.content.edit
 
 /*
     Ros2TopicSubscriberActivity provides a UI for subscribing to ROS2 topics via rosbridge, supporting both dynamic topic discovery and manual subscription.
@@ -46,7 +39,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
             androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        ).get(RosViewModel::class.java)
+        )[RosViewModel::class.java]
     }
     private val logBuffer = StringBuilder()
     private var logDirty = false
@@ -199,7 +192,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             remarks:  Updates the topic adapter with current subscriptions.
         */
         fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
-        val subscribedSet = subscribed.map { it.first }.toSet()
+            val subscribedSet = subscribed.map { it.first }.toSet()
             if (topicAdapter == null) {
                 topicAdapter = TopicCheckboxAdapter(
                     topics = topics,
@@ -303,19 +296,19 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             portEditText.setText(savedPort)
         } else {
             portEditText.setText("9090")
-            prefs.edit().putString("port", "9090").apply()
+            prefs.edit { putString("port", "9090") }
         }
 
         ipEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("ip_address", s?.toString() ?: "").apply()
+                prefs.edit { putString("ip_address", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
         portEditText.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                prefs.edit().putString("port", s?.toString() ?: "").apply()
+                prefs.edit { putString("port", s?.toString() ?: "") }
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -428,7 +421,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                             val encoding = msg.optString("encoding", "")
                             val dataField = msg.opt("data")
                             var byteArray: ByteArray? = null
-                            var dataPreview = ""
+                            var dataPreview: String
                             var dataLen = 0
                             if (dataField is String) {
                                 try {
@@ -443,17 +436,16 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                                     dataPreview = "data=[base64 decode error]"
                                 }
                             } else if (dataField is org.json.JSONArray) {
-                                val dataArray = dataField
-                                dataLen = dataArray.length()
+                                dataLen = dataField.length()
                                 val previewLen = minOf(8, dataLen)
                                 val previewBytes = (0 until previewLen).joinToString(" ") { idx ->
-                                    val v = dataArray.getInt(idx)
+                                    val v = dataField.getInt(idx)
                                     v.toUByte().toString(16).padStart(2, '0')
                                 }
                                 dataPreview = "data[0..${previewLen - 1}]=[$previewBytes] (array)"
                                 byteArray = ByteArray(dataLen)
                                 for (i in 0 until dataLen) {
-                                    byteArray[i] = dataArray.getInt(i).toByte()
+                                    byteArray[i] = dataField.getInt(i).toByte()
                                 }
                             } else {
                                 dataPreview = "data=[]"
@@ -478,7 +470,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
                             appendLogLine("RECEIVED: [$topic] sensor_msgs/msg/Image: width=$width, height=$height, encoding=$encoding, $dataPreview, data.length=$dataLen")
                         } else {
-                            appendLogLine("RECEIVED: [${topic}] ${msg}")
+                            appendLogLine("RECEIVED: [${topic}] $msg")
                         }
                     } else {
                         appendLogLine("INCOMING JSON: $text")

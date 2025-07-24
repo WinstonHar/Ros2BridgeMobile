@@ -1,24 +1,20 @@
 package com.example.testros2jsbridge
 
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.intOrNull
+import android.content.Context
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.fragment.app.viewModels
-import androidx.fragment.app.activityViewModels
-import android.widget.LinearLayout
 import android.widget.CheckBox
-import android.widget.TextView
+import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.content.Context
+import android.widget.TextView
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import com.example.testros2jsbridge.CustomProtocolsViewModel
+import kotlinx.serialization.json.jsonObject
 
 /*
     ImportCustomProtocolsFragment scans the msgs folder for .msg, .srv, and .action files and displays them in three sections with checkboxes.
@@ -68,7 +64,7 @@ class ImportCustomProtocolsFragment : Fragment() {
         androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
             androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        ).get(RosViewModel::class.java)
+        )[RosViewModel::class.java]
     }
 
     // Data class for a saved custom protocol action
@@ -90,7 +86,7 @@ class ImportCustomProtocolsFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
+    ): View {
 
         val root = inflater.inflate(R.layout.fragment_import_custom_protocols, container, false)
         val context = requireContext()
@@ -376,7 +372,6 @@ class ImportCustomProtocolsFragment : Fragment() {
             CustomProtocolsViewModel.ProtocolType.MSG -> mapOf("msg" to (parseFieldsBySection(proto.importPath, proto.type)["msg"] ?: emptyList()))
             CustomProtocolsViewModel.ProtocolType.SRV -> parseFieldsBySection(proto.importPath, proto.type)
             CustomProtocolsViewModel.ProtocolType.ACTION -> parseFieldsBySection(proto.importPath, proto.type)
-            else -> emptyMap()
         }
 
         // For MSG, all fields are fillable
@@ -386,7 +381,6 @@ class ImportCustomProtocolsFragment : Fragment() {
             CustomProtocolsViewModel.ProtocolType.MSG -> sectionFields["msg"] ?: emptyList()
             CustomProtocolsViewModel.ProtocolType.SRV -> sectionFields["request"] ?: emptyList()
             CustomProtocolsViewModel.ProtocolType.ACTION -> sectionFields["goal"] ?: emptyList()
-            else -> emptyList()
         }
         val fixedFields: List<Triple<String, String, String?>> = fillableFields.filter { (_, name, _) -> name.matches(Regex("[A-Z0-9_]+")) }
         val editableFields: List<Triple<String, String, String?>> = fillableFields.filter { (_, name, _) -> name.matches(Regex("[a-z0-9_]+")) }
@@ -626,7 +620,7 @@ class ImportCustomProtocolsFragment : Fragment() {
                                 rosViewModel.callCustomService(topic, srvType, msgJson) { resultMsg ->
                                     rosViewModel.appendToMessageHistory(resultMsg)
                                     requireActivity().runOnUiThread {
-                                        val safeMsg = if (resultMsg.isNullOrBlank()) "(no data)" else resultMsg
+                                        val safeMsg = resultMsg.ifBlank { "(no data)" }
                                         resultDisplay.append("[Service Result]:\n$safeMsg\n\n")
                                     }
                                 }

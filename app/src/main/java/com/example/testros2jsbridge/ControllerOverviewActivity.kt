@@ -33,7 +33,7 @@ class ControllerOverviewActivity : AppCompatActivity() {
     */
     private fun setupRepeatButton(buttonId: Int, btnName: String) {
         val button = findViewById<MaterialButton>(buttonId)
-        button.setOnTouchListener { v, event ->
+        button.setOnTouchListener {_, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
                     simulateControllerButtonPress(btnName)
@@ -171,17 +171,17 @@ class ControllerOverviewActivity : AppCompatActivity() {
         val rosViewModel = androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
             androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        ).get(RosViewModel::class.java)
+        )[RosViewModel::class.java]
 
         val backgroundImageView = findViewById<android.widget.ImageView>(R.id.backgroundImageView)
         lifecycleScope.launch {
             rosViewModel.latestBitmap.collect { bitmap ->
                 if (bitmap != null) {
                     backgroundImageView.setImageBitmap(bitmap)
-                    backgroundImageView.visibility = android.view.View.VISIBLE
+                    backgroundImageView.visibility = View.VISIBLE
                 } else {
                     backgroundImageView.setImageDrawable(null)
-                    backgroundImageView.visibility = android.view.View.GONE
+                    backgroundImageView.visibility = View.GONE
                 }
             }
         }
@@ -311,7 +311,7 @@ class ControllerOverviewActivity : AppCompatActivity() {
     private fun setJoystickAssignment(id: Int, mapping: JoystickMapping?) {
         val tv = findViewById<TextView>(id)
         tv.text = if (mapping != null) {
-            "${mapping.type ?: "Unassigned"}"
+            mapping.type ?: "Unassigned"
         } else {
             "<none>"
         }

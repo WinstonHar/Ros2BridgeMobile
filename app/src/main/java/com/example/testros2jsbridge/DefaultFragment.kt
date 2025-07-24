@@ -1,6 +1,5 @@
 package com.example.testros2jsbridge
 
-import com.example.testros2jsbridge.RosViewModel
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -32,7 +31,7 @@ class DefaultFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
+        rosViewModel = ViewModelProvider(requireActivity())[RosViewModel::class.java]
         val view = inflater.inflate(R.layout.activity_default, container, false)
         advertiseButton = view.findViewById(R.id.button_advertise)
         publishCustomMessageButton = view.findViewById(R.id.button_publish_custom_message)
