@@ -78,32 +78,48 @@ Specific instructions for using controller input for remote robot movement.
 
 **Screenshots:**
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114344.png" alt="Main UI" width="400"/>
+  <img src="screenshots\Screenshot_20250724-115018.png" alt="Main UI" width="400"/>
   <br/><em>Main UI</em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114332.png" alt="Custom Standard Messages Tab" width="400"/>
-  <br/><em>Custom Standard Messages Tab</em>
+  <img src="screenshots\Screenshot_20250724-115034.png" alt="Custom Msg" width="400"/>
+  <br/><em>Standard messages app action setting pane</em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114328.png" alt="Geometry Standard Messages Tab" width="400"/>
-  <br/><em>Geometry Standard Messages Tab</em>
+  <img src="screenshots\Screenshot_20250724-115048.png" alt="Geometry Msg" width="400"/>
+  <br/><em>Geometry messages app action setting pane</em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114305.png" alt="Slider Button Tab" width="400"/>
-  <br/><em>Slider Button Tab</em>
+  <img src="screenshots\Screenshot_20250724-115104.png" alt="Slider buttons" width="400"/>
+  <br/><em>Slider buttons app action setting pane</em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114236.png" alt="Controller Input Tab-App Actions" width="400"/>
-  <br/><em>Controller Input Tab-App Actions</em>
+  <img src="screenshots\Screenshot_20250724-115127.png" alt="Controller Input Device Pane" width="400"/>
+  <br/><em>Controller input setting pane, app action and controller buttons</em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114239.png" alt="Controller Input Tab-Controller Button Assignment" width="400"/>
-  <br/><em>Controller Input Tab-Controller Button Assignment</em>
+  <img src="screenshots\Screenshot_20250724-115150.png" alt="Controller preset and joysticks" width="400"/>
+  <br/><em>Controller input pane, preset area and joysticks </em>
 </div>
 <div align="center">
-  <img src="App-Photos/Screenshot_20250709-114248.png" alt="Controller Input Tab-Controller Joystick Assignment" width="400"/>
-  <br/><em>Controller Input Tab-Controller Joystick Assignment</em>
+  <img src="screenshots\Screenshot_20250724-115203.png" alt="Import export" width="400"/>
+  <br/><em>Controller input pane, joysticks and import export configs</em>
+</div>
+<div align="center">
+  <img src="screenshots\Screenshot_20250724-115223.png" alt="Custom protocols" width="400"/>
+  <br/><em>Custom Protocols, root package and selector pane</em>
+</div>
+<div align="center">
+  <img src="screenshots\Screenshot_20250724-115235.png" alt="Custom protocols configurator" width="400"/>
+  <br/><em>Custom Protocols, configurator, buttons</em>
+</div>
+<div align="center">
+  <img src="screenshots\Screenshot_20250724-115308.png" alt="Subscriber Activity" width="400"/>
+  <br/><em>Subscriber Activity (not populated)</em>
+</div>
+<div align="center">
+  <img src="screenshots\Screenshot_20250724-115321.png" alt="Overview UI" width="400"/>
+  <br/><em>Overview UI</em>
 </div>
 
 **Custom Protocol Support**
