@@ -12,19 +12,17 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.Dispatchers
-import org.json.JSONObject
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.conflate
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 /*
     Ros2TopicSubscriberActivity provides a UI for subscribing to ROS2 topics via rosbridge, supporting both dynamic topic discovery and manual subscription.
@@ -39,7 +37,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         while (imageDecodeChannel.tryReceive().isSuccess) { /* discard */ }
     }
     private var imageLogCounter = 0
-    private val imageDecodeChannel = Channel<String>(Channel.CONFLATED)
+    private val imageDecodeChannel = Channel<String>(Channel.UNLIMITED)
     private var imageProcessorJob: Job? = null
     /*
         input:    subs - List<Pair<String, String>>
@@ -530,7 +528,12 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private fun launchImageProcessor() {
         imageProcessorJob?.cancel()
         imageProcessorJob = lifecycleScope.launch(Dispatchers.Default) {
-            imageDecodeChannel.receiveAsFlow().conflate().collectLatest { jsonText ->
+            while (isActive) {
+                var jsonText = imageDecodeChannel.receive()
+                while (true) {
+                    val latest = imageDecodeChannel.tryReceive().getOrNull() ?: break
+                    jsonText = latest
+                }
                 try {
                     val decodeStart = System.currentTimeMillis()
 
@@ -538,17 +541,16 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                     val topic = json.optString("topic", "")
                     val msgType = discoveredTopics.find { it.first == topic }?.second
                     val msg = json.getJSONObject("msg")
-                    
+
                     val bitmap = when (msgType) {
                         "sensor_msgs/msg/Image" -> {
-                        val width = msg.getInt("width")
-                        val height = msg.getInt("height")
-                        val base64Data = msg.getString("data")
-                        decodeBgr8Base64ToBitmap(base64Data, width, height)
+                            val width = msg.getInt("width")
+                            val height = msg.getInt("height")
+                            val base64Data = msg.getString("data")
+                            decodeBgr8Base64ToBitmap(base64Data, width, height)
                         }
                         "sensor_msgs/msg/CompressedImage" -> {
                             val base64Data = msg.getString("data")
-                            // Log uninterpolated image data for debugging
                             android.util.Log.d("Ros2RawImageData", "Raw compressed image data (base64, first 100 chars): ${base64Data.take(100)}")
                             decodeCompressedBase64ToBitmap(base64Data)
                         }
