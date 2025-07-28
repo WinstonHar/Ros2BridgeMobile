@@ -137,8 +137,6 @@ class MainActivity : AppCompatActivity() {
             val intent = android.content.Intent(this, ControllerOverviewActivity::class.java)
             startActivity(intent)
         }
-        // Always register rosViewModel as a listener for rosbridge connection events
-        RosbridgeConnectionManager.addListener(rosViewModel)
 
         ipAddressEditText = findViewById(R.id.edittext_ip_address)
         portEditText = findViewById(R.id.edittext_port)
@@ -403,9 +401,6 @@ class MainActivity : AppCompatActivity() {
         remarks:  Cleans up rosbridge listener on activity destroy.
     */
     override fun onDestroy() {
-        rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
-        // Remove rosViewModel as a listener to avoid leaks
-        RosbridgeConnectionManager.removeListener(rosViewModel)
         super.onDestroy()
     }
 }
