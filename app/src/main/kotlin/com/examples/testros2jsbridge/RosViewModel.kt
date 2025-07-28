@@ -64,6 +64,8 @@ data class RosBridgeAdvertiseService(
 @Serializable
 data class StdString(val data: String)
 
+private val topicHandlers = mutableMapOf<String, (String) -> Unit>()
+
 /*
     input:    uuid - String
     output:   String (byte array string for ROS UUID)
@@ -137,6 +139,9 @@ private fun RosViewModel.sendToBridge(logContext: String, operation: () -> Strin
 }
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    init {
+        RosbridgeConnectionManager.addListener(this)
+    }
     val latestBitmap: MutableStateFlow<android.graphics.Bitmap?> = MutableStateFlow(null)
     private val _subscribedTopics = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
     val subscribedTopics: StateFlow<Set<Pair<String, String>>> = _subscribedTopics.asStateFlow()
@@ -149,32 +154,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     fun addSubscribedTopic(topic: String, type: String) {
         val newSet = _subscribedTopics.value + (topic to type)
         _subscribedTopics.value = newSet
-        subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
-    }
-
-    /*
-        input:    topic - String, type - String
-        output:   None
-        remarks:  Removes a topic subscription and unsubscribes from the topic.
-    */
-    fun removeSubscribedTopic(topic: String, type: String) {
-        val newSet = _subscribedTopics.value - (topic to type)
-        _subscribedTopics.value = newSet
-        sendToBridge("Unsubscribe '$topic'") {
-            Json.encodeToString(RosBridgeUnsubscribe(topic = topic))
-        }
-        Log.d("RosViewModel", "Unsubscribed from topic: $topic ($type)")
-    }
-
-    /*
-        input:    None
-        output:   None
-        remarks:  Resubscribes to all topics in the persistent set with a handler that appends to the log.
-    */
-    fun resubscribeAllTopicsToLog() {
-        for ((topic, type) in _subscribedTopics.value) {
-            subscribeToTopic(topic, type) { msg -> appendToMessageHistory(msg) }
-        }
     }
 
     /*
@@ -484,7 +463,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     }
 
     var onRosbridgeDisconnected: (() -> Unit)? = null
-    private val topicHandlers = mutableMapOf<String, (String) -> Unit>()
 
     /*
         input:    serviceName - String, serviceType - String
@@ -534,7 +512,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     */
     fun subscribeToActionFeedback(actionName: String, actionType: String, onMessage: (String) -> Unit) {
         val names = getActionNames(actionName, actionType) ?: return
-        subscribeToTopic(names.feedbackTopic, names.feedbackType, onMessage)
     }
 
     /*
@@ -545,7 +522,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     fun subscribeToActionStatus(actionName: String, onMessage: (String) -> Unit) {
         val statusTopic = "$actionName/status"
         val statusType = "action_msgs/msg/GoalStatusArray"
-        subscribeToTopic(statusTopic, statusType, onMessage)
     }
 
     /*
@@ -577,21 +553,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
 
         publishCustomRawMessage(cancelTopic, cancelType, cancelMsgJson)
         Log.d("RosViewModel", "Sent cancel to $cancelTopic: $cancelMsgJson")
-    }
-
-
-    /*
-        input:    topic - String, type - String, onMessage - (String) -> Unit
-        output:   None
-        remarks:  Subscribes to a ROS2 topic and routes messages to the callback.
-    */
-    private fun subscribeToTopic(topic: String, type: String, onMessage: (String) -> Unit) {
-        sendToBridge("Subscribe '$topic'") {
-            Json.encodeToString(
-                RosBridgeTopic(op = "subscribe", id = "subscribe_${topic.replace("/", "_")}_${System.currentTimeMillis()}", topic = topic, type = type)
-            )
-        }
-        topicHandlers[topic] = onMessage
     }
 
     /*
@@ -696,12 +657,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         _selectedDropdownIndex.value = index
     }
 
-    private fun disconnect() {
-        RosbridgeConnectionManager.disconnect()
-        _connectionStatus.value = "Disconnected (Client)"
-        RosbridgeConnectionManager.removeListener(this)
-    }
-
     /*
         input:    topicName - String, messageType - String
         output:   None
@@ -755,18 +710,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         val jsonString = asJson?.toString() ?: messageToSend
         _customMessageHistory.update { currentHistory -> (currentHistory + jsonString).takeLast(25) }
         publishStringMessage(topicName, messageToSend)
-    }
-
-    /*
-        input:    None
-        output:   None
-        remarks:  Called when the ViewModel is cleared; disconnects and removes listener.
-    */
-    override fun onCleared() {
-        super.onCleared()
-        Log.d("RosViewModel", "onCleared called, disconnecting if active.")
-        disconnect()
-        RosbridgeConnectionManager.removeListener(this)
     }
 
     data class CustomProtocolAction(
@@ -862,63 +805,6 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             }
             _customProtocolActions.value = loaded
         } catch (_: Exception) { }
-    }
-
-    /*
-        input:    None
-        output:   None
-        remarks:  Called when rosbridge connection is established; updates connection status.
-    */
-    override fun onConnected() {
-        _connectionStatus.value = "Connected"
-    }
-
-    /*
-        input:    None
-        output:   None
-        remarks:  Called when rosbridge connection is lost; updates connection status.
-    */
-    override fun onDisconnected() {
-        _connectionStatus.value = "Disconnected"
-        onRosbridgeDisconnected?.invoke()
-    }
-
-    /*
-        input:    text - String
-        output:   None
-        remarks:  Called when a message is received from rosbridge; emits to rosMessages flow.
-    */
-    override fun onMessage(text: String) {
-        try {
-            val jsonElem = Json.parseToJsonElement(text)
-            val obj = jsonElem.jsonObject
-            val topic = obj["topic"]?.jsonPrimitive?.let { jp -> try { jp.content } catch (_: Exception) { null } }
-            val id = obj["id"]?.jsonPrimitive?.let { jp -> try { jp.content } catch (_: Exception) { null } }
-            var handled = false
-            if (topic != null && topicHandlers.containsKey(topic)) {
-                topicHandlers[topic]?.invoke(text)
-                handled = true
-            }
-            if (!handled && id != null && topicHandlers.containsKey(id)) {
-                topicHandlers[id]?.invoke(text)
-                topicHandlers.remove(id)
-                handled = true
-            }
-            if (!handled) {
-                viewModelScope.launch { _rosMessages.emit(text) }
-            }
-        } catch (e: Exception) {
-            viewModelScope.launch { _rosMessages.emit(text) }
-        }
-    }
-
-    /*
-        input:    error - String
-        output:   None
-        remarks:  Called when an error occurs on rosbridge connection; updates connection status.
-    */
-    override fun onError(error: String) {
-        _connectionStatus.value = "Error: $error"
     }
 
     fun exportAppActivitiesToYaml(outputStream: OutputStream) {
@@ -1044,6 +930,45 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             val customProtocolPrefs = context.getSharedPreferences(CUSTOM_PROTOCOL_ACTIONS_PREFS, android.content.Context.MODE_PRIVATE)
             customProtocolPrefs.edit { putString("custom_protocol_actions", it) }
             loadCustomProtocolActionsFromPrefs()
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        RosbridgeConnectionManager.removeListener(this)
+    }
+
+    override fun onConnected() {
+        _connectionStatus.value = "Connected"
+    }
+
+    override fun onDisconnected() {
+        _connectionStatus.value = "Disconnected"
+        onRosbridgeDisconnected?.invoke()
+    }
+
+    override fun onError(error: String) {
+        _connectionStatus.value = "Error: $error"
+    }
+
+    override fun onMessage(text: String) {
+        try {
+            if (!text.contains("\"id\":")) {
+                return
+            }
+
+            val json = Json.parseToJsonElement(text).jsonObject
+            val op = json["op"]?.jsonPrimitive?.contentOrNull
+
+            if (op == "service_response") {
+                val id = json["id"]?.jsonPrimitive?.contentOrNull
+                if (id != null && topicHandlers.containsKey(id)) {
+                    topicHandlers[id]?.invoke(text)
+                    topicHandlers.remove(id)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("RosViewModel", "Error in ViewModel.onMessage: ${e.message}")
         }
     }
 }
