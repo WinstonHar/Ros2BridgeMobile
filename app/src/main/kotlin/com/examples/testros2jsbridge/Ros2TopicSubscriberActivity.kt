@@ -528,12 +528,29 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private fun launchImageProcessor() {
         imageProcessorJob?.cancel()
         imageProcessorJob = lifecycleScope.launch(Dispatchers.Default) {
+            var droppedCount = 0
+            var processedCount = 0
+            
             while (isActive) {
+                // Get the first message
                 var jsonText = imageDecodeChannel.receive()
+                
+                // Aggressively drop all queued messages, keep only the latest
+                var dropped = 0
                 while (true) {
                     val latest = imageDecodeChannel.tryReceive().getOrNull() ?: break
                     jsonText = latest
+                    dropped++
                 }
+                
+                if (dropped > 0) {
+                    droppedCount += dropped
+                    // Log every 50 processed frames to avoid spam
+                    if (processedCount % 50 == 0) {
+                        android.util.Log.d("ImageProcessor", "Dropped $dropped frames (total dropped: $droppedCount, processed: $processedCount)")
+                    }
+                }
+                
                 try {
                     val decodeStart = System.currentTimeMillis()
 
@@ -551,7 +568,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         }
                         "sensor_msgs/msg/CompressedImage" -> {
                             val base64Data = msg.getString("data")
-                            android.util.Log.d("Ros2RawImageData", "Raw compressed image data (base64, first 100 chars): ${base64Data.take(100)}")
                             decodeCompressedBase64ToBitmap(base64Data)
                         }
                         else -> null
@@ -564,6 +580,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                     val receivedTimestamp = (seconds * 1000) + (nanoseconds / 1_000_000)
 
                     val decodeEnd = System.currentTimeMillis()
+                    processedCount++
 
                     withContext(Dispatchers.Main) {
                         rosViewModel.latestBitmap.value = bitmap as Bitmap?
