@@ -1,6 +1,7 @@
 package com.example.testros2jsbridge
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -22,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import org.json.JSONObject
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.conflate
 
 /*
@@ -182,7 +184,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             val obj = JSONObject()
             obj.put("op", "unsubscribe")
             obj.put("topic", topic)
-            // Optionally include type for clarity
             obj.put("type", type)
             RosbridgeConnectionManager.send(obj)
         }
@@ -529,7 +530,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
     private fun launchImageProcessor() {
         imageProcessorJob?.cancel()
         imageProcessorJob = lifecycleScope.launch(Dispatchers.Default) {
-            imageDecodeChannel.receiveAsFlow().conflate().collect { jsonText ->
+            imageDecodeChannel.receiveAsFlow().conflate().collectLatest { jsonText ->
                 try {
                     val decodeStart = System.currentTimeMillis()
 
@@ -547,6 +548,8 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                         }
                         "sensor_msgs/msg/CompressedImage" -> {
                             val base64Data = msg.getString("data")
+                            // Log uninterpolated image data for debugging
+                            android.util.Log.d("Ros2RawImageData", "Raw compressed image data (base64, first 100 chars): ${base64Data.take(100)}")
                             decodeCompressedBase64ToBitmap(base64Data)
                         }
                         else -> null
@@ -561,7 +564,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                     val decodeEnd = System.currentTimeMillis()
 
                     withContext(Dispatchers.Main) {
-                        rosViewModel.latestBitmap.value = bitmap
+                        rosViewModel.latestBitmap.value = bitmap as Bitmap?
                         android.util.Log.d("Ros2ImagePerf", "Image decode+display latency: ${decodeEnd - decodeStart} ms, total from ROS publish: ${decodeEnd - receivedTimestamp} ms")
                     }
 
