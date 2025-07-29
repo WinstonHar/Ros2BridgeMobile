@@ -15,6 +15,8 @@ import org.yaml.snakeyaml.Yaml
 import java.io.InputStream
 import java.io.OutputStream
 import androidx.core.content.edit
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
 /* 
 RosViewModel is the main Android ViewModel for managing ROS2 communication and state in the app. 
@@ -139,12 +141,18 @@ private fun RosViewModel.sendToBridge(logContext: String, operation: () -> Strin
 }
 
 class RosViewModel(application: Application) : AndroidViewModel(application), RosbridgeConnectionManager.Listener {
+    private val imageDecodeChannel = kotlinx.coroutines.channels.Channel<Pair<String, String>>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+    private var imageProcessorJob: kotlinx.coroutines.Job? = null
+    val latestBitmap = kotlinx.coroutines.flow.MutableStateFlow<android.graphics.Bitmap?>(null)
+    
     init {
         RosbridgeConnectionManager.addListener(this)
+        startImageProcessor()
     }
-    val latestBitmap: MutableStateFlow<android.graphics.Bitmap?> = MutableStateFlow(null)
+
     private val _subscribedTopics = MutableStateFlow<Set<Pair<String, String>>>(emptySet())
     val subscribedTopics: StateFlow<Set<Pair<String, String>>> = _subscribedTopics.asStateFlow()
+
 
     /*
         input:    topic - String, type - String
@@ -785,6 +793,7 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
         prefs.edit { putString("custom_protocol_actions", arr.toString()) }
     }
+
     /*
         input:    None
         output:   None
@@ -979,6 +988,62 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
             }
         } catch (e: Exception) {
             Log.w("RosViewModel", "Error in ViewModel.onMessage: ${e.message}")
+        }
+    }
+
+    fun onImageMessageReceived(msgType: String, jsonText: String) {
+        imageDecodeChannel.trySend(msgType to jsonText)
+    }
+
+    private fun startImageProcessor() {
+        imageProcessorJob?.cancel()
+        imageProcessorJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            while (isActive) {
+                var (msgType, jsonText) = imageDecodeChannel.receive()
+                // Drop all but latest
+                while (true) {
+                    val next = imageDecodeChannel.tryReceive().getOrNull() ?: break
+                    msgType = next.first
+                    jsonText = next.second
+                }
+                try {
+                    val json = org.json.JSONObject(jsonText)
+                    val msg = json.getJSONObject("msg")
+                    val bitmap = when (msgType) {
+                        "sensor_msgs/msg/Image" -> {
+                            val width = msg.getInt("width")
+                            val height = msg.getInt("height")
+                            val base64Data = msg.getString("data")
+                            decodeBgr8Base64ToBitmap(base64Data, width, height)
+                        }
+                        "sensor_msgs/msg/CompressedImage" -> {
+                            val base64Data = msg.getString("data")
+                            decodeCompressedBase64ToBitmap(base64Data)
+                        }
+                        else -> null
+                    }
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        latestBitmap.value = bitmap
+                    }
+                } catch (_: Exception) {
+                    // Optionally log error
+                }
+            }
+        }
+    }
+
+    private fun decodeBgr8Base64ToBitmap(base64: String, width: Int, height: Int): android.graphics.Bitmap {
+        val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        ImageUtils.bgrBase64ToArgb(base64, bitmap, width, height)
+        return bitmap
+    }
+
+    private fun decodeCompressedBase64ToBitmap(base64: String): android.graphics.Bitmap? {
+        return try {
+            val imageBytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+            android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        } catch (e: Exception) {
+            null
         }
     }
 }
