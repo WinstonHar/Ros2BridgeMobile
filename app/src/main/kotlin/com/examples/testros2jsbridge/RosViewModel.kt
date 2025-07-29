@@ -826,6 +826,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         } catch (_: Exception) { }
     }
 
+    /*
+        input:    outputStream - OutputStream
+        output:   None
+        remarks:  Exports app activities and configuration to a YAML file using the provided output stream.
+    */
     fun exportAppActivitiesToYaml(outputStream: OutputStream) {
         val yaml = Yaml()
         val context = getApplication<Application>().applicationContext
@@ -882,6 +887,11 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
+    /*
+        input:    inputStream - InputStream
+        output:   None
+        remarks:  Imports app activities and configuration from a YAML file using the provided input stream.
+    */
     fun importAppActivitiesFromYaml(inputStream: InputStream) {
         val yaml = Yaml()
         val context = getApplication<Application>().applicationContext
@@ -952,24 +962,49 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the ViewModel is being destroyed; removes itself as a listener from RosbridgeConnectionManager.
+    */
     override fun onCleared() {
         super.onCleared()
         RosbridgeConnectionManager.removeListener(this)
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the rosbridge connection is established; updates connection status.
+    */
     override fun onConnected() {
         _connectionStatus.value = "Connected"
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the rosbridge connection is lost; updates connection status and invokes disconnect callback if set.
+    */
     override fun onDisconnected() {
         _connectionStatus.value = "Disconnected"
         onRosbridgeDisconnected?.invoke()
     }
 
+    /*
+        input:    error - String
+        output:   None
+        remarks:  Called when an error occurs in the rosbridge connection; updates connection status with error message.
+    */
     override fun onError(error: String) {
         _connectionStatus.value = "Error: $error"
     }
 
+    /*
+        input:    text - String
+        output:   None
+        remarks:  Handles incoming messages from rosbridge; routes service responses to registered handlers.
+    */
     override fun onMessage(text: String) {
         try {
             if (!text.contains("\"id\":")) {
@@ -991,10 +1026,20 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
+    /*
+        input:    msgType - String, jsonText - String
+        output:   None
+        remarks:  Receives an image message and sends it to the image decode channel for processing.
+    */
     fun onImageMessageReceived(msgType: String, jsonText: String) {
         imageDecodeChannel.trySend(msgType to jsonText)
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Starts a coroutine to process image messages from the decode channel and update the latest bitmap.
+    */
     private fun startImageProcessor() {
         imageProcessorJob?.cancel()
         imageProcessorJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
@@ -1032,12 +1077,22 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
         }
     }
 
+    /*
+        input:    base64 - String, width - Int, height - Int
+        output:   Bitmap
+        remarks:  Decodes a base64-encoded BGR8 image to an ARGB Bitmap of the given width and height.
+    */
     private fun decodeBgr8Base64ToBitmap(base64: String, width: Int, height: Int): android.graphics.Bitmap {
         val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
         ImageUtils.bgrBase64ToArgb(base64, bitmap, width, height)
         return bitmap
     }
 
+    /*
+        input:    base64 - String
+        output:   Bitmap?
+        remarks:  Decodes a base64-encoded compressed image to a Bitmap, or null if decoding fails.
+    */
     private fun decodeCompressedBase64ToBitmap(base64: String): android.graphics.Bitmap? {
         return try {
             val imageBytes = android.util.Base64.decode(base64, android.util.Base64.DEFAULT)

@@ -29,6 +29,12 @@ import org.json.JSONObject
 */
 
 class Ros2TopicSubscriberActivity : AppCompatActivity() {
+
+    /*
+        input:    subs - List<Pair<String, String>>
+        output:   Boolean
+        remarks:  Returns true if any of the subscribed topics are image topics (sensor_msgs/msg/Image or sensor_msgs/msg/CompressedImage).
+    */
     private fun isImageTopicSubscribed(subs: List<Pair<String, String>>): Boolean {
         return subs.any { it.second == "sensor_msgs/msg/Image" || it.second == "sensor_msgs/msg/CompressedImage" }
     }
@@ -145,6 +151,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
         }
 
+        /*
+            input:    topic - String, type - String
+            output:   None
+            remarks:  Sends an unsubscribe request for the given topic and type to rosbridge.
+        */
         fun sendUnsubscribeToRosbridge(topic: String, type: String) {
             val obj = JSONObject()
             obj.put("op", "unsubscribe")
@@ -153,6 +164,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             RosbridgeConnectionManager.send(obj)
         }
 
+        /*
+            input:    topic - String, type - String
+            output:   None
+            remarks:  Sends a subscribe request for the given topic and type to rosbridge.
+        */
         fun sendSubscribeToRosbridge(topic: String, type: String) {
             val subId = "subscribe_${topic.replace("/", "_")}_${System.currentTimeMillis()}"
             val obj = JSONObject()
@@ -324,6 +340,12 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         }
 
         rosbridgeListener = object : RosbridgeConnectionManager.Listener {
+            
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge connection is established; updates UI and button states.
+            */
             override fun onConnected() {
                 runOnUiThread {
                     logView.text = "Connected to rosbridge\n" + logView.text
@@ -331,6 +353,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
 
+            /*
+                input:    None
+                output:   None
+                remarks:  Called when rosbridge connection is lost; updates UI and button states.
+            */
             override fun onDisconnected() {
                 runOnUiThread {
                     logView.text = "Disconnected\n" + logView.text
@@ -338,6 +365,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
 
+            /*
+                input:    text - String
+                output:   None
+                remarks:  Handles incoming messages from rosbridge, including topic messages and service responses.
+            */
             override fun onMessage(text: String) {
                 try {
                     val json = JSONObject(text)
@@ -397,6 +429,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
 
+            /*
+                input:    line - String
+                output:   None
+                remarks:  Appends a log line to the log buffer and updates the message history in the ViewModel.
+            */
             private fun appendLogLine(line: String) {
                 val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
                 synchronized(logBuffer) {
@@ -415,6 +452,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 rosViewModel.appendToMessageHistory(line)
             }
 
+            /*
+                input:    error - String
+                output:   None
+                remarks:  Handles errors from rosbridge; updates UI and button states with error message.
+            */
             override fun onError(error: String) {
                 runOnUiThread {
                     logView.text = "WebSocket error: $error\n" + logView.text
@@ -425,6 +467,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         RosbridgeConnectionManager.addListener(rosbridgeListener!!)
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity resumes; updates topic adapter and restarts auto-refresh if needed.
+    */
     override fun onResume() {
         super.onResume()
         if (discoveredTopics.isNotEmpty() && topicAdapter != null) {
@@ -442,12 +489,22 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         }
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity pauses; cancels the auto-refresh job.
+    */
     override fun onPause() {
         super.onPause()
         autoRefreshJob?.cancel()
         autoRefreshJob = null
     }
 
+    /*
+        input:    isConnected - Boolean
+        output:   None
+        remarks:  Updates the enabled/disabled state of connect/disconnect and IP/port input fields based on connection status.
+    */
     fun updateButtonStates(isConnected: Boolean) {
         connectButton.isEnabled = !isConnected
         disconnectButton.isEnabled = isConnected
@@ -455,6 +512,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         portEditText.isEnabled = !isConnected
     }
 
+    /*
+        input:    None
+        output:   None
+        remarks:  Called when the activity is destroyed; cancels log update job and removes rosbridge listener.
+    */
     override fun onDestroy() {
         logUpdateJob?.cancel()
         rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
