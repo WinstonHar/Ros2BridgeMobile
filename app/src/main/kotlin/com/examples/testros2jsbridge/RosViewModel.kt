@@ -157,6 +157,16 @@ class RosViewModel(application: Application) : AndroidViewModel(application), Ro
     }
 
     /*
+        input:    topic - String, type - String
+        output:   None
+        remarks:  Removed a topic subscription and unsubscribes immediately with a handler that appends to log.
+    */
+    fun removeSubscribedTopic(topic: String, type: String) {
+        val newSet = _subscribedTopics.value - (topic to type)
+        _subscribedTopics.value = newSet
+    }
+
+    /*
         input:    msg - String
         output:   None
         remarks:  Appends a message to the custom message history for Compose log view.

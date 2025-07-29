@@ -222,6 +222,7 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                                 }
                             }
                         } else {
+                            rosViewModel.removeSubscribedTopic(topic, type)
                             sendUnsubscribeToRosbridge(topic, type)
 
                             logView.text = "Unsubscribed from $topic\n" + logView.text
