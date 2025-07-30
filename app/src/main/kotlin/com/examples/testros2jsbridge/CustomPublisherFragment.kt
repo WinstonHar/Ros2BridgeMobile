@@ -118,11 +118,6 @@ class CustomPublisherFragment : Fragment() {
     private val PREFS_NAME = "custom_publishers_prefs"
     private val SAVED_BUTTONS_KEY = "custom_publishers"
 
-    /*
-        input:    None
-        output:   None
-        remarks:  Holds static members for the fragment
-    */
     companion object {
         private val gson = Gson()
     }
@@ -230,31 +225,50 @@ class CustomPublisherFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         rosViewModel = ViewModelProvider(requireActivity()).get(RosViewModel::class.java)
-
         val view = inflater.inflate(R.layout.activity_custom_publisher, container, false)
 
+        val ui = setupUi(view)
+
+        // Load saved publishers from SharedPreferences
+        loadSavedPublishers()?.let { rosViewModel.setCustomPublishers(it) }
+
+        setupAddPublisherButton(ui.addPublisherButton, ui.topicEditText, ui.messageEditText, ui.messageBaseTypeSpinner)
+        observeAndRenderCustomButtons(ui.customButtonsLayout)
+
+        return view
+    }
+
+    private fun setupUi(view: View): UiElements {
         val topicEditText = view.findViewById<TextInputEditText>(R.id.edittext_topic)
         topicEditText.setText("/")
         val messageEditText = view.findViewById<TextInputEditText>(R.id.edittext_message)
         val addPublisherButton = view.findViewById<Button>(R.id.button_add_publisher)
         val customButtonsLayout = view.findViewById<LinearLayout>(R.id.layout_custom_buttons)
-
+        val messageBaseTypeSpinner = view.findViewById<Spinner>(R.id.spinner_message_base_type)
         val messageBaseTypes = listOf(
             "Bool", "Byte", "Char", "ColorRGBA", "Empty", "Float32", "Float64", "Header",
             "Int16", "Int32", "Int64", "Int8", "String", "UInt16", "UInt32", "UInt64", "UInt8"
         )
-
-        val messageBaseTypeSpinner = view.findViewById<Spinner>(R.id.spinner_message_base_type)
         val baseTypeAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, messageBaseTypes)
         baseTypeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         messageBaseTypeSpinner.adapter = baseTypeAdapter
+        return UiElements(topicEditText, messageEditText, addPublisherButton, customButtonsLayout, messageBaseTypeSpinner)
+    }
 
-        // Load saved publishers from SharedPreferences
-        val loaded = loadSavedPublishers()
-        if (loaded != null) {
-            rosViewModel.setCustomPublishers(loaded)
-        }
+    private data class UiElements(
+        val topicEditText: TextInputEditText,
+        val messageEditText: TextInputEditText,
+        val addPublisherButton: Button,
+        val customButtonsLayout: LinearLayout,
+        val messageBaseTypeSpinner: Spinner
+    )
 
+    private fun setupAddPublisherButton(
+        addPublisherButton: Button,
+        topicEditText: TextInputEditText,
+        messageEditText: TextInputEditText,
+        messageBaseTypeSpinner: Spinner
+    ) {
         addPublisherButton.setOnClickListener {
             val topic = topicEditText.text.toString()
             val messageType = messageBaseTypeSpinner.selectedItem?.toString() ?: ""
@@ -268,11 +282,7 @@ class CustomPublisherFragment : Fragment() {
             }
             val errorMsg = validateStdMsgInput(messageType, userInput)
             if (errorMsg != null) {
-                android.app.AlertDialog.Builder(requireContext())
-                    .setTitle("Invalid Input for $messageType")
-                    .setMessage(errorMsg)
-                    .setPositiveButton("OK", null)
-                    .show()
+                showErrorDialog(messageType, errorMsg)
                 return@setOnClickListener
             }
             val newPublisher = RosViewModel.CustomPublisher(topic, messageType, userInput)
@@ -281,61 +291,91 @@ class CustomPublisherFragment : Fragment() {
             savePublishersToPrefs(updated)
             messageEditText.text?.clear()
         }
+    }
 
+    private fun showErrorDialog(messageType: String, errorMsg: String) {
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Invalid Input for $messageType")
+            .setMessage(errorMsg)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun observeAndRenderCustomButtons(customButtonsLayout: LinearLayout) {
         viewLifecycleOwner.lifecycleScope.launch {
             val advertisedTopics = mutableSetOf<String>()
             rosViewModel.customPublishers.collect { publishers ->
                 customButtonsLayout.removeAllViews()
-                for ((index, publisher) in publishers.withIndex()) {
-                    val row = LinearLayout(requireContext()).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                    }
-                    val newButton = Button(requireContext()).apply {
-                        text = "Publish to ${publisher.topic}"
-                        layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                        setOnClickListener {
-                            viewLifecycleOwner.lifecycleScope.launch {
-                                val topicKey = publisher.topic + "|" + publisher.messageType
-                                if (!advertisedTopics.contains(topicKey)) {
-                                    rosViewModel.advertiseTopic(publisher.topic, "std_msgs/msg/${publisher.messageType}")
-                                    advertisedTopics.add(topicKey)
-                                    kotlinx.coroutines.delay(200)
-                                }
-                                val message = buildStdMsgJson(publisher.messageType, publisher.message)
-                                rosViewModel.publishCustomRawMessage(publisher.topic, "std_msgs/msg/${publisher.messageType}", message)
-                            }
-                        }
-                    }
-                    val removeBtn = Button(requireContext()).apply {
-                        text = "✕"
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                        setOnClickListener {
-                            android.app.AlertDialog.Builder(requireContext())
-                                .setTitle("Delete Publisher")
-                                .setMessage("Are you sure you want to delete this publisher button?")
-                                .setPositiveButton("Delete") { _, _ ->
-                                    val current = rosViewModel.customPublishers.value.toMutableList()
-                                    if (index in current.indices) {
-                                        current.removeAt(index)
-                                        rosViewModel.setCustomPublishers(current)
-                                        savePublishersToPrefs(current)
-                                    }
-                                }
-                                .setNegativeButton("Cancel", null)
-                                .show()
-                        }
-                        contentDescription = "Remove publisher for ${publisher.topic}"
-                    }
-                    row.addView(newButton)
-                    row.addView(removeBtn)
+                publishers.forEachIndexed { index, publisher ->
+                    val row = createPublisherRow(publisher, index, advertisedTopics)
                     customButtonsLayout.addView(row)
                 }
             }
         }
+    }
 
+    private fun createPublisherRow(
+        publisher: RosViewModel.CustomPublisher,
+        index: Int,
+        advertisedTopics: MutableSet<String>
+    ): LinearLayout {
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        val publishButton = createPublishButton(publisher, advertisedTopics)
+        val removeButton = createRemoveButton(publisher, index)
+        row.addView(publishButton)
+        row.addView(removeButton)
+        return row
+    }
 
-        return view
+    private fun createPublishButton(
+        publisher: RosViewModel.CustomPublisher,
+        advertisedTopics: MutableSet<String>
+    ): Button {
+        return Button(requireContext()).apply {
+            text = "Publish to ${publisher.topic}"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener {
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val topicKey = publisher.topic + "|" + publisher.messageType
+                    if (!advertisedTopics.contains(topicKey)) {
+                        rosViewModel.advertiseTopic(publisher.topic, "std_msgs/msg/${publisher.messageType}")
+                        advertisedTopics.add(topicKey)
+                        kotlinx.coroutines.delay(200)
+                    }
+                    val message = buildStdMsgJson(publisher.messageType, publisher.message)
+                    rosViewModel.publishCustomRawMessage(publisher.topic, "std_msgs/msg/${publisher.messageType}", message)
+                }
+            }
+        }
+    }
+
+    private fun createRemoveButton(
+        publisher: RosViewModel.CustomPublisher,
+        index: Int
+    ): Button {
+        return Button(requireContext()).apply {
+            text = "✕"
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            setOnClickListener {
+                android.app.AlertDialog.Builder(requireContext())
+                    .setTitle("Delete Publisher")
+                    .setMessage("Are you sure you want to delete this publisher button?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        val current = rosViewModel.customPublishers.value.toMutableList()
+                        if (index in current.indices) {
+                            current.removeAt(index)
+                            rosViewModel.setCustomPublishers(current)
+                            savePublishersToPrefs(current)
+                        }
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            contentDescription = "Remove publisher for ${publisher.topic}"
+        }
     }
 
     /*
