@@ -10,6 +10,8 @@ import com.example.testros2jsbridge.ControllerSupportFragment.JoystickMapping
 import com.google.android.material.button.MaterialButton
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import com.example.testros2jsbridge.ControllerSupportFragment.ControllerPreset
+
 
 /*
 New UI for end users to be able to interact with controller without having to use the UI of the controller fragment.
@@ -131,42 +133,31 @@ class ControllerOverviewActivity : AppCompatActivity() {
         return super.onKeyUp(keyCode, event)
     }
 
-    /*
-        input:    savedInstaceState - bundle (previous state of ui if existing)
-        output:   None
-        remarks:  Navigates to main activity upon button press, uses controller support fragment as callback for key event action passthrough, init ui, allows for background image if subscribed to
-    */
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_controller_overview)
-
+    private fun setupBackButton() {
         findViewById<View>(R.id.button_back_to_main).setOnClickListener {
             val intent = android.content.Intent(this, MainActivity::class.java)
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
             startActivity(intent)
             finish()
         }
+    }
 
-        // Add ControllerSupportFragment as retained fragment (background)
+    private fun setupControllerFragment() {
         val fragMgr = supportFragmentManager
         val existing = fragMgr.findFragmentByTag("ControllerSupportFragment")
-        if (existing is ControllerSupportFragment) {
-            controllerFragment = existing
+        controllerFragment = if (existing is ControllerSupportFragment) {
+            existing
         } else {
-            controllerFragment = ControllerSupportFragment()
-            fragMgr.beginTransaction()
-                .add(controllerFragment, "ControllerSupportFragment")
-                .commitNow()
+            ControllerSupportFragment().also {
+                fragMgr.beginTransaction()
+                    .add(it, "ControllerSupportFragment")
+                    .commitNow()
+            }
         }
-        // Set the callback so fragment can notify activity
         controllerFragment.presetOverlayCallback = presetOverlayCallback
+    }
 
-        setupRepeatButton(R.id.button_y, "Button Y")
-        setupRepeatButton(R.id.button_x, "Button X")
-        setupRepeatButton(R.id.button_b, "Button B")
-        setupRepeatButton(R.id.button_a, "Button A")
-
-        // Obtain RosViewModel from Application (same as in Ros2TopicSubscriberActivity)
+    private fun observeBackgroundImage() {
         val app = application as MyApp
         val rosViewModel = androidx.lifecycle.ViewModelProvider(
             app.appViewModelStore,
@@ -185,8 +176,28 @@ class ControllerOverviewActivity : AppCompatActivity() {
                 }
             }
         }
-        
+    }
 
+    private fun setupAbxyButtons() {
+        setupRepeatButton(R.id.button_y, "Button Y")
+        setupRepeatButton(R.id.button_x, "Button X")
+        setupRepeatButton(R.id.button_b, "Button B")
+        setupRepeatButton(R.id.button_a, "Button A")
+    }
+
+    /*
+        input:    savedInstaceState - bundle (previous state of ui if existing)
+        output:   None
+        remarks:  Navigates to main activity upon button press, uses controller support fragment as callback for key event action passthrough, init ui, allows for background image if subscribed to
+    */
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_controller_overview)
+
+        setupBackButton()
+        setupControllerFragment()
+        setupAbxyButtons()
+        observeBackgroundImage()
         setupUi()
     }
 
@@ -196,17 +207,25 @@ class ControllerOverviewActivity : AppCompatActivity() {
         remarks:  Does the bulk of the work connecting logic to UI for buttons
     */
     private fun setupUi() {
-        // ABXY assignments (now TextViews)
         val assignments = controllerFragment.loadButtonAssignments(controllerFragment.getControllerButtonList())
+        val joystickMappings = controllerFragment.loadJoystickMappings()
+        val presets = controllerFragment.loadControllerPresets()
+        val selectedIdx = getSelectedPresetIdx()
 
-        // Populate ABXY assignment and message fields
+        setupAbxyAssignments(assignments)
+        setupTriggerAssignments(assignments)
+        setupJoystickAssignments(joystickMappings)
+        setupSelectStartAssignments(assignments)
+        setupPresetsOverlay(presets, selectedIdx)
+    }
+
+    private fun setupAbxyAssignments(assignments: Map<String, AppAction?>) {
         val abxyAssignmentIds = mapOf(
             "Y" to R.id.assignment_y,
             "X" to R.id.assignment_x,
             "B" to R.id.assignment_b,
             "A" to R.id.assignment_a
         )
-        
         abxyAssignmentIds.forEach { (key, id) ->
             val tv = findViewById<TextView>(id)
             val action = assignments["Button $key"]
@@ -215,34 +234,34 @@ class ControllerOverviewActivity : AppCompatActivity() {
                 showActionDetails(action, tv)
             }
         }
-        
-        // Triggers
+    }
+
+    private fun setupTriggerAssignments(assignments: Map<String, AppAction?>) {
         setAssignmentLabel(R.id.assignment_l1, assignments["L1"])
         setAssignmentLabel(R.id.assignment_l2, assignments["L2"])
         setAssignmentLabel(R.id.assignment_r1, assignments["R1"])
         setAssignmentLabel(R.id.assignment_r2, assignments["R2"])
+    }
 
-        // Joysticks
-        val joystickMappings = controllerFragment.loadJoystickMappings()
+    private fun setupJoystickAssignments(joystickMappings: List<JoystickMapping>) {
         val leftJoystick = joystickMappings.getOrNull(0)
         val rightJoystick = joystickMappings.getOrNull(1)
         setJoystickAssignment(R.id.assignment_left_joystick, leftJoystick)
         setJoystickAssignment(R.id.assignment_right_joystick, rightJoystick)
+    }
 
-        // Select/Start
+    private fun setupSelectStartAssignments(assignments: Map<String, AppAction?>) {
         setAssignmentLabel(R.id.assignment_select, assignments["Select"])
         setAssignmentLabel(R.id.assignment_start, assignments["Start"])
+    }
 
-        val presets = controllerFragment.loadControllerPresets()
-        val selectedIdx = getSelectedPresetIdx()
-        // Overlay: full presets list, vertical, initially hidden
+    private fun setupPresetsOverlay(presets: List<ControllerPreset>, selectedIdx: Int) {
         val overlayContainer = findViewById<View>(R.id.presets_overlay_container)
         val overlayList = findViewById<LinearLayout>(R.id.presets_overlay_list)
         overlayList.removeAllViews()
         presets.forEachIndexed { idx, preset ->
             val presetView = layoutInflater.inflate(R.layout.preset_item_view, overlayList, false)
             presetView.findViewById<TextView>(R.id.preset_name).text = preset.name
-            // Show subactions horizontally (comma separated)
             val subActions = preset.abxy.values.filter { it.isNotEmpty() }.joinToString(", ")
             presetView.findViewById<TextView>(R.id.preset_subactions).text = subActions
             if (idx == selectedIdx) {
@@ -259,7 +278,6 @@ class ControllerOverviewActivity : AppCompatActivity() {
                 scrollView.smoothScrollTo(it.left, 0)
             }
         }
-        // Hide overlay by default
         overlayContainer.visibility = View.GONE
     }
 

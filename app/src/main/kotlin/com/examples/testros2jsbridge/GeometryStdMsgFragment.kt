@@ -270,6 +270,7 @@ class GeometryStdMsgFragment : Fragment() {
         // Restore dynamic field values if present
         val savedFieldsJson = prefs.getString(KEY_FIELDS, null)
         var lastType = geometryTypes[savedTypeIndex]
+
         fun saveFieldsToPrefs(type: String, layout: LinearLayout) {
             val map = mutableMapOf<String, String>()
             for (i in 0 until layout.childCount) {
@@ -358,6 +359,7 @@ class GeometryStdMsgFragment : Fragment() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         }
+
         // Attach watcher to all EditTexts in dynamicFieldsLayout
         fun attachWatcher(layout: LinearLayout) {
             for (i in 0 until layout.childCount) {
@@ -438,126 +440,127 @@ class GeometryStdMsgFragment : Fragment() {
             }
         }
 
-    /*
-        input:    type - String, layout - LinearLayout
-        output:   String (JSON message with default values for empty fields)
-        remarks:  Builds a geometry_msgs message JSON string, filling empty fields with defaults (0.0 for floats, 0 for ints).
-    */
-    fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
-
         /*
-            input:    tag - String, isFloat - Boolean
-            output:   String (field value or default)
-            remarks:  Returns the value of the EditText with the given tag, or a default (0.0/0) if empty. Throws if invalid type.
+            input:    type - String, layout - LinearLayout
+            output:   String (JSON message with default values for empty fields)
+            remarks:  Builds a geometry_msgs message JSON string, filling empty fields with defaults (0.0 for floats, 0 for ints).
         */
-        fun getOrDefault(tag: String, isFloat: Boolean): String {
-            val editText = layout.findViewWithTag<EditText>(tag)
-            val value = editText?.text?.toString()?.trim()
-            if (value.isNullOrEmpty()) {
-                return if (isFloat) "0.0" else "0"
+        fun buildMessageWithDefaults(type: String, layout: LinearLayout): String {
+
+            /*
+                input:    tag - String, isFloat - Boolean
+                output:   String (field value or default)
+                remarks:  Returns the value of the EditText with the given tag, or a default (0.0/0) if empty. Throws if invalid type.
+            */
+            fun getOrDefault(tag: String, isFloat: Boolean): String {
+                val editText = layout.findViewWithTag<EditText>(tag)
+                val value = editText?.text?.toString()?.trim()
+                if (value.isNullOrEmpty()) {
+                    return if (isFloat) "0.0" else "0"
+                }
+                if (isFloat) {
+                    // Only allow valid float (including decimals)
+                    val d = value!!.toDoubleOrNull()
+                    if (d == null) throw IllegalArgumentException("Field '$tag' must be a float value.")
+                    return value
+                } else {
+                    // Only allow valid int (no decimals)
+                    if (value!!.contains('.')) throw IllegalArgumentException("Field '$tag' must be an integer value (no decimal point).")
+                    val l = value.toLongOrNull()
+                    if (l == null) throw IllegalArgumentException("Field '$tag' must be an integer value.")
+                    return value
+                }
             }
-            if (isFloat) {
-                // Only allow valid float (including decimals)
-                val d = value!!.toDoubleOrNull()
-                if (d == null) throw IllegalArgumentException("Field '$tag' must be a float value.")
-                return value
-            } else {
-                // Only allow valid int (no decimals)
-                if (value!!.contains('.')) throw IllegalArgumentException("Field '$tag' must be an integer value (no decimal point).")
-                val l = value.toLongOrNull()
-                if (l == null) throw IllegalArgumentException("Field '$tag' must be an integer value.")
-                return value
+
+            /*
+                input:    prefix - String (optional)
+                output:   String (JSON fragment for Vector3)
+                remarks:  Builds a JSON fragment for a Vector3 from EditText fields.
+            */
+            fun vector3(prefix: String = ""): String =
+                "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+                "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+                "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true)
+
+            /*
+                input:    prefix - String (optional)
+                output:   String (JSON fragment for Quaternion)
+                remarks:  Builds a JSON fragment for a Quaternion from EditText fields.
+            */
+            fun quaternion(prefix: String = ""): String =
+                "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
+                "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
+                "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true) + "," +
+                "\"w\":" + getOrDefault(if (prefix.isEmpty()) "w" else "${prefix}_w", true)
+
+            /*
+                input:    None
+                output:   String (JSON fragment for header)
+                remarks:  Builds a JSON fragment for a header from EditText fields.
+            */
+            fun header(): String =
+                "\"frame_id\":\"" + getOrDefault("header_frame_id", false) + "\""
+
+            /*
+                input:    label - String (default "points")
+                output:   String (JSON array for Point32s)
+                remarks:  Builds a JSON array for 3 Point32s from EditText fields.
+            */
+            fun point32Array(label: String = "points"): String =
+                (0 until 3).joinToString(",") { i ->
+                    "{\"x\":" + getOrDefault("${label}_${i}_x", true) + ",\"y\":" + getOrDefault("${label}_${i}_y", true) + ",\"z\":" + getOrDefault("${label}_${i}_z", true) + "}"
+                }
+
+            /*
+                input:    label - String (default "poses")
+                output:   String (JSON array for Poses)
+                remarks:  Builds a JSON array for 2 Poses from EditText fields.
+            */
+            fun poseArray(label: String = "poses"): String =
+                (0 until 2).joinToString(",") { i ->
+                    "{\"position\":{${vector3("${label}[$i] position")}},\"orientation\":{${quaternion("${label}[$i] orientation")}}}"
+                }
+
+            /*
+                input:    label - String (default "covariance")
+                output:   String (JSON array for covariance)
+                remarks:  Builds a JSON array for 36 covariance values from EditText fields.
+            */
+            fun covarianceArray(label: String = "covariance"): String =
+                (0 until 36).joinToString(",") { getOrDefault("$label$it", true) }
+
+            return when (type) {
+                "Accel" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
+                "AccelStamped" -> "{\"header\":{${header()}},\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
+                "AccelWithCovariance" -> "{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+                "AccelWithCovarianceStamped" -> "{\"header\":{${header()}},\"accel\":{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}}"
+                "Inertia" -> "{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}"
+                "InertiaStamped" -> "{\"header\":{${header()}},\"inertia\":{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}}"
+                "Point" -> "{${vector3()}}"
+                "Point32" -> "{\"x\":" + getOrDefault("x (float32)", true) + ",\"y\":" + getOrDefault("y (float32)", true) + ",\"z\":" + getOrDefault("z (float32)", true) + "}"
+                "PointStamped" -> "{\"header\":{${header()}},\"point\":{${vector3()}}}"
+                "Polygon" -> "{\"points\":[${point32Array()}]}"
+                "PolygonStamped" -> "{\"header\":{${header()}},\"polygon\":{\"points\":[${point32Array()}]}}"
+                "Pose" -> "{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}"
+                "PoseArray" -> "{\"header\":{${header()}},\"poses\":[${poseArray()}]}"
+                "PoseStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}}"
+                "PoseWithCovariance" -> "{\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
+                "PoseWithCovarianceStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
+                "Quaternion" -> "{${quaternion()}}"
+                "QuaternionStamped" -> "{\"header\":{${header()}},\"quaternion\":{${quaternion("quaternion")}}}"
+                "Transform" -> "{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}"
+                "TransformStamped" -> "{\"header\":{${header()}},\"child_frame_id\":\"" + getOrDefault("child_frame_id", false) + "\",\"transform\":{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}}"
+                "Twist" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
+                "TwistStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
+                "TwistWithCovariance" -> "{\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+                "TwistWithCovarianceStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
+                "Vector3" -> "{${vector3()}}"
+                "Vector3Stamped" -> "{\"header\":{${header()}},\"vector\":{${vector3("vector")}}}"
+                "Wrench" -> "{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}"
+                "WrenchStamped" -> "{\"header\":{${header()}},\"wrench\":{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}}"
+                else -> "{}"
             }
         }
-        
-        /*
-            input:    prefix - String (optional)
-            output:   String (JSON fragment for Vector3)
-            remarks:  Builds a JSON fragment for a Vector3 from EditText fields.
-        */
-        fun vector3(prefix: String = ""): String =
-            "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
-            "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
-            "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true)
-        
-        /*
-            input:    prefix - String (optional)
-            output:   String (JSON fragment for Quaternion)
-            remarks:  Builds a JSON fragment for a Quaternion from EditText fields.
-        */
-        fun quaternion(prefix: String = ""): String =
-            "\"x\":" + getOrDefault(if (prefix.isEmpty()) "x" else "${prefix}_x", true) + "," +
-            "\"y\":" + getOrDefault(if (prefix.isEmpty()) "y" else "${prefix}_y", true) + "," +
-            "\"z\":" + getOrDefault(if (prefix.isEmpty()) "z" else "${prefix}_z", true) + "," +
-            "\"w\":" + getOrDefault(if (prefix.isEmpty()) "w" else "${prefix}_w", true)
-        
-        /*
-            input:    None
-            output:   String (JSON fragment for header)
-            remarks:  Builds a JSON fragment for a header from EditText fields.
-        */
-        fun header(): String =
-            "\"frame_id\":\"" + getOrDefault("header_frame_id", false) + "\""
-
-        /*
-            input:    label - String (default "points")
-            output:   String (JSON array for Point32s)
-            remarks:  Builds a JSON array for 3 Point32s from EditText fields.
-        */
-        fun point32Array(label: String = "points"): String =
-            (0 until 3).joinToString(",") { i ->
-                "{\"x\":" + getOrDefault("${label}_${i}_x", true) + ",\"y\":" + getOrDefault("${label}_${i}_y", true) + ",\"z\":" + getOrDefault("${label}_${i}_z", true) + "}"
-            }
-
-        /*
-            input:    label - String (default "poses")
-            output:   String (JSON array for Poses)
-            remarks:  Builds a JSON array for 2 Poses from EditText fields.
-        */
-        fun poseArray(label: String = "poses"): String =
-            (0 until 2).joinToString(",") { i ->
-                "{\"position\":{${vector3("${label}[$i] position")}},\"orientation\":{${quaternion("${label}[$i] orientation")}}}"
-            }
-
-        /*
-            input:    label - String (default "covariance")
-            output:   String (JSON array for covariance)
-            remarks:  Builds a JSON array for 36 covariance values from EditText fields.
-        */
-        fun covarianceArray(label: String = "covariance"): String =
-            (0 until 36).joinToString(",") { getOrDefault("$label$it", true) }
-        return when (type) {
-            "Accel" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
-            "AccelStamped" -> "{\"header\":{${header()}},\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
-            "AccelWithCovariance" -> "{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
-            "AccelWithCovarianceStamped" -> "{\"header\":{${header()}},\"accel\":{\"accel\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}}"
-            "Inertia" -> "{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}"
-            "InertiaStamped" -> "{\"header\":{${header()}},\"inertia\":{\"m\":" + getOrDefault("m (mass)", true) + ",\"com\":{${vector3("com")}},\"ixx\":" + getOrDefault("ixx", true) + ",\"ixy\":" + getOrDefault("ixy", true) + ",\"ixz\":" + getOrDefault("ixz", true) + ",\"iyy\":" + getOrDefault("iyy", true) + ",\"iyz\":" + getOrDefault("iyz", true) + ",\"izz\":" + getOrDefault("izz", true) + "}}"
-            "Point" -> "{${vector3()}}"
-            "Point32" -> "{\"x\":" + getOrDefault("x (float32)", true) + ",\"y\":" + getOrDefault("y (float32)", true) + ",\"z\":" + getOrDefault("z (float32)", true) + "}"
-            "PointStamped" -> "{\"header\":{${header()}},\"point\":{${vector3()}}}"
-            "Polygon" -> "{\"points\":[${point32Array()}]}"
-            "PolygonStamped" -> "{\"header\":{${header()}},\"polygon\":{\"points\":[${point32Array()}]}}"
-            "Pose" -> "{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}"
-            "PoseArray" -> "{\"header\":{${header()}},\"poses\":[${poseArray()}]}"
-            "PoseStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}}}"
-            "PoseWithCovariance" -> "{\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
-            "PoseWithCovarianceStamped" -> "{\"header\":{${header()}},\"pose\":{\"position\":{${vector3("position")}},\"orientation\":{${quaternion("orientation")}}},\"covariance\":[${covarianceArray()}]}"
-            "Quaternion" -> "{${quaternion()}}"
-            "QuaternionStamped" -> "{\"header\":{${header()}},\"quaternion\":{${quaternion("quaternion")}}}"
-            "Transform" -> "{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}"
-            "TransformStamped" -> "{\"header\":{${header()}},\"child_frame_id\":\"" + getOrDefault("child_frame_id", false) + "\",\"transform\":{\"translation\":{${vector3("translation")}},\"rotation\":{${quaternion("rotation")}}}}"
-            "Twist" -> "{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}"
-            "TwistStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}}}"
-            "TwistWithCovariance" -> "{\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
-            "TwistWithCovarianceStamped" -> "{\"header\":{${header()}},\"twist\":{\"linear\":{${vector3("linear")}},\"angular\":{${vector3("angular")}}},\"covariance\":[${covarianceArray()}]}"
-            "Vector3" -> "{${vector3()}}"
-            "Vector3Stamped" -> "{\"header\":{${header()}},\"vector\":{${vector3("vector")}}}"
-            "Wrench" -> "{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}"
-            "WrenchStamped" -> "{\"header\":{${header()}},\"wrench\":{\"force\":{${vector3("force")}},\"torque\":{${vector3("torque")}}}}"
-            else -> "{}"
-        }
-    }
 
         return view
     }
