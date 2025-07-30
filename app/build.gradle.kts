@@ -27,6 +27,12 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        externalNativeBuild {
+            cmake {
+                cppFlags.add("")
+            }
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -51,6 +57,13 @@ android {
         resources {
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/io.netty.versions.properties"
+        }
+    }
+    ndkVersion = "29.0.13599879 rc2"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 }

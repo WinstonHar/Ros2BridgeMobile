@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.4.1)
+project(ImageUtils)
+add_library(imageUtils SHARED ImageUtils.cpp)
+include_directories(libyuv/include)
+add_subdirectory(libyuv)
+target_link_libraries(imageUtils yuv android log jnigraphics)

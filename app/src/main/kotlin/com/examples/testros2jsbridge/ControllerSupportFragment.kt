@@ -1,29 +1,35 @@
 package com.example.testros2jsbridge
 
-import org.json.JSONArray
-import org.json.JSONObject
 import android.content.Context
 import android.hardware.input.InputManager
-import androidx.lifecycle.ViewModelProvider
 import android.os.Bundle
-import android.view.*
+import android.view.InputDevice
+import android.view.KeyEvent
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import androidx.core.content.edit
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonObject
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.InputStream
+import java.io.InputStreamReader
+import java.io.OutputStream
+import java.io.OutputStreamWriter
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.sign
-import androidx.core.content.edit
-import java.io.InputStream
-import java.io.OutputStreamWriter
-import java.io.InputStreamReader
-import java.io.OutputStream
 
 /*
     This fragment manages controller (gamepad/joystick) support, including mapping controller buttons to app actions and handling periodic joystick event resending.
@@ -730,23 +736,26 @@ class ControllerSupportFragment : Fragment() {
                             else -> action.proto.name
                         }
                         val msgFields = action.fieldValues.filter { it.key != "__topic__" }
-                        val msgJson = buildString {
-                            append("{")
-                            msgFields.entries.forEachIndexed { idx, (k, v) ->
-                                append("\"").append(k).append("\": ")
-                                val asLong = v.toLongOrNull()
-                                val asDouble = v.toDoubleOrNull()
-                                val isBool = v.equals("true", true) || v.equals("false", true)
-                                when {
-                                    isBool -> append(v.toBoolean())
-                                    asLong != null && v == asLong.toString() -> append(asLong)
-                                    asDouble != null && v == asDouble.toString() -> append(asDouble)
-                                    else -> append('"').append(v).append('"')
+
+                        val jsonObject = JSONObject()
+                        msgFields.forEach { (key, value) ->
+                            try {
+                                val jsonValue: Any = try {
+                                    JSONArray(value)
+                                } catch (e1: org.json.JSONException) {
+                                    try {
+                                        JSONObject(value)
+                                    } catch (e2: org.json.JSONException) {
+                                        value
+                                    }
                                 }
-                                if (idx != msgFields.size - 1) append(", ")
+                                jsonObject.put(key, jsonValue)
+                            } catch (e: org.json.JSONException) {
+                                jsonObject.put(key, value)
                             }
-                            append("}")
                         }
+                        val msgJson = jsonObject.toString()
+                        
                         AppAction(
                             displayName = action.label,
                             topic = topic,
@@ -1003,7 +1012,7 @@ class ControllerSupportFragment : Fragment() {
         val geoJson = geoPrefs.getString("geometry_buttons", null)
         if (!geoJson.isNullOrEmpty()) {
             try {
-                val arr = org.json.JSONArray(geoJson)
+                val arr = JSONArray(geoJson)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val name = obj.optString("label", obj.optString("topic", ""))
@@ -1104,9 +1113,9 @@ class ControllerSupportFragment : Fragment() {
     */
     private fun saveButtonAssignments(assignments: Map<String, AppAction>) {
         val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_ASSIGN, Context.MODE_PRIVATE)
-        val arr = org.json.JSONArray()
+        val arr = JSONArray()
         for ((btn, action) in assignments) {
-            val obj = org.json.JSONObject()
+            val obj = JSONObject()
             obj.put("button", btn)
             obj.put("name", action.displayName)
             obj.put("topic", action.topic)
@@ -1129,7 +1138,7 @@ class ControllerSupportFragment : Fragment() {
         val map = mutableMapOf<String, AppAction>()
         if (!json.isNullOrEmpty()) {
             try {
-                val arr = org.json.JSONArray(json)
+                val arr = JSONArray(json)
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val btn = obj.getString("button")
@@ -1251,6 +1260,7 @@ class ControllerSupportFragment : Fragment() {
         remarks:  triggers action for each respective source in the expected way
     */
     fun triggerAppAction(action: AppAction) {
+        android.util.Log.d(TAG, "triggerAppAction called: $action")
         // Helper to get the default message if the action's message is empty
         fun getDefaultMessage(action: AppAction): String {
             return when (action.source) {
@@ -1285,9 +1295,54 @@ class ControllerSupportFragment : Fragment() {
                 val msg = getRosStdMsgJson(updatedSlider.type, updatedSlider.value)
                 publishRosAction(updatedSlider.topic, rosType, msg)
             }
-            "Geometry", "Standard Message", "Custom Protocol" -> {
+            "Geometry", "Standard Message" -> {
                 val message = action.msg.ifEmpty { getDefaultMessage(action) }
                 publishRosAction(action.topic, action.type, message)
+            }
+            "Custom Protocol" -> {
+                val protoType = when {
+                    action.type.contains("/msg/") -> "MSG"
+                    action.type.contains("/srv/") -> "SRV"
+                    action.type.contains("/action/") -> "ACTION"
+                    else -> ""
+                }
+                val topic = action.topic
+                val rosType = action.type
+                val msgJson = action.msg
+
+                when (protoType) {
+                    "MSG" -> {
+                        rosViewModel.advertiseTopic(topic, rosType)
+                        rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+                    }
+                    "SRV" -> {
+                        rosViewModel.advertiseService(topic, rosType)
+                        rosViewModel.callCustomService(topic, rosType, msgJson) { result ->
+                            appendEventLog("Service result: $result")
+                        }
+                    }
+                    "ACTION" -> {
+                        val jsonGoalFields = try {
+                            kotlinx.serialization.json.Json.parseToJsonElement(msgJson).jsonObject
+                        } catch (e: Exception) {
+                            appendEventLog("Failed to parse action goal fields: ${e.message}")
+                            return
+                        }
+                        val newGoalUuid = java.util.UUID.randomUUID().toString()
+                        rosViewModel.sendOrQueueActionGoal(topic, rosType, jsonGoalFields, newGoalUuid) { result ->
+                            appendEventLog("Action result: $result")
+                        }
+                        rosViewModel.subscribeToActionFeedback(topic, rosType) { feedback ->
+                            appendEventLog("Action feedback: $feedback")
+                        }
+                        rosViewModel.subscribeToActionStatus(topic) { status ->
+                            appendEventLog("Action status: $status")
+                        }
+                    }
+                    else -> {
+                        appendEventLog("Unknown protocol type: $protoType")
+                    }
+                }
             }
             "CyclePreset", "CyclePresetForward" -> {
                 val presets = loadControllerPresets()
@@ -1542,7 +1597,7 @@ class ControllerSupportFragment : Fragment() {
         remarks:  Appends a message to the event log (no-op in this version)
     */
     private fun appendEventLog(msg: String) {
-        // No-op: event log UI is not present in this version
+        android.util.Log.i("ControllerSupport", msg)
     }
 
     /*
@@ -1738,4 +1793,5 @@ class ControllerSupportFragment : Fragment() {
         setupControllerMappingUI(requireView())
         android.util.Log.i("ControllerSupportFragment", "Import finished")
     }
+
 }

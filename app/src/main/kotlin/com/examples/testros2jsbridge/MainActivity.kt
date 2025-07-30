@@ -96,8 +96,6 @@ class MainActivity : AppCompatActivity() {
             dropdown.setAdapter(ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions))
             dropdown.setText(currentText, false)
         }
-        // Ensure all topic subscriptions are (re-)registered to append to log
-        rosViewModel.resubscribeAllTopicsToLog()
     }
 
     private val rosViewModel: RosViewModel by lazy {
@@ -137,8 +135,6 @@ class MainActivity : AppCompatActivity() {
             val intent = android.content.Intent(this, ControllerOverviewActivity::class.java)
             startActivity(intent)
         }
-        // Always register rosViewModel as a listener for rosbridge connection events
-        RosbridgeConnectionManager.addListener(rosViewModel)
 
         ipAddressEditText = findViewById(R.id.edittext_ip_address)
         portEditText = findViewById(R.id.edittext_port)
@@ -358,43 +354,15 @@ class MainActivity : AppCompatActivity() {
         remarks:  Observes ViewModel and rosbridge connection state, updating UI on connection events.
     */
     private fun observeViewModel() {
-        rosbridgeListener = object : RosbridgeConnectionManager.Listener {
-            override fun onConnected() {
-                Log.d("MainActivity", "Connection to rosbridge successful!")
-                runOnUiThread {
-                    statusTextView.text = getString(R.string.status_label, "Connected")
-                    ipAddressEditText.isEnabled = false
-                    portEditText.isEnabled = false
-                    connectButton.isEnabled = false
-                    disconnectButton.isEnabled = true
-                    // After connecting, (re-)subscribe to all topics for log updates
-                    rosViewModel.resubscribeAllTopicsToLog()
-                }
-            }
-            override fun onDisconnected() {
-                runOnUiThread {
-                    statusTextView.text = getString(R.string.status_label, "Disconnected")
-                    ipAddressEditText.isEnabled = true
-                    portEditText.isEnabled = true
-                    connectButton.isEnabled = true
-                    disconnectButton.isEnabled = false
-                }
-            }
-            override fun onMessage(text: String) { /* No-op for main */ }
-            override fun onError(error: String) {
-                runOnUiThread {
-                    statusTextView.text = getString(R.string.status_label, "Error: $error")
-                    ipAddressEditText.isEnabled = true
-                    portEditText.isEnabled = true
-                    connectButton.isEnabled = true
-                    disconnectButton.isEnabled = false
-                }
-            }
-        }
-        RosbridgeConnectionManager.addListener(rosbridgeListener!!)
-
         lifecycleScope.launch {
-            rosViewModel.rosMessages.collect { /* No-op */ }
+            rosViewModel.connectionStatus.collect { status ->
+                statusTextView.text = getString(R.string.status_label, status)
+                val isConnected = status == "Connected"
+                ipAddressEditText.isEnabled = !isConnected
+                portEditText.isEnabled = !isConnected
+                connectButton.isEnabled = !isConnected
+                disconnectButton.isEnabled = isConnected
+            }
         }
     }
     /*
@@ -403,9 +371,6 @@ class MainActivity : AppCompatActivity() {
         remarks:  Cleans up rosbridge listener on activity destroy.
     */
     override fun onDestroy() {
-        rosbridgeListener?.let { RosbridgeConnectionManager.removeListener(it) }
-        // Remove rosViewModel as a listener to avoid leaks
-        RosbridgeConnectionManager.removeListener(rosViewModel)
         super.onDestroy()
     }
 }
