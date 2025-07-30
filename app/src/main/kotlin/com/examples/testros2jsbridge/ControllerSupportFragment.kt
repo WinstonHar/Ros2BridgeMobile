@@ -13,6 +13,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.edit
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -380,114 +381,155 @@ class ControllerSupportFragment : Fragment() {
     }
 
     // --- Preset Management UI logic ---
-    /*
-        input:    root - View
-        output:   None
-        remarks:  Sets up the preset management UI
-    */
-    private fun setupPresetManagementUI(root: View) {
-        val presetSpinner = root.findViewById<android.widget.Spinner>(R.id.spinner_presets)
-        val nameEdit = root.findViewById<android.widget.EditText>(R.id.edit_preset_name)
-        val buttonSpinners = mapOf(
-            "A" to root.findViewById<android.widget.Spinner>(R.id.spinner_abtn),
-            "B" to root.findViewById<android.widget.Spinner>(R.id.spinner_bbtn),
-            "X" to root.findViewById<android.widget.Spinner>(R.id.spinner_xbtn),
-            "Y" to root.findViewById<android.widget.Spinner>(R.id.spinner_ybtn)
-        )
-        val addBtn = root.findViewById<Button>(R.id.btn_add_preset)
-        val removeBtn = root.findViewById<Button>(R.id.btn_remove_preset)
-        val saveBtn = root.findViewById<Button>(R.id.btn_save_preset)
 
+    private fun setupActionSpinner(
+        spinner: android.widget.Spinner,
+        actions: List<String>,
+        selectedValue: String
+    ) {
+        val listener = spinner.onItemSelectedListener
+        spinner.onItemSelectedListener = null
+        spinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, actions).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        val selectionIndex = actions.indexOf(selectedValue).takeIf { it >= 0 } ?: 0
+        spinner.setSelection(selectionIndex, false)
+        spinner.onItemSelectedListener = listener
+    }
+
+    private fun ensureDefaultPreset(presets: MutableList<ControllerPreset>, selectedIdxRef: (Int) -> Unit) {
+        if (presets.isEmpty()) {
+            presets.add(ControllerPreset("Default"))
+            selectedIdxRef(0)
+        }
+    }
+
+    private fun updatePresetSpinnerAdapter(presetSpinner: android.widget.Spinner, presetNames: List<String>) {
+        val adapter = presetSpinner.adapter
+        if (adapter is android.widget.ArrayAdapter<*>) {
+            @Suppress("UNCHECKED_CAST")
+            val stringAdapter = adapter as android.widget.ArrayAdapter<String>
+            stringAdapter.clear()
+            stringAdapter.addAll(presetNames)
+            stringAdapter.notifyDataSetChanged()
+        } else {
+            presetSpinner.adapter = android.widget.ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_spinner_item,
+                presetNames
+            ).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+        }
+    }
+
+    private fun setSpinnerSelectionSafely(
+        presetSpinner: android.widget.Spinner,
+        safeIdx: Int,
+        listener: android.widget.AdapterView.OnItemSelectedListener?
+    ) {
+        if (presetSpinner.selectedItemPosition != safeIdx) {
+            presetSpinner.setSelection(safeIdx, false)
+        }
+        presetSpinner.onItemSelectedListener = listener
+    }
+
+    private fun updatePresetFields(
+        presets: MutableList<ControllerPreset>,
+        safeIdx: Int,
+        nameEdit: android.widget.EditText,
+        buttonSpinners: Map<String, android.widget.Spinner>
+    ) {
+        if (safeIdx < presets.size) {
+            val preset = presets[safeIdx]
+            if (!nameEdit.hasFocus()) nameEdit.setText(preset.name)
+            val appActionNames = 
+                listOf("") + (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
+            buttonSpinners.forEach { (btnKey, spinner) ->
+                setupActionSpinner(spinner, appActionNames, preset.abxy[btnKey] ?: "")
+            }
+        }
+    }
+
+    private data class PresetUI(
+        val presetSpinner: android.widget.Spinner,
+        val nameEdit: android.widget.EditText,
+        val buttonSpinners: Map<String, android.widget.Spinner>,
+        val addBtn: Button,
+        val removeBtn: Button,
+        val saveBtn: Button
+    )
+
+    private fun initPresetUI(root: View): PresetUI {
+        return PresetUI(
+            presetSpinner = root.findViewById(R.id.spinner_presets),
+            nameEdit = root.findViewById(R.id.edit_preset_name),
+            buttonSpinners = mapOf(
+                "A" to root.findViewById(R.id.spinner_abtn),
+                "B" to root.findViewById(R.id.spinner_bbtn),
+                "X" to root.findViewById(R.id.spinner_xbtn),
+                "Y" to root.findViewById(R.id.spinner_ybtn)
+            ),
+            addBtn = root.findViewById(R.id.btn_add_preset),
+            removeBtn = root.findViewById(R.id.btn_remove_preset),
+            saveBtn = root.findViewById(R.id.btn_save_preset)
+        )
+    }
+
+    private fun setupPresetSpinnerListener(
+        presetSpinner: android.widget.Spinner,
+        onPresetSelected: (Int) -> Unit
+    ){
+        presetSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                onPresetSelected(position)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+        }
+    }
+
+    private fun updatePresetUI(
+        presets: MutableList<ControllerPreset>,
+        selectedIdx: Int,
+        presetSpinner: android.widget.Spinner,
+        nameEdit: android.widget.EditText,
+        buttonSpinners: Map<String, android.widget.Spinner>
+    ){
+        ensureDefaultPreset(presets) { /* ignore idx update here */ }
+        val presetNames = presets.map { it.name }
+        val listener = presetSpinner.onItemSelectedListener
+        presetSpinner.onItemSelectedListener = null
+        updatePresetSpinnerAdapter(presetSpinner, presetNames)
+        val safeIdx = selectedIdx.coerceIn(0, presets.size - 1)
+        setSpinnerSelectionSafely(presetSpinner, safeIdx, listener)
+        updatePresetFields(presets, safeIdx, nameEdit, buttonSpinners)
+    }
+
+    private fun setupPresetManagementUI(root: View) {
+        val ui = initPresetUI(root)
         val presets = loadControllerPresets()
         var selectedIdx = 0
 
-        fun getAppActionNames() = listOf("") + (loadAvailableAppActions() + customProtocolAppActions).map { it.displayName }.distinct().sorted()
-
-        /*
-            input:    spinner - android selector, action - list[strings], selected value - String
-            output:   None
-            remarks:  helper to setup a single action spinner
-        */
-        fun setupActionSpinner(spinner: android.widget.Spinner, actions: List<String>, selectedValue: String) {
-            val listener = spinner.onItemSelectedListener
-            spinner.onItemSelectedListener = null // Avoid re-triggering events
-            
-            spinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, actions).apply {
-                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            val selectionIndex = actions.indexOf(selectedValue).takeIf { it >= 0 } ?: 0
-            spinner.setSelection(selectionIndex, false)
-
-            spinner.onItemSelectedListener = listener // Restore listener
-        }
-
-        /*
-            input:    None
-            output:   None
-            remarks:  refresh for UI, updates fields
-        */
-        fun updateUI() {
-            if (presets.isEmpty()) {
-                presets.add(ControllerPreset("Default"))
-                selectedIdx = 0
-            }
-            val presetNames = presets.map { it.name }
-            val adapter = presetSpinner.adapter
-            val listener = presetSpinner.onItemSelectedListener
-            presetSpinner.onItemSelectedListener = null
-            if (adapter is android.widget.ArrayAdapter<*>) {
-                @Suppress("UNCHECKED_CAST")
-                val stringAdapter = adapter as android.widget.ArrayAdapter<String>
-                stringAdapter.clear()
-                stringAdapter.addAll(presetNames)
-                stringAdapter.notifyDataSetChanged()
-            } else {
-                presetSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, presetNames).apply {
-                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                }
-            }
-            val safeIdx = selectedIdx.coerceIn(0, presets.size - 1)
-            if (presetSpinner.selectedItemPosition != safeIdx) {
-                presetSpinner.setSelection(safeIdx, false)
-            }
-            presetSpinner.onItemSelectedListener = listener
-            if (safeIdx < presets.size) {
-                val preset = presets[safeIdx]
-                if (!nameEdit.hasFocus()) nameEdit.setText(preset.name)
-                val appActionNames = getAppActionNames()
-                buttonSpinners.forEach { (btnKey, spinner) ->
-                    setupActionSpinner(spinner, appActionNames, preset.abxy[btnKey] ?: "")
-                }
-            }
-        }
-
-        /*
-            input:    None
-            output:   None
-            remarks:  passes in selected preset value to be saved, then refreshes ui
-        */
+        fun updateUI() = updatePresetUI(presets, selectedIdx, ui.presetSpinner, ui.nameEdit, ui.buttonSpinners)
         fun saveCurrentPreset() {
             val preset = presets[selectedIdx]
-            preset.name = nameEdit.text.toString().ifEmpty { "Preset" }
+            preset.name = ui.nameEdit.text.toString().ifEmpty { "Preset" }
             saveControllerPresets(presets)
             updateUI()
         }
 
-        presetSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                selectedIdx = position
-                updateUI()
-            }
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+        setupPresetSpinnerListener(ui.presetSpinner) { idx ->
+            selectedIdx = idx
+            updateUI()
         }
 
-        addBtn.setOnClickListener {
+        ui.addBtn.setOnClickListener {
             presets.add(ControllerPreset("Preset ${presets.size + 1}"))
             selectedIdx = presets.size - 1
             saveControllerPresets(presets)
             updateUI()
         }
-        removeBtn.setOnClickListener {
+        ui.removeBtn.setOnClickListener {
             if (presets.size > 1) {
                 presets.removeAt(selectedIdx)
                 selectedIdx = selectedIdx.coerceAtMost(presets.size - 1)
@@ -495,11 +537,9 @@ class ControllerSupportFragment : Fragment() {
                 updateUI()
             }
         }
-        saveBtn.setOnClickListener {
-            saveCurrentPreset()
-        }
+        ui.saveBtn.setOnClickListener { saveCurrentPreset() }
 
-        buttonSpinners.forEach { (btnKey, spinner) ->
+        ui.buttonSpinners.forEach { (btnKey, spinner) ->
             spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                     if (selectedIdx < presets.size) {
@@ -516,7 +556,7 @@ class ControllerSupportFragment : Fragment() {
             }
         }
 
-        nameEdit.setOnFocusChangeListener { v, hasFocus ->
+        ui.nameEdit.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 v.post {
                     v.requestFocus()
@@ -535,6 +575,7 @@ class ControllerSupportFragment : Fragment() {
         output:   None
         remarks:  Sets up the joystick mapping UI
     */
+
     private fun setupJoystickMappingUI(root: View) {
         val container = root.findViewById<android.widget.LinearLayout?>(R.id.joystick_mapping_container) ?: return
         container.removeAllViews()
@@ -542,110 +583,229 @@ class ControllerSupportFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val mappings = loadJoystickMappings()
             withContext(kotlinx.coroutines.Dispatchers.Main) {
-                // Add a field for joystick publish rate (times per second)
-                val rateGroup = android.widget.LinearLayout(requireContext()).apply {
-                    orientation = android.widget.LinearLayout.HORIZONTAL
-                    setPadding(8, 8, 8, 8)
-                }
-                val rateLabel = TextView(requireContext()).apply {
-                    text = "Joystick Publish Rate (Hz): "
-                    textSize = 15f
-                }
+                addPublishRateSection(container)
+                addAddressingModeSection(container)
+                addJoystickMappingSections(container, mappings)
+            }
+        }
+    }
 
-                joystickPublishRate = loadJoystickPublishRate()
-                val rateInput = android.widget.EditText(requireContext()).apply {
-                    hint = "e.g. 5"
-                    setText(joystickPublishRate.toString())
-                    inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                    layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                }
-                rateGroup.addView(rateLabel)
-                rateGroup.addView(rateInput)
-                container.addView(rateGroup, 0)
-                // Listen for changes
-                rateInput.addTextChangedListener(object : android.text.TextWatcher {
-                    override fun afterTextChanged(s: android.text.Editable?) {
-                        val rate = s?.toString()?.toIntOrNull()
-                        if (rate != null && rate > 0) {
-                            joystickPublishRate = rate
-                            saveJoystickPublishRate(rate)
-                            // If resend is active, restart handler with new interval
-                            if (joystickResendActive) {
-                                joystickResendHandler.removeCallbacks(joystickResendRunnable)
-                                val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
-                                joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
-                            }
-                        }
+    private fun addPublishRateSection(container: android.widget.LinearLayout) {
+        val rateGroup = android.widget.LinearLayout(requireContext()).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            setPadding(8, 8, 8, 8)
+        }
+        val rateLabel = TextView(requireContext()).apply {
+            text = "Joystick Publish Rate (Hz): "
+            textSize = 15f
+        }
+        joystickPublishRate = loadJoystickPublishRate()
+        val rateInput = android.widget.EditText(requireContext()).apply {
+            hint = "e.g. 5"
+            setText(joystickPublishRate.toString())
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            layoutParams = android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        rateGroup.addView(rateLabel)
+        rateGroup.addView(rateInput)
+        container.addView(rateGroup, 0)
+        rateInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val rate = s?.toString()?.toIntOrNull()
+                if (rate != null && rate > 0) {
+                    joystickPublishRate = rate
+                    saveJoystickPublishRate(rate)
+                    if (joystickResendActive) {
+                        joystickResendHandler.removeCallbacks(joystickResendRunnable)
+                        val intervalMs = if (joystickPublishRate > 0) (1000L / joystickPublishRate) else 200L
+                        joystickResendHandler.postDelayed(joystickResendRunnable, intervalMs)
                     }
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                })
-
-                // Add dropdown for addressing mode
-                val addressingGroup = android.widget.LinearLayout(requireContext()).apply {
-                    orientation = android.widget.LinearLayout.HORIZONTAL
-                    setPadding(8, 8, 8, 8)
-                }
-                val addressingLabel = TextView(requireContext()).apply {
-                    text = "Joystick Addressing Mode: "
-                    textSize = 15f
-                }
-                val addressingSpinner = android.widget.Spinner(requireContext())
-                val addressingModes = JoystickAddressingMode.entries.map { it.displayName }
-                addressingSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, addressingModes).apply {
-                    setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-                }
-                joystickAddressingMode = loadJoystickAddressingMode()
-                addressingSpinner.setSelection(JoystickAddressingMode.entries.indexOf(joystickAddressingMode), false)
-                addressingSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                    override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
-                        joystickAddressingMode = JoystickAddressingMode.entries.toTypedArray()[position]
-                        saveJoystickAddressingMode(joystickAddressingMode)
-                    }
-                    override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
-                }
-                addressingGroup.addView(addressingLabel)
-                addressingGroup.addView(addressingSpinner)
-                container.addView(addressingGroup, 1)
-
-                mappings.forEach { mapping ->
-                    val group = android.widget.LinearLayout(requireContext()).apply {
-                        orientation = android.widget.LinearLayout.VERTICAL
-                        setPadding(8, 16, 8, 16)
-                    }
-                    TextView(requireContext()).apply { text = mapping.displayName; textSize = 16f }.also { group.addView(it) }
-
-                    // Use helper to create inputs
-                    val topicInput = createSettingInput(requireContext(), group, "Topic", mapping.topic)
-                    val typeInput = createSettingInput(requireContext(), group, "Type (e.g. geometry_msgs/msg/Twist)", mapping.type)
-                    val numberInputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-                    val maxInput = createSettingInput(requireContext(), group, "Max value (e.g. 1.0)", mapping.max?.toString(), numberInputType)
-                    val stepInput = createSettingInput(requireContext(), group, "Step (e.g. 0.2)", mapping.step?.toString(), numberInputType)
-                    val deadzoneInput = createSettingInput(requireContext(), group, "Deadzone (e.g. 0.1)", mapping.deadzone?.toString(), numberInputType)
-                    val saveBtn = Button(requireContext())
-                    saveBtn.text = "Save"
-                    saveBtn.setOnClickListener {
-                        viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                            mapping.topic = topicInput.text.toString().ifEmpty { null }
-                            mapping.type = typeInput.text.toString().ifEmpty { null }
-                            mapping.max = maxInput.text.toString().toFloatOrNull()
-                            mapping.step = stepInput.text.toString().toFloatOrNull()
-                            mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull()
-                            saveJoystickMappings(mappings)
-                            withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                android.widget.Toast.makeText(requireContext(), "Joystick mapping saved", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                    group.addView(saveBtn)
-                    container.addView(group)
                 }
             }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+    }
+
+    private fun addAddressingModeSection(container: android.widget.LinearLayout) {
+        val addressingGroup = android.widget.LinearLayout(requireContext()).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            setPadding(8, 8, 8, 8)
+        }
+        val addressingLabel = TextView(requireContext()).apply {
+            text = "Joystick Addressing Mode: "
+            textSize = 15f
+        }
+        val addressingSpinner = android.widget.Spinner(requireContext())
+        val addressingModes = JoystickAddressingMode.entries.map { it.displayName }
+        addressingSpinner.adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, addressingModes).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        joystickAddressingMode = loadJoystickAddressingMode()
+        addressingSpinner.setSelection(JoystickAddressingMode.entries.indexOf(joystickAddressingMode), false)
+        addressingSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
+                joystickAddressingMode = JoystickAddressingMode.entries.toTypedArray()[position]
+                saveJoystickAddressingMode(joystickAddressingMode)
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+        }
+        addressingGroup.addView(addressingLabel)
+        addressingGroup.addView(addressingSpinner)
+        container.addView(addressingGroup, 1)
+    }
+
+    private fun addJoystickMappingSections(container: android.widget.LinearLayout, mappings: List<JoystickMapping>) {
+        mappings.forEach { mapping ->
+            val group = android.widget.LinearLayout(requireContext()).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(8, 16, 8, 16)
+            }
+            TextView(requireContext()).apply { text = mapping.displayName; textSize = 16f }.also { group.addView(it) }
+            val topicInput = createSettingInput(requireContext(), group, "Topic", mapping.topic)
+            val typeInput = createSettingInput(requireContext(), group, "Type (e.g. geometry_msgs/msg/Twist)", mapping.type)
+            val numberInputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            val maxInput = createSettingInput(requireContext(), group, "Max value (e.g. 1.0)", mapping.max?.toString(), numberInputType)
+            val stepInput = createSettingInput(requireContext(), group, "Step (e.g. 0.2)", mapping.step?.toString(), numberInputType)
+            val deadzoneInput = createSettingInput(requireContext(), group, "Deadzone (e.g. 0.1)", mapping.deadzone?.toString(), numberInputType)
+            val saveBtn = Button(requireContext())
+            saveBtn.text = "Save"
+            saveBtn.setOnClickListener {
+                viewLifecycleOwner.lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    mapping.topic = topicInput.text.toString().ifEmpty { null }
+                    mapping.type = typeInput.text.toString().ifEmpty { null }
+                    mapping.max = maxInput.text.toString().toFloatOrNull()
+                    mapping.step = stepInput.text.toString().toFloatOrNull()
+                    mapping.deadzone = deadzoneInput.text.toString().toFloatOrNull()
+                    saveJoystickMappings(mappings)
+                    withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        android.widget.Toast.makeText(requireContext(), "Joystick mapping saved", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            group.addView(saveBtn)
+            container.addView(group)
         }
     }
 
     private lateinit var rosViewModel: RosViewModel
     private lateinit var controllerListText: TextView
+
+    private fun initViewModels(app: MyApp) {
+        rosViewModel = ViewModelProvider(
+            app.appViewModelStore,
+            ViewModelProvider.AndroidViewModelFactory.getInstance(app)
+        )[RosViewModel::class.java]
+        sliderControllerViewModel = ViewModelProvider(requireActivity())[SliderControllerViewModel::class.java]
+    }
+
+    private fun loadSlidersFromPrefs() {
+        val sliderPrefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
+        val sliderJson = sliderPrefs.getString("saved_slider_buttons", null)
+        if (!sliderJson.isNullOrEmpty()) {
+            val arr = JSONArray(sliderJson)
+            val sliders = mutableListOf<SliderButtonFragment.SliderButtonConfig>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                sliders.add(
+                    SliderButtonFragment.SliderButtonConfig(
+                        name = obj.optString("name", null.toString()),
+                        topic = obj.optString("topic", ""),
+                        type = obj.optString("type", ""),
+                        min = obj.optDouble("min", 0.0).toFloat(),
+                        max = obj.optDouble("max", 1.0).toFloat(),
+                        step = obj.optDouble("step", 0.1).toFloat(),
+                        value = obj.optDouble("value", 0.0).toFloat()
+                    )
+                )
+            }
+            sliderControllerViewModel.setSliders(
+                sliders.filter { it.type.isNotBlank() && it.topic.isNotBlank() }
+                    .map { config ->
+                        SliderControllerViewModel.SliderState(
+                            name = config.name ?: "",
+                            topic = config.topic,
+                            type = config.type,
+                            min = config.min,
+                            max = config.max,
+                            step = config.step,
+                            value = config.value
+                        )
+                    }
+            )
+        }
+    }
+
+    private fun setupAppActionsRecycler(view: View) {
+        appActionsList = view.findViewById<RecyclerView>(R.id.list_app_actions)
+        appActionsList.layoutManager = LinearLayoutManager(requireContext())
+        appActionsAdapter = AppActionsAdapter(mutableListOf())
+        appActionsList.adapter = appActionsAdapter
+    }
+
+    private fun setupObservers(viewLifecycleOwner: LifecycleOwner) {
+        // Custom protocol actions
+        viewLifecycleOwner.lifecycleScope.launch {
+            rosViewModel.customProtocolActions.collectLatest { customActions ->
+                val rosRoot = requireActivity().getPreferences(Context.MODE_PRIVATE)
+                    .getString("ros_root_package", "ryan_msgs") ?: "ryan_msgs"
+                customProtocolAppActions = customActions.map { action ->
+                    val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
+                    val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
+                    val rosType = when (action.proto.type.name) {
+                        "MSG" -> "$rosRoot/msg/${action.proto.name}"
+                        "SRV" -> "$rosRoot/srv/${action.proto.name}"
+                        "ACTION" -> "$rosRoot/action/${action.proto.name}"
+                        else -> action.proto.name
+                    }
+                    val msgFields = action.fieldValues.filter { it.key != "__topic__" }
+                    val jsonObject = JSONObject()
+                    msgFields.forEach { (key, value) ->
+                        try {
+                            val jsonValue: Any = try {
+                                JSONArray(value)
+                            } catch (e1: org.json.JSONException) {
+                                try {
+                                    JSONObject(value)
+                                } catch (e2: org.json.JSONException) {
+                                    value
+                                }
+                            }
+                            jsonObject.put(key, jsonValue)
+                        } catch (e: org.json.JSONException) {
+                            jsonObject.put(key, value)
+                        }
+                    }
+                    val msgJson = jsonObject.toString()
+                    AppAction(
+                        displayName = action.label,
+                        topic = topic,
+                        type = rosType,
+                        source = "Custom Protocol",
+                        msg = msgJson
+                    )
+                }
+                updateAppActions()
+            }
+        }
+        // Slider changes
+        viewLifecycleOwner.lifecycleScope.launch {
+            sliderControllerViewModel.sliders.collectLatest {
+                updateAppActions()
+            }
+        }
+    }
+
+    private fun setupConfigButtons(view: View) {
+        view.findViewById<Button>(R.id.btn_export_config)?.setOnClickListener {
+            (activity as? MainActivity)?.exportConfigLauncher?.launch("configs.yaml")
+        }
+        view.findViewById<Button>(R.id.btn_import_config)?.setOnClickListener {
+            (activity as? MainActivity)?.importConfigLauncher?.launch(
+                arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*")
+            )
+        }
+    }
 
     /*
         input:    inflater - LayoutInflater, container - ViewGroup?, savedInstanceState - Bundle?
@@ -657,11 +817,7 @@ class ControllerSupportFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val app = requireActivity().application as MyApp
-        rosViewModel = ViewModelProvider(
-            app.appViewModelStore,
-            ViewModelProvider.AndroidViewModelFactory.getInstance(app)
-        )[RosViewModel::class.java]
-        sliderControllerViewModel = ViewModelProvider(requireActivity())[SliderControllerViewModel::class.java]
+        initViewModels(app)
 
         val view = try {
             inflater.inflate(R.layout.fragment_controller_support, container, false)
@@ -675,120 +831,14 @@ class ControllerSupportFragment : Fragment() {
             setupPanelToggleUI(view)
             setupJoystickMappingUI(view)
             setupPresetManagementUI(view)
-
-            appActionsList = view.findViewById<RecyclerView>(R.id.list_app_actions)
-            appActionsList.layoutManager = LinearLayoutManager(requireContext())
-            appActionsAdapter = AppActionsAdapter(mutableListOf())
-            appActionsList.adapter = appActionsAdapter
-
-            // Load sliders from prefs into ViewModel if not already loaded
-            val sliderPrefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
-            val sliderJson = sliderPrefs.getString("saved_slider_buttons", null)
-            if (!sliderJson.isNullOrEmpty()) {
-                val arr = JSONArray(sliderJson)
-                val sliders = mutableListOf<SliderButtonFragment.SliderButtonConfig>()
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    sliders.add(
-                        SliderButtonFragment.SliderButtonConfig(
-                            name = obj.optString("name", null.toString()),
-                            topic = obj.optString("topic", ""),
-                            type = obj.optString("type", ""),
-                            min = obj.optDouble("min", 0.0).toFloat(),
-                            max = obj.optDouble("max", 1.0).toFloat(),
-                            step = obj.optDouble("step", 0.1).toFloat(),
-                            value = obj.optDouble("value", 0.0).toFloat()
-                        )
-                    )
-                }
-                sliderControllerViewModel.setSliders(
-                    sliders.filter { it.type.isNotBlank() && it.topic.isNotBlank() }
-                        .map { config ->
-                            SliderControllerViewModel.SliderState(
-                                name = config.name ?: "",
-                                topic = config.topic,
-                                type = config.type,
-                                min = config.min,
-                                max = config.max,
-                                step = config.step,
-                                value = config.value
-                            )
-                        }
-                )
-            }
-
-            // Load custom protocol actions from prefs into RosViewModel
+            setupAppActionsRecycler(view)
+            loadSlidersFromPrefs()
             rosViewModel.loadCustomProtocolActionsFromPrefs()
-            
-
-            // Observe custom protocol actions and update app actions list and ABXY spinners
-            viewLifecycleOwner.lifecycleScope.launch {
-                rosViewModel.customProtocolActions.collectLatest { customActions ->
-                    val rosRoot = requireActivity().getPreferences(Context.MODE_PRIVATE)
-                        .getString("ros_root_package", "ryan_msgs") ?: "ryan_msgs"
-                    customProtocolAppActions = customActions.map { action ->
-                        val rawTopic = action.fieldValues["__topic__"] ?: "/${action.proto.name}"
-                        val topic = if (rawTopic.startsWith("/")) rawTopic else "/$rawTopic"
-                        val rosType = when (action.proto.type.name) {
-                            "MSG" -> "$rosRoot/msg/${action.proto.name}"
-                            "SRV" -> "$rosRoot/srv/${action.proto.name}"
-                            "ACTION" -> "$rosRoot/action/${action.proto.name}"
-                            else -> action.proto.name
-                        }
-                        val msgFields = action.fieldValues.filter { it.key != "__topic__" }
-
-                        val jsonObject = JSONObject()
-                        msgFields.forEach { (key, value) ->
-                            try {
-                                val jsonValue: Any = try {
-                                    JSONArray(value)
-                                } catch (e1: org.json.JSONException) {
-                                    try {
-                                        JSONObject(value)
-                                    } catch (e2: org.json.JSONException) {
-                                        value
-                                    }
-                                }
-                                jsonObject.put(key, jsonValue)
-                            } catch (e: org.json.JSONException) {
-                                jsonObject.put(key, value)
-                            }
-                        }
-                        val msgJson = jsonObject.toString()
-                        
-                        AppAction(
-                            displayName = action.label,
-                            topic = topic,
-                            type = rosType,
-                            source = "Custom Protocol",
-                            msg = msgJson
-                        )
-                    }
-                    updateAppActions()
-                }
-            }
-
-            // Observe slider changes and update app actions pane live and ABXY spinners
-            viewLifecycleOwner.lifecycleScope.launch {
-                sliderControllerViewModel.sliders.collectLatest {
-                    updateAppActions()
-                }
-            }
-
+            setupObservers(viewLifecycleOwner)
             updateAppActions()
             setupControllerMappingUI(view)
         }
-
-        // Wire up export/import config buttons
-        view.findViewById<Button>(R.id.btn_export_config)?.setOnClickListener {
-            (activity as? MainActivity)?.exportConfigLauncher?.launch("configs.yaml")
-        }
-        view.findViewById<Button>(R.id.btn_import_config)?.setOnClickListener {
-            (activity as? MainActivity)?.importConfigLauncher?.launch(
-                arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*")
-            )
-        }
-
+        setupConfigButtons(view)
         return view
     }
 
@@ -979,35 +1029,29 @@ class ControllerSupportFragment : Fragment() {
         output:   List<AppAction>
         remarks:  Loads available app actions from SharedPreferences and ViewModel
     */
+    
     private fun loadAvailableAppActions(): List<AppAction> {
         val actions = mutableListOf<AppAction>()
-        // Load from SliderButtonFragment
-        val prefs = requireContext().getSharedPreferences("slider_buttons_prefs", Context.MODE_PRIVATE)
-        val json = prefs.getString("saved_slider_buttons", null)
+        actions += loadSliderActions()
+        actions += loadGeometryActions()
+        actions += loadCustomPublisherActions()
+        actions += loadImportedAppActions()
+        actions += loadCyclePresetActions()
+        return actions
+    }
 
-        // Add increment/decrement actions for each slider, now with the index in the message
+    private fun loadSliderActions(): List<AppAction> {
+        val actions = mutableListOf<AppAction>()
         val sliderStates = sliderControllerViewModel.sliders.value
         for ((idx, slider) in sliderStates.withIndex()) {
-            // Store the INDEX in the message, which is what triggerAppAction needs.
-            actions.add(
-                AppAction(
-                    displayName = "Increment ${slider.name}",
-                    topic = slider.topic,
-                    type = slider.type,
-                    source = "SliderIncrement",
-                    msg = idx.toString()
-                )
-            )
-            actions.add(
-                AppAction(
-                    displayName = "Decrement ${slider.name}",
-                    topic = slider.topic,
-                    type = slider.type,
-                    source = "SliderDecrement",
-                    msg = idx.toString()
-                )
-            )
+            actions.add(AppAction("Increment ${slider.name}", slider.topic, slider.type, "SliderIncrement", idx.toString()))
+            actions.add(AppAction("Decrement ${slider.name}", slider.topic, slider.type, "SliderDecrement", idx.toString()))
         }
+        return actions
+    }
+
+    private fun loadGeometryActions(): List<AppAction> {
+        val actions = mutableListOf<AppAction>()
         val geoPrefs = requireContext().getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
         val geoJson = geoPrefs.getString("geometry_buttons", null)
         if (!geoJson.isNullOrEmpty()) {
@@ -1025,7 +1069,11 @@ class ControllerSupportFragment : Fragment() {
                 android.util.Log.e("ControllerSupport", "Error loading geometry_reusable_buttons:geometry_buttons", e)
             }
         }
-        // Load from CustomPublisherFragment (std_msgs)
+        return actions
+    }
+
+    private fun loadCustomPublisherActions(): List<AppAction> {
+        val actions = mutableListOf<AppAction>()
         try {
             val prefs = requireContext().getSharedPreferences("custom_publishers_prefs", Context.MODE_PRIVATE)
             val json = prefs.getString("custom_publishers", null)
@@ -1036,18 +1084,18 @@ class ControllerSupportFragment : Fragment() {
                     val name = obj["label"]?.asString ?: obj["topic"]?.asString ?: ""
                     val topic = obj["topic"]?.asString ?: ""
                     val type = obj["type"]?.asString ?: ""
-                    val msg = if (obj.has("msg") && !obj["msg"].isJsonNull) {
-                        obj["msg"].asString
-                    } else {
-                        ""
-                    }
+                    val msg = if (obj.has("msg") && !obj["msg"].isJsonNull) obj["msg"].asString else ""
                     actions.add(AppAction(name, topic, type, "Standard Message", msg))
                 }
             }
         } catch (e: Exception) {
             android.util.Log.e("ControllerSupport", "Error loading custom_publishers_prefs:custom_publishers", e)
         }
+        return actions
+    }
 
+    private fun loadImportedAppActions(): List<AppAction> {
+        val actions = mutableListOf<AppAction>()
         val importedPrefs = requireContext().getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
         val importedJson = importedPrefs.getString("imported_app_actions", null)
         if (!importedJson.isNullOrEmpty()) {
@@ -1068,29 +1116,13 @@ class ControllerSupportFragment : Fragment() {
                 android.util.Log.e("ControllerSupport", "Error loading imported_app_actions", e)
             }
         }
-
-        // Add Cycle Presets actions
-        actions.add(
-            AppAction(
-                displayName = "Cycle Presets Forwards",
-                topic = "/ignore", // Not used, safe default
-                type = "Set",
-                source = "CyclePresetForward",
-                msg = ""
-            )
-        )
-        actions.add(
-            AppAction(
-                displayName = "Cycle Presets Backwards",
-                topic = "/ignore",
-                type = "Set",
-                source = "CyclePresetBackward",
-                msg = ""
-            )
-        )
-
         return actions
     }
+
+    private fun loadCyclePresetActions(): List<AppAction> = listOf(
+        AppAction("Cycle Presets Forwards", "/ignore", "Set", "CyclePresetForward", ""),
+        AppAction("Cycle Presets Backwards", "/ignore", "Set", "CyclePresetBackward", "")
+    )
 
     /*
         input:    None
@@ -1156,11 +1188,6 @@ class ControllerSupportFragment : Fragment() {
         return map
     }
 
-    /*de
-        input:    displayName, topic, type, source, msg
-        output:   None
-        remarks:  Data class for app actions
-    */
     data class AppAction(val displayName: String, val topic: String, val type: String, val source: String, val msg: String = "")
 
     /*
@@ -1261,154 +1288,128 @@ class ControllerSupportFragment : Fragment() {
     */
     fun triggerAppAction(action: AppAction) {
         android.util.Log.d(TAG, "triggerAppAction called: $action")
-        // Helper to get the default message if the action's message is empty
-        fun getDefaultMessage(action: AppAction): String {
-            return when (action.source) {
-                "Geometry" -> when (action.type) {
-                    "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
-                    "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
-                    else -> "{}"
+        when (action.source) {
+            "SliderIncrement", "SliderDecrement" -> handleSliderAction(action)
+            "Geometry", "Standard Message" -> handleStandardOrGeometryAction(action)
+            "Custom Protocol" -> handleCustomProtocolAction(action)
+            "CyclePreset", "CyclePresetForward" -> handleCyclePreset(forward = true)
+            "CyclePresetBackward" -> handleCyclePreset(forward = false)
+            else -> android.util.Log.d(TAG, "Triggered unknown action source: ${action.source}")
+        }
+    }
+
+    private fun handleSliderAction(action: AppAction) {
+        val sliderIndex = action.msg.toIntOrNull() ?: return
+        sliderControllerViewModel.selectSlider(sliderIndex)
+        if (action.source == "SliderIncrement") {
+            sliderControllerViewModel.incrementSelectedSlider()
+        } else {
+            sliderControllerViewModel.decrementSelectedSlider()
+        }
+        val updatedSlider = sliderControllerViewModel.getSelectedSlider() ?: return
+        val rosType = getRosStdMsgType(updatedSlider.type)
+        val msg = getRosStdMsgJson(updatedSlider.type, updatedSlider.value)
+        publishRosAction(updatedSlider.topic, rosType, msg)
+    }
+
+    private fun handleStandardOrGeometryAction(action: AppAction) {
+        val message = action.msg.ifEmpty { getDefaultMessage(action) }
+        publishRosAction(action.topic, action.type, message)
+    }
+
+    private fun handleCustomProtocolAction(action: AppAction) {
+        val protoType = when {
+            action.type.contains("/msg/") -> "MSG"
+            action.type.contains("/srv/") -> "SRV"
+            action.type.contains("/action/") -> "ACTION"
+            else -> ""
+        }
+        val topic = action.topic
+        val rosType = action.type
+        val msgJson = action.msg
+
+        when (protoType) {
+            "MSG" -> {
+                rosViewModel.advertiseTopic(topic, rosType)
+                rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
+            }
+            "SRV" -> {
+                rosViewModel.advertiseService(topic, rosType)
+                rosViewModel.callCustomService(topic, rosType, msgJson) { result ->
+                    appendEventLog("Service result: $result")
                 }
-                "Standard Message" -> when (action.type) {
-                    "std_msgs/msg/String" -> "{\"data\": \"pressed\"}"
-                    "std_msgs/msg/Bool" -> "{\"data\": true}"
-                    else -> "{\"data\": 1}"
+            }
+            "ACTION" -> {
+                val jsonGoalFields = try {
+                    kotlinx.serialization.json.Json.parseToJsonElement(msgJson).jsonObject
+                } catch (e: Exception) {
+                    appendEventLog("Failed to parse action goal fields: ${e.message}")
+                    return
                 }
-                else -> "{}"
+                val newGoalUuid = java.util.UUID.randomUUID().toString()
+                rosViewModel.sendOrQueueActionGoal(topic, rosType, jsonGoalFields, newGoalUuid) { result ->
+                    appendEventLog("Action result: $result")
+                }
+                rosViewModel.subscribeToActionFeedback(topic, rosType) { feedback ->
+                    appendEventLog("Action feedback: $feedback")
+                }
+                rosViewModel.subscribeToActionStatus(topic) { status ->
+                    appendEventLog("Action status: $status")
+                }
+            }
+            else -> {
+                appendEventLog("Unknown protocol type: $protoType")
             }
         }
+    }
 
-        when (action.source) {
-            "SliderIncrement", "SliderDecrement" -> {
-                val sliderIndex = action.msg.toIntOrNull() ?: return
+    private fun handleCyclePreset(forward: Boolean) {
+        val presets = loadControllerPresets()
+        val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
+        val currentIdx = prefs.getInt("selected_preset_idx", 0)
+        val newIdx = if (presets.isNotEmpty()) {
+            if (forward) (currentIdx + 1) % presets.size else (currentIdx - 1 + presets.size) % presets.size
+        } else 0
+        prefs.edit { putInt("selected_preset_idx", newIdx) }
+        android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(newIdx)?.name}")
 
-                sliderControllerViewModel.selectSlider(sliderIndex)
-                if (action.source == "SliderIncrement") {
-                    sliderControllerViewModel.incrementSelectedSlider()
-                } else {
-                    sliderControllerViewModel.decrementSelectedSlider()
-                }
-
-                // Get the updated slider to publish its new state
-                val updatedSlider = sliderControllerViewModel.getSelectedSlider() ?: return
-                val rosType = getRosStdMsgType(updatedSlider.type)
-                val msg = getRosStdMsgJson(updatedSlider.type, updatedSlider.value)
-                publishRosAction(updatedSlider.topic, rosType, msg)
+        val newPreset = presets.getOrNull(newIdx)
+        if (newPreset != null) {
+            val abxy = newPreset.abxy
+            val allActions = loadAvailableAppActions() + customProtocolAppActions
+            val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
+            listOf("A", "B", "X", "Y").forEach { btn ->
+                newAssignments.remove("Button $btn")
             }
-            "Geometry", "Standard Message" -> {
-                val message = action.msg.ifEmpty { getDefaultMessage(action) }
-                publishRosAction(action.topic, action.type, message)
-            }
-            "Custom Protocol" -> {
-                val protoType = when {
-                    action.type.contains("/msg/") -> "MSG"
-                    action.type.contains("/srv/") -> "SRV"
-                    action.type.contains("/action/") -> "ACTION"
-                    else -> ""
-                }
-                val topic = action.topic
-                val rosType = action.type
-                val msgJson = action.msg
-
-                when (protoType) {
-                    "MSG" -> {
-                        rosViewModel.advertiseTopic(topic, rosType)
-                        rosViewModel.publishCustomRawMessage(topic, rosType, msgJson)
-                    }
-                    "SRV" -> {
-                        rosViewModel.advertiseService(topic, rosType)
-                        rosViewModel.callCustomService(topic, rosType, msgJson) { result ->
-                            appendEventLog("Service result: $result")
-                        }
-                    }
-                    "ACTION" -> {
-                        val jsonGoalFields = try {
-                            kotlinx.serialization.json.Json.parseToJsonElement(msgJson).jsonObject
-                        } catch (e: Exception) {
-                            appendEventLog("Failed to parse action goal fields: ${e.message}")
-                            return
-                        }
-                        val newGoalUuid = java.util.UUID.randomUUID().toString()
-                        rosViewModel.sendOrQueueActionGoal(topic, rosType, jsonGoalFields, newGoalUuid) { result ->
-                            appendEventLog("Action result: $result")
-                        }
-                        rosViewModel.subscribeToActionFeedback(topic, rosType) { feedback ->
-                            appendEventLog("Action feedback: $feedback")
-                        }
-                        rosViewModel.subscribeToActionStatus(topic) { status ->
-                            appendEventLog("Action status: $status")
-                        }
-                    }
-                    else -> {
-                        appendEventLog("Unknown protocol type: $protoType")
-                    }
+            listOf("A", "B", "X", "Y").forEach { btn ->
+                val actionName = abxy[btn] ?: ""
+                val action = allActions.find { it.displayName == actionName }
+                if (action != null) {
+                    newAssignments["Button $btn"] = action
                 }
             }
-            "CyclePreset", "CyclePresetForward" -> {
-                val presets = loadControllerPresets()
-                val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
-                val currentIdx = prefs.getInt("selected_preset_idx", 0)
-                val nextIdx = if (presets.isNotEmpty()) (currentIdx + 1) % presets.size else 0
-                prefs.edit { putInt("selected_preset_idx", nextIdx) }
-                android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(nextIdx)?.name}")
+            saveButtonAssignments(newAssignments)
+            buttonAssignments.clear()
+            buttonAssignments.putAll(newAssignments)
+            setupControllerMappingUI(requireView())
+        }
+        presetOverlayCallback?.onPresetCycled()
+        presetOverlayCallback?.onShowPresetsOverlay()
+    }
 
-                // Update controller button assignments to match new preset
-                val newPreset = presets.getOrNull(nextIdx)
-                if (newPreset != null) {
-                    val abxy = newPreset.abxy
-                    val allActions = loadAvailableAppActions() + customProtocolAppActions
-                    val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
-                    listOf("A", "B", "X", "Y").forEach { btn ->
-                        newAssignments.remove("Button $btn")
-                    }
-                    listOf("A", "B", "X", "Y").forEach { btn ->
-                        val actionName = abxy[btn] ?: ""
-                        val action = allActions.find { it.displayName == actionName }
-                        if (action != null) {
-                            newAssignments["Button $btn"] = action
-                        }
-                    }
-                    saveButtonAssignments(newAssignments)
-                    buttonAssignments.clear()
-                    buttonAssignments.putAll(newAssignments)
-                    setupControllerMappingUI(requireView())
-                }
-               presetOverlayCallback?.onPresetCycled()
-               presetOverlayCallback?.onShowPresetsOverlay()
+    private fun getDefaultMessage(action: AppAction): String {
+        return when (action.source) {
+            "Geometry" -> when (action.type) {
+                "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
+                "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
+                else -> "{}"
             }
-            "CyclePresetBackward" -> {
-                val presets = loadControllerPresets()
-                val prefs = requireContext().getSharedPreferences(PREFS_CONTROLLER_PRESETS, Context.MODE_PRIVATE)
-                val currentIdx = prefs.getInt("selected_preset_idx", 0)
-                val prevIdx = if (presets.isNotEmpty()) (currentIdx - 1 + presets.size) % presets.size else 0
-                prefs.edit { putInt("selected_preset_idx", prevIdx) }
-                android.util.Log.d(TAG, "Cycled to preset: ${presets.getOrNull(prevIdx)?.name}")
-
-                // Update controller button assignments to match new preset
-                val newPreset = presets.getOrNull(prevIdx)
-                if (newPreset != null) {
-                    val abxy = newPreset.abxy
-                    val allActions = loadAvailableAppActions() + customProtocolAppActions
-                    val newAssignments = loadButtonAssignments(getControllerButtonList()).toMutableMap()
-                    listOf("A", "B", "X", "Y").forEach { btn ->
-                        newAssignments.remove("Button $btn")
-                    }
-                    listOf("A", "B", "X", "Y").forEach { btn ->
-                        val actionName = abxy[btn] ?: ""
-                        val action = allActions.find { it.displayName == actionName }
-                        if (action != null) {
-                            newAssignments["Button $btn"] = action
-                        }
-                    }
-                    saveButtonAssignments(newAssignments)
-                    buttonAssignments.clear()
-                    buttonAssignments.putAll(newAssignments)
-                    setupControllerMappingUI(requireView())
-                }
-               presetOverlayCallback?.onPresetCycled()
-               presetOverlayCallback?.onShowPresetsOverlay()
+            "Standard Message" -> when (action.type) {
+                "std_msgs/msg/String" -> "{\"data\": \"pressed\"}"
+                "std_msgs/msg/Bool" -> "{\"data\": true}"
+                else -> "{\"data\": 1}"
             }
-            else -> android.util.Log.d(TAG, "Triggered unknown action source: ${action.source}")
+            else -> "{}"
         }
     }
 
@@ -1695,6 +1696,19 @@ class ControllerSupportFragment : Fragment() {
         android.util.Log.i("ControllerSupportFragment", "Import started")
         val yaml = org.yaml.snakeyaml.Yaml()
         val configMap = yaml.load<Map<String, Any>>(InputStreamReader(inp))
+
+        parseJoystickMappings(configMap)
+        parseControllerPresets(configMap)
+        parseButtonAssignments(configMap)
+        parseAppActions(configMap)
+
+        persistImportedConfig()
+        updateImportedAppActionsPrefs()
+        refreshUIAfterImport()
+        android.util.Log.i("ControllerSupportFragment", "Import finished")
+    }
+
+    private fun parseJoystickMappings(configMap: Map<String, Any>) {
         joystickMappings.clear()
         val jmList = configMap["joystickMappings"] as? List<*> ?: emptyList<Any>()
         for (jm in jmList) {
@@ -1714,9 +1728,9 @@ class ControllerSupportFragment : Fragment() {
             }
         }
         android.util.Log.i("ControllerSupportFragment", "Imported joystickMappings: ${joystickMappings.size}")
-        // Save imported joystick mappings to persistent storage to avoid duplicates
-        saveJoystickMappings(joystickMappings)
-        // Prefill joystick fields in the UI after import
+    }
+
+    private fun parseControllerPresets(configMap: Map<String, Any>) {
         controllerPresets.clear()
         val cpList = configMap["controllerPresets"] as? List<*> ?: emptyList<Any>()
         for (cp in cpList) {
@@ -1731,6 +1745,9 @@ class ControllerSupportFragment : Fragment() {
             }
         }
         android.util.Log.i("ControllerSupportFragment", "Imported controllerPresets: ${controllerPresets.size}")
+    }
+
+    private fun parseButtonAssignments(configMap: Map<String, Any>) {
         buttonAssignments.clear()
         val baMap = configMap["buttonAssignments"] as? Map<*, *> ?: emptyMap<String, Any>()
         for ((key, value) in baMap) {
@@ -1745,6 +1762,9 @@ class ControllerSupportFragment : Fragment() {
             }
         }
         android.util.Log.i("ControllerSupportFragment", "Imported buttonAssignments: ${buttonAssignments.size}")
+    }
+
+    private fun parseAppActions(configMap: Map<String, Any>) {
         appActions.clear()
         val aaList = configMap["appActions"] as? List<*> ?: emptyList<Any>()
         for (aa in aaList) {
@@ -1761,11 +1781,15 @@ class ControllerSupportFragment : Fragment() {
             }
         }
         android.util.Log.i("ControllerSupportFragment", "Imported appActions: ${appActions.size}")
-        // Persist imported config to SharedPreferences
+    }
+
+    private fun persistImportedConfig() {
         saveJoystickMappings(joystickMappings)
         saveControllerPresets(controllerPresets)
         saveButtonAssignments(buttonAssignments)
+    }
 
+    private fun updateImportedAppActionsPrefs() {
         val importedPrefs = requireContext().getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
         val arr = JSONArray()
         for (action in appActions) {
@@ -1778,9 +1802,9 @@ class ControllerSupportFragment : Fragment() {
             arr.put(obj)
         }
         importedPrefs.edit().putString("imported_app_actions", arr.toString()).apply()
-        
-        // Refresh app actions list
-        // Overwrite appActionsAdapter actions with imported appActions
+    }
+
+    private fun refreshUIAfterImport() {
         if (::appActionsAdapter.isInitialized) {
             appActionsAdapter.actions.clear()
             appActionsAdapter.actions.addAll(appActions)
@@ -1791,7 +1815,5 @@ class ControllerSupportFragment : Fragment() {
         setupPresetManagementUI(requireView())
         setupJoystickMappingUI(requireView())
         setupControllerMappingUI(requireView())
-        android.util.Log.i("ControllerSupportFragment", "Import finished")
     }
-
 }
