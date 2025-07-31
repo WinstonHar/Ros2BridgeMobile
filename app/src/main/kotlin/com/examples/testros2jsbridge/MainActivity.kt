@@ -130,22 +130,36 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        // Open Controller Overview UI
+
+        setupControllerOverviewButton()
+        setupIpPortFields()
+        setupDropdown()
+        setupMessageHistoryTab()
+        setupClickListeners()
+        observeViewModel()
+        setupRos2SubscriberButton()
+    }
+
+    private fun setupControllerOverviewButton() {
         findViewById<MaterialButton>(R.id.button_open_controller_overview).setOnClickListener {
             val intent = android.content.Intent(this, ControllerOverviewActivity::class.java)
             startActivity(intent)
         }
+    }
 
+    private fun setupIpPortFields() {
         ipAddressEditText = findViewById(R.id.edittext_ip_address)
         portEditText = findViewById(R.id.edittext_port)
+        connectButton = findViewById(R.id.button_connect)
+        statusTextView = findViewById(R.id.textview_status)
+        ipPortContainer = findViewById(R.id.layout_ip_port_container)
+        collapseIpPortButton = findViewById(R.id.button_collapse_ip_port)
+        expandIpPortButton = findViewById(R.id.button_expand_ip_port)
 
-        // SharedPreferences for IP/Port sync
         val prefs = getSharedPreferences("ros2_prefs", Context.MODE_PRIVATE)
         val savedIp = prefs.getString("ip_address", "")
         val savedPort = prefs.getString("port", "")
-        if (!savedIp.isNullOrEmpty()) {
-            ipAddressEditText.setText(savedIp)
-        }
+        if (!savedIp.isNullOrEmpty()) ipAddressEditText.setText(savedIp)
         if (!savedPort.isNullOrEmpty()) {
             portEditText.setText(savedPort)
         } else {
@@ -167,34 +181,24 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
-        connectButton = findViewById(R.id.button_connect)
-        statusTextView = findViewById(R.id.textview_status)
 
+        setupIpPortCollapsible()
+    }
+
+    private fun setupIpPortCollapsible() {
+        collapseIpPortButton.setOnClickListener {
+            ipPortContainer.visibility = android.view.View.GONE
+            expandIpPortButton.visibility = android.view.View.VISIBLE
+        }
+        expandIpPortButton.setOnClickListener {
+            ipPortContainer.visibility = android.view.View.VISIBLE
+            expandIpPortButton.visibility = android.view.View.GONE
+        }
+    }
+
+    private fun setupDropdown() {
         dropdown = findViewById(R.id.dropdown_action)
         disconnectButton = findViewById(R.id.button_disconnect)
-
-        ipPortContainer = findViewById(R.id.layout_ip_port_container)
-        collapseIpPortButton = findViewById(R.id.button_collapse_ip_port)
-        expandIpPortButton = findViewById(R.id.button_expand_ip_port)
-
-        // Collapsible logic
-        collapseIpPortButton.setOnClickListener {
-            ipPortContainer.visibility = android.view.View.GONE
-            expandIpPortButton.visibility = android.view.View.VISIBLE
-        }
-        expandIpPortButton.setOnClickListener {
-            ipPortContainer.visibility = android.view.View.VISIBLE
-            expandIpPortButton.visibility = android.view.View.GONE
-        }
-        collapseIpPortButton.setOnClickListener {
-            ipPortContainer.visibility = android.view.View.GONE
-            expandIpPortButton.visibility = android.view.View.VISIBLE
-        }
-        expandIpPortButton.setOnClickListener {
-            ipPortContainer.visibility = android.view.View.VISIBLE
-            expandIpPortButton.visibility = android.view.View.GONE
-        }
-
         actions = listOf(
             getString(R.string.dropdown_default_activity),
             getString(R.string.dropdown_custom_publisher),
@@ -203,15 +207,12 @@ class MainActivity : AppCompatActivity() {
             "Controller Input Device",
             "Import Custom Protocols"
         )
-
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, actions)
         dropdown.setAdapter(adapter)
 
-        // Observe the selected index from ViewModel and set the dropdown and fragment
         rosViewModel.selectedDropdownIndex
             .onEach { index ->
                 if (index >= 0 && index < actions.size) {
-                    // Only update dropdown text if needed to avoid unnecessary events
                     if (dropdown.text.toString() != actions[index]) {
                         dropdown.setText(actions[index], false)
                         dropdown.dismissDropDown()
@@ -221,13 +222,13 @@ class MainActivity : AppCompatActivity() {
             }
             .launchIn(lifecycleScope)
 
-        dropdown.setOnClickListener {
-            dropdown.showDropDown()
-        }
+        dropdown.setOnClickListener { dropdown.showDropDown() }
         dropdown.setOnItemClickListener { _, _, position, _ ->
             rosViewModel.selectDropdownIndex(position)
         }
+    }
 
+    private fun setupMessageHistoryTab() {
         messageHistoryComposeView = findViewById(R.id.compose_view_message_history)
         messageHistoryComposeView.setContent {
             MaterialTheme {
@@ -236,16 +237,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
 
-        setupClickListeners()
-        observeViewModel()
-
+    private fun setupRos2SubscriberButton() {
         openRos2SubscriberButton = findViewById(R.id.button_open_ros2_subscriber)
         openRos2SubscriberButton.setOnClickListener {
             val intent = android.content.Intent(this, Ros2TopicSubscriberActivity::class.java)
             startActivity(intent)
         }
-    }
+    }    
 
     /*
         input:    index - Int

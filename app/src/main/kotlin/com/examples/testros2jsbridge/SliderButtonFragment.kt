@@ -198,37 +198,15 @@ class SliderButtonFragment : Fragment() {
         remarks:  Adds an editable slider for creating new saved slider buttons
     */
     private fun addSliderButton(layout: LinearLayout, config: SliderButtonConfig) {
-        val row = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(8)
-        }
-        val topicEdit = EditText(requireContext()).apply {
-            setText(config.topic)
-            hint = "Topic (e.g. /slider_topic)"
-        }
-        val minEdit = EditText(requireContext()).apply {
-            setText(config.min.toString())
-            hint = "Min value"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-        }
-        val maxEdit = EditText(requireContext()).apply {
-            setText(config.max.toString())
-            hint = "Max value"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-        }
-        val stepEdit = EditText(requireContext()).apply {
-            setText(config.step.toString())
-            hint = "Step size"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
-        val typeSpinner = android.widget.Spinner(requireContext()).apply {
-            val types = listOf("Float32", "Float64", "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8")
-            adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, types).apply {
-                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
-            setSelection(types.indexOf(config.type).coerceAtLeast(0))
-        }
-        val slider = Slider(requireContext())
+        val row = createSliderRow()
+        val topicEdit = createTopicEdit(config)
+        val minEdit = createMinEdit(config)
+        val maxEdit = createMaxEdit(config)
+        val stepEdit = createStepEdit(config)
+        val typeSpinner = createTypeSpinner(config)
+        val slider = createSlider(config)
+        val valueLabel = createValueLabel(config)
+
         fun updateSliderForType(type: String) {
             if (isIntegerType(type)) {
                 val userStep = stepEdit.text.toString().toFloatOrNull()?.takeIf { it >= 1f } ?: 1f
@@ -242,35 +220,113 @@ class SliderButtonFragment : Fragment() {
             }
         }
 
+        setupSliderInitialValues(slider, config, valueLabel, ::updateSliderForType)
+        observeSliderViewModel(slider, config, valueLabel)
+        setupSliderRangeUpdater(minEdit, maxEdit, stepEdit, typeSpinner, slider, config, valueLabel, ::updateSliderForType)
+
+        val publishBtn = createPublishButton(topicEdit, typeSpinner, config, slider)
+        val saveBtn = createSaveButton(topicEdit, minEdit, maxEdit, stepEdit, typeSpinner, slider, config)
+
+        row.apply {
+            addView(topicEdit)
+            addView(typeSpinner)
+            addView(minEdit)
+            addView(maxEdit)
+            addView(stepEdit)
+            addView(slider)
+            addView(valueLabel)
+            addView(publishBtn)
+            addView(saveBtn)
+        }
+        layout.addView(row, 0)
+    }
+
+    private fun createSliderRow(): LinearLayout =
+        LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8)
+        }
+
+    private fun createTopicEdit(config: SliderButtonConfig): EditText =
+        EditText(requireContext()).apply {
+            setText(config.topic)
+            hint = "Topic (e.g. /slider_topic)"
+        }
+
+    private fun createMinEdit(config: SliderButtonConfig): EditText =
+        EditText(requireContext()).apply {
+            setText(config.min.toString())
+            hint = "Min value"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                    android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+        }
+
+    private fun createMaxEdit(config: SliderButtonConfig): EditText =
+        EditText(requireContext()).apply {
+            setText(config.max.toString())
+            hint = "Max value"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                    android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+        }
+
+    private fun createStepEdit(config: SliderButtonConfig): EditText =
+        EditText(requireContext()).apply {
+            setText(config.step.toString())
+            hint = "Step size"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+
+    private fun createTypeSpinner(config: SliderButtonConfig): android.widget.Spinner =
+        android.widget.Spinner(requireContext()).apply {
+            val types = listOf("Float32", "Float64", "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8")
+            adapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, types).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+            setSelection(types.indexOf(config.type).coerceAtLeast(0))
+        }
+
+    private fun createSlider(config: SliderButtonConfig): Slider =
+        Slider(requireContext())
+
+    private fun createValueLabel(config: SliderButtonConfig): TextView =
+        TextView(requireContext()).apply {
+            text = if (isIntegerType(config.type)) config.value.toLong().toString() else config.value.toString()
+            textSize = 16f
+        }
+
+    private fun setupSliderInitialValues(
+        slider: Slider,
+        config: SliderButtonConfig,
+        valueLabel: TextView,
+        updateSliderForType: (String) -> Unit
+    ) {
         slider.valueFrom = config.min
         slider.valueTo = config.max
         val initialStep = config.step.takeIf { it > 0f } ?: 1f
         slider.stepSize = initialStep
         slider.value = if (isIntegerType(config.type)) config.value.toLong().toFloat() else config.value
         updateSliderForType(config.type)
-
-        val valueLabel = TextView(requireContext()).apply {
-            text = if (isIntegerType(config.type)) config.value.toLong().toString() else config.value.toString()
-            textSize = 16f
-        }
         slider.addOnChangeListener { _, v, _ ->
             if (isIntegerType(config.type)) {
                 val intVal = v.toLong()
                 valueLabel.text = intVal.toString()
-                if (config.value != intVal.toFloat()) {
-                    config.value = intVal.toFloat()
-                }
-                if (slider.value != intVal.toFloat()) {
-                    slider.value = intVal.toFloat() // snap
-                }
+                if (config.value != intVal.toFloat()) config.value = intVal.toFloat()
+                if (slider.value != intVal.toFloat()) slider.value = intVal.toFloat()
             } else {
                 valueLabel.text = v.toString()
-                if (config.value != v) {
-                    config.value = v
-                }
+                if (config.value != v) config.value = v
             }
         }
-        // Observe ViewModel sliders and update this UI slider if its value changes externally
+    }
+
+    private fun observeSliderViewModel(
+        slider: Slider,
+        config: SliderButtonConfig,
+        valueLabel: TextView
+    ) {
         viewLifecycleOwner?.lifecycleScope?.launch {
             viewLifecycleOwner?.lifecycle?.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
                 sliderControllerViewModel.sliders.collect { sliderStates ->
@@ -283,7 +339,19 @@ class SliderButtonFragment : Fragment() {
                 }
             }
         }
-        val updateSliderRange = fun() {
+    }
+
+    private fun setupSliderRangeUpdater(
+        minEdit: EditText,
+        maxEdit: EditText,
+        stepEdit: EditText,
+        typeSpinner: android.widget.Spinner,
+        slider: Slider,
+        config: SliderButtonConfig,
+        valueLabel: TextView,
+        updateSliderForType: (String) -> Unit
+    ) {
+        val updateSliderRange = lambda@{
             val min = minEdit.text.toString().toFloatOrNull() ?: config.min
             val max = maxEdit.text.toString().toFloatOrNull() ?: config.max
             val step = stepEdit.text.toString().toFloatOrNull() ?: config.step
@@ -316,122 +384,112 @@ class SliderButtonFragment : Fragment() {
                     }
                 }
             }
-            if (!valid) {
-                return
-            }
-            // Update config first
+            if (!valid) return@lambda
             config.min = min
             config.max = max
             config.step = step
-            // Update slider range and step
             slider.valueFrom = min
             slider.valueTo = max
-            val userStep = if (isIntegerType(type)) {
-                step.takeIf { it >= 1f } ?: 1f
-            } else step
+            val userStep = if (isIntegerType(type)) step.takeIf { it >= 1f } ?: 1f else step
             slider.stepSize = userStep
             updateSliderForType(type)
-            // Snap value to new range/step
             val snapped = min + (((slider.value - min) / userStep).toInt() * userStep)
             val clamped = snapped.coerceIn(min, max)
             slider.value = clamped
             config.value = clamped
-            // Update label
-            if (isIntegerType(type)) {
-                valueLabel.text = clamped.toLong().toString()
-            } else {
-                valueLabel.text = clamped.toString()
-            }
+            valueLabel.text = if (isIntegerType(type)) clamped.toLong().toString() else clamped.toString()
         }
         typeSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, view: View?, position: Int, id: Long) {
                 config.type = parent.getItemAtPosition(position) as String
                 updateSliderRange()
             }
-
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
         }
-        // Also update slider when min, max, or step fields lose focus
         minEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
         maxEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
         stepEdit.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) updateSliderRange() }
-
-        val publishBtn = Button(requireContext()).apply {
-            text = "Publish"
-            setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), R.color.purple_500))
-            setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-            setOnClickListener {
-                val topic = topicEdit.text.toString().trim()
-                if (topic.isEmpty()) {
-                    topicEdit.error = "Topic required"
-                    return@setOnClickListener
-                }
-                val type = typeSpinner.selectedItem.toString()
-                val msg = when (type) {
-                    "Bool" -> "{\"data\": ${if (config.value != 0f) "true" else "false"}}"
-                    "Float32", "Float64" -> "{\"data\": ${config.value}}"
-                    "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": ${config.value.toLong()}}"
-                    else -> "{\"data\": ${config.value}}"
-                }
-                val rosType = when (type) {
-                    "Bool" -> "std_msgs/msg/Bool"
-                    "Float32" -> "std_msgs/msg/Float32"
-                    "Float64" -> "std_msgs/msg/Float64"
-                    "Int16" -> "std_msgs/msg/Int16"
-                    "Int32" -> "std_msgs/msg/Int32"
-                    "Int64" -> "std_msgs/msg/Int64"
-                    "Int8" -> "std_msgs/msg/Int8"
-                    "UInt16" -> "std_msgs/msg/UInt16"
-                    "UInt32" -> "std_msgs/msg/UInt32"
-                    "UInt64" -> "std_msgs/msg/UInt64"
-                    "UInt8" -> "std_msgs/msg/UInt8"
-                    else -> "std_msgs/msg/Float32"
-                }
-                rosViewModel.advertiseTopic(topic, rosType)
-                rosViewModel.publishCustomRawMessage(topic, rosType, msg)
-            }
-        }
-
-        val saveBtn = Button(requireContext()).apply {
-            text = "Save Current Button"
-            setOnClickListener {
-                val input = EditText(requireContext())
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Save Slider Button")
-                    .setMessage("Enter a name for this slider:")
-                    .setView(input)
-                    .setPositiveButton("Save") { _, _ ->
-                        val name = input.text.toString().trim()
-                        if (name.isEmpty()) {
-                            Toast.makeText(requireContext(), "Name required", Toast.LENGTH_SHORT).show()
-                            return@setPositiveButton
-                        }
-                        val min = minEdit.text.toString().toFloatOrNull() ?: config.min
-                        val max = maxEdit.text.toString().toFloatOrNull() ?: config.max
-                        val step = stepEdit.text.toString().toFloatOrNull() ?: config.step
-                        val type = typeSpinner.selectedItem.toString()
-                        val topic = topicEdit.text.toString().trim()
-                        val value = slider.value
-                        val newConfig = SliderButtonConfig(topic, min, max, step, value, type, name)
-                        savedButtons.add(newConfig)
-                        saveSavedButtons()
-                        refreshSavedButtonsUI()
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }
-        }
-        row.addView(topicEdit)
-        row.addView(typeSpinner)
-        row.addView(minEdit)
-        row.addView(maxEdit)
-        row.addView(stepEdit)
-        row.addView(slider)
-        row.addView(valueLabel)
-        row.addView(publishBtn)
-        row.addView(saveBtn)
-        layout.addView(row, 0)
     }
+
+    private fun createPublishButton(
+        topicEdit: EditText,
+        typeSpinner: android.widget.Spinner,
+        config: SliderButtonConfig,
+        slider: Slider
+    ): Button = Button(requireContext()).apply {
+        text = "Publish"
+        setBackgroundTintList(ContextCompat.getColorStateList(requireContext(), R.color.purple_500))
+        setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+        setOnClickListener {
+            val topic = topicEdit.text.toString().trim()
+            if (topic.isEmpty()) {
+                topicEdit.error = "Topic required"
+                return@setOnClickListener
+            }
+            val type = typeSpinner.selectedItem.toString()
+            val msg = when (type) {
+                "Bool" -> "{\"data\": ${if (config.value != 0f) "true" else "false"}}"
+                "Float32", "Float64" -> "{\"data\": ${config.value}}"
+                "Int16", "Int32", "Int64", "Int8", "UInt16", "UInt32", "UInt64", "UInt8" -> "{\"data\": ${config.value.toLong()}}"
+                else -> "{\"data\": ${config.value}}"
+            }
+            val rosType = when (type) {
+                "Bool" -> "std_msgs/msg/Bool"
+                "Float32" -> "std_msgs/msg/Float32"
+                "Float64" -> "std_msgs/msg/Float64"
+                "Int16" -> "std_msgs/msg/Int16"
+                "Int32" -> "std_msgs/msg/Int32"
+                "Int64" -> "std_msgs/msg/Int64"
+                "Int8" -> "std_msgs/msg/Int8"
+                "UInt16" -> "std_msgs/msg/UInt16"
+                "UInt32" -> "std_msgs/msg/UInt32"
+                "UInt64" -> "std_msgs/msg/UInt64"
+                "UInt8" -> "std_msgs/msg/UInt8"
+                else -> "std_msgs/msg/Float32"
+            }
+            rosViewModel.advertiseTopic(topic, rosType)
+            rosViewModel.publishCustomRawMessage(topic, rosType, msg)
+        }
+    }
+
+    private fun createSaveButton(
+        topicEdit: EditText,
+        minEdit: EditText,
+        maxEdit: EditText,
+        stepEdit: EditText,
+        typeSpinner: android.widget.Spinner,
+        slider: Slider,
+        config: SliderButtonConfig
+    ): Button = Button(requireContext()).apply {
+        text = "Save Current Button"
+        setOnClickListener {
+            val input = EditText(requireContext())
+            AlertDialog.Builder(requireContext())
+                .setTitle("Save Slider Button")
+                .setMessage("Enter a name for this slider:")
+                .setView(input)
+                .setPositiveButton("Save") { _, _ ->
+                    val name = input.text.toString().trim()
+                    if (name.isEmpty()) {
+                        Toast.makeText(requireContext(), "Name required", Toast.LENGTH_SHORT).show()
+                        return@setPositiveButton
+                    }
+                    val min = minEdit.text.toString().toFloatOrNull() ?: config.min
+                    val max = maxEdit.text.toString().toFloatOrNull() ?: config.max
+                    val step = stepEdit.text.toString().toFloatOrNull() ?: config.step
+                    val type = typeSpinner.selectedItem.toString()
+                    val topic = topicEdit.text.toString().trim()
+                    val value = slider.value
+                    val newConfig = SliderButtonConfig(topic, min, max, step, value, type, name)
+                    savedButtons.add(newConfig)
+                    saveSavedButtons()
+                    refreshSavedButtonsUI()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }
+    }
+
     // Use application-scoped RosViewModel for consistent connection state
     private val rosViewModel: RosViewModel by lazy {
         val app = requireActivity().application as MyApp

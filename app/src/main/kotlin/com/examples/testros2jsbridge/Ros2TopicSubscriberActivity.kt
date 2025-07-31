@@ -83,6 +83,19 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ros2_topic_subscriber)
 
+        initViews()
+        setupComposeImageView()
+        setupLogUpdater()
+        setupTopicAdapter()
+        setupAutoRefresh()
+        setupManualSubscription()
+        setupIpPortFields()
+        setupConnectionButtons()
+        setupFetchTopicsButton()
+        setupRosbridgeListener()
+    }
+
+    private fun initViews() {
         logView = findViewById(R.id.logView)
         logScrollView = findViewById(R.id.logScrollView)
         backToMainButton = findViewById(R.id.button_back_to_main)
@@ -94,9 +107,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         manualTopicEditText = findViewById(R.id.edittext_manual_topic)
         manualTypeEditText = findViewById(R.id.edittext_manual_type)
         subscribeManualButton = findViewById(R.id.button_subscribe_manual)
-        val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
-        val recyclerTopics = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_topics)
+    }
 
+    private fun setupComposeImageView() {
         val imageComposeView = findViewById<androidx.compose.ui.platform.ComposeView>(R.id.image_compose_view)
         imageComposeView.setContent {
             val subsState = rosViewModel.subscribedTopics.collectAsState()
@@ -137,7 +150,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
         }
+    }
 
+    private fun setupLogUpdater() {
         logUpdateJob = lifecycleScope.launch {
             while (true) {
                 if (logDirty) {
@@ -150,12 +165,12 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 delay(200)
             }
         }
+    }
 
-        /*
-            input:    topic - String, type - String
-            output:   None
-            remarks:  Sends an unsubscribe request for the given topic and type to rosbridge.
-        */
+    private fun setupTopicAdapter() {
+        val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
+        val recyclerTopics = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_topics)
+
         fun sendUnsubscribeToRosbridge(topic: String, type: String) {
             val obj = JSONObject()
             obj.put("op", "unsubscribe")
@@ -164,11 +179,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             RosbridgeConnectionManager.send(obj)
         }
 
-        /*
-            input:    topic - String, type - String
-            output:   None
-            remarks:  Sends a subscribe request for the given topic and type to rosbridge.
-        */
         fun sendSubscribeToRosbridge(topic: String, type: String) {
             val subId = "subscribe_${topic.replace("/", "_")}_${System.currentTimeMillis()}"
             val obj = JSONObject()
@@ -181,11 +191,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             RosbridgeConnectionManager.send(obj)
         }
 
-        /*
-            input:    topics - List<Pair<String, String>>, subscribed - List<Pair<String, String>>
-            output:   None
-            remarks:  Updates the topic adapter with current subscriptions.
-        */
         fun updateTopicAdapterWithSubscriptions(topics: List<Pair<String, String>>, subscribed: List<Pair<String, String>>) {
             val subscribedSet = subscribed.map { it.first }.toSet()
             if (topicAdapter == null) {
@@ -218,6 +223,15 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         }
         updateTopicAdapterWithSubscriptions(discoveredTopics, rosViewModel.subscribedTopics.value.toList())
 
+        lifecycleScope.launch {
+            rosViewModel.subscribedTopics.collect { subs ->
+                updateTopicAdapterWithSubscriptions(discoveredTopics, subs.toList())
+            }
+        }
+    }
+
+    private fun setupAutoRefresh() {
+        val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
         if (RosbridgeConnectionManager.isConnected) {
             autoRefreshCheckBox.isChecked = true
             if (autoRefreshJob == null) {
@@ -229,12 +243,6 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 }
             }
             fetchTopicsButton.performClick()
-        }
-
-        lifecycleScope.launch {
-            rosViewModel.subscribedTopics.collect { subs ->
-                updateTopicAdapterWithSubscriptions(discoveredTopics, subs.toList())
-            }
         }
 
         autoRefreshCheckBox.setOnCheckedChangeListener { _, isChecked ->
@@ -253,7 +261,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
                 logView.text = "Auto-refresh disabled.\n" + logView.text
             }
         }
+    }
 
+    private fun setupManualSubscription() {
         subscribeManualButton.setOnClickListener {
             if (!RosbridgeConnectionManager.isConnected) {
                 logView.text = "Not connected to rosbridge.\n" + logView.text
@@ -284,7 +294,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             rosViewModel.addSubscribedTopic(topic, type)
             logView.text = "Manually subscribed to $topic ($type)\n" + logView.text
         }
+    }
 
+    private fun setupIpPortFields() {
         val prefs = getSharedPreferences("ros2_prefs", Context.MODE_PRIVATE)
         val savedIp = prefs.getString("ip_address", "")
         val savedPort = prefs.getString("port", "")
@@ -312,7 +324,9 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+    }
 
+    private fun setupConnectionButtons() {
         connectButton.setOnClickListener {
             val ip = ipEditText.text.toString().trim()
             val port = portEditText.text.toString().trim().toIntOrNull() ?: 9090
@@ -324,9 +338,11 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
         backToMainButton.setOnClickListener {
             finish()
         }
-
         updateButtonStates(RosbridgeConnectionManager.isConnected)
+    }
 
+    private fun setupFetchTopicsButton() {
+        val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
         fetchTopicsButton.setOnClickListener {
             if (!RosbridgeConnectionManager.isConnected) {
                 logView.text = "Not connected to rosbridge.\n" + logView.text
@@ -338,125 +354,25 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             request.put("id", "topics_and_types_request")
             RosbridgeConnectionManager.send(request)
         }
+    }
 
+    private fun setupRosbridgeListener() {
         rosbridgeListener = object : RosbridgeConnectionManager.Listener {
-            
-            /*
-                input:    None
-                output:   None
-                remarks:  Called when rosbridge connection is established; updates UI and button states.
-            */
             override fun onConnected() {
                 runOnUiThread {
                     logView.text = "Connected to rosbridge\n" + logView.text
                     updateButtonStates(true)
                 }
             }
-
-            /*
-                input:    None
-                output:   None
-                remarks:  Called when rosbridge connection is lost; updates UI and button states.
-            */
             override fun onDisconnected() {
                 runOnUiThread {
                     logView.text = "Disconnected\n" + logView.text
                     updateButtonStates(false)
                 }
             }
-
-            /*
-                input:    text - String
-                output:   None
-                remarks:  Handles incoming messages from rosbridge, including topic messages and service responses.
-            */
             override fun onMessage(text: String) {
-                try {
-                    val json = JSONObject(text)
-                    val op = json.optString("op")
-                    val topic = json.optString("topic", "")
-                    val msgType = discoveredTopics.find { it.first == topic }?.second
-
-                    // Forward image messages to RosViewModel for processing
-                    if (op == "publish" && (msgType == "sensor_msgs/msg/Image" || msgType == "sensor_msgs/msg/CompressedImage")) {
-                        if (msgType != null) rosViewModel.onImageMessageReceived(msgType, text)
-                        return
-                    }
-
-                    when (op) {
-                        "publish" -> {
-                            val topic = json.optString("topic", "?")
-                            val msg = json.optJSONObject("msg")
-                            appendLogLine("RECEIVED: [${topic}] $msg")
-                        }
-                        "service_response" -> {
-                            if (json.optString("service") == "/rosapi/topics_and_raw_types") {
-                                val values = json.optJSONObject("values")
-                                val topics = values?.optJSONArray("topics")
-                                val types = values?.optJSONArray("types")
-                                if (topics != null && types != null && topics.length() == types.length()) {
-                                    val filtered = mutableListOf<Pair<String, String>>()
-                                    for (i in 0 until topics.length()) {
-                                        val topic = topics.getString(i)
-                                        val type = types.getString(i)
-                                        if (supportedTypes.contains(type)) {
-                                            filtered.add(Pair(topic, type))
-                                        }
-                                    }
-                                    discoveredTopics = filtered
-                                    val availableTopicsSet = filtered.map { it.first }.toSet()
-                                    val currentSubs = rosViewModel.subscribedTopics.value.toList()
-                                    val toRemove = currentSubs.filter { !availableTopicsSet.contains(it.first) }
-                                    for ((topic, type) in toRemove) {
-                                        runOnUiThread {
-                                            logView.text = "Auto-unsubscribed from $topic (no longer exists)\n" + logView.text
-                                        }
-                                    }
-                                    runOnUiThread {
-                                        updateTopicAdapterWithSubscriptions(filtered, rosViewModel.subscribedTopics.value.toList())
-                                        if (filtered.isEmpty()) {
-                                            logView.text = "No supported topics found.\n" + logView.text
-                                        } else {
-                                            logView.text = "Fetched ${filtered.size} supported topics.\n" + logView.text
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    appendLogLine("Error processing message: ${e.message}")
-                }
+                handleRosbridgeMessage(text)
             }
-
-            /*
-                input:    line - String
-                output:   None
-                remarks:  Appends a log line to the log buffer and updates the message history in the ViewModel.
-            */
-            private fun appendLogLine(line: String) {
-                val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
-                synchronized(logBuffer) {
-                    logBuffer.insert(0, truncated + "\n")
-                    var lines = 0
-                    var idx = 0
-                    while (idx < logBuffer.length && lines < maxLogLines) {
-                        if (logBuffer[idx] == '\n') lines++
-                        idx++
-                    }
-                    if (idx < logBuffer.length) {
-                        logBuffer.setLength(idx)
-                    }
-                    logDirty = true
-                }
-                rosViewModel.appendToMessageHistory(line)
-            }
-
-            /*
-                input:    error - String
-                output:   None
-                remarks:  Handles errors from rosbridge; updates UI and button states with error message.
-            */
             override fun onError(error: String) {
                 runOnUiThread {
                     logView.text = "WebSocket error: $error\n" + logView.text
@@ -465,6 +381,84 @@ class Ros2TopicSubscriberActivity : AppCompatActivity() {
             }
         }
         RosbridgeConnectionManager.addListener(rosbridgeListener!!)
+    }
+
+    private fun handleRosbridgeMessage(text: String) {
+        try {
+            val json = JSONObject(text)
+            val op = json.optString("op")
+            val topic = json.optString("topic", "")
+            val msgType = discoveredTopics.find { it.first == topic }?.second
+
+            // Forward image messages to RosViewModel for processing
+            if (op == "publish" && (msgType == "sensor_msgs/msg/Image" || msgType == "sensor_msgs/msg/CompressedImage")) {
+                if (msgType != null) rosViewModel.onImageMessageReceived(msgType, text)
+                return
+            }
+
+            when (op) {
+                "publish" -> {
+                    val topic = json.optString("topic", "?")
+                    val msg = json.optJSONObject("msg")
+                    appendLogLine("RECEIVED: [${topic}] $msg")
+                }
+                "service_response" -> {
+                    if (json.optString("service") == "/rosapi/topics_and_raw_types") {
+                        val values = json.optJSONObject("values")
+                        val topics = values?.optJSONArray("topics")
+                        val types = values?.optJSONArray("types")
+                        if (topics != null && types != null && topics.length() == types.length()) {
+                            val filtered = mutableListOf<Pair<String, String>>()
+                            for (i in 0 until topics.length()) {
+                                val topic = topics.getString(i)
+                                val type = types.getString(i)
+                                if (supportedTypes.contains(type)) {
+                                    filtered.add(Pair(topic, type))
+                                }
+                            }
+                            discoveredTopics = filtered
+                            val availableTopicsSet = filtered.map { it.first }.toSet()
+                            val currentSubs = rosViewModel.subscribedTopics.value.toList()
+                            val toRemove = currentSubs.filter { !availableTopicsSet.contains(it.first) }
+                            for ((topic, type) in toRemove) {
+                                runOnUiThread {
+                                    logView.text = "Auto-unsubscribed from $topic (no longer exists)\n" + logView.text
+                                }
+                            }
+                            runOnUiThread {
+                                val fetchTopicsButton: Button = findViewById(R.id.button_fetch_topics)
+                                setupTopicAdapter()
+                                if (filtered.isEmpty()) {
+                                    logView.text = "No supported topics found.\n" + logView.text
+                                } else {
+                                    logView.text = "Fetched ${filtered.size} supported topics.\n" + logView.text
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            appendLogLine("Error processing message: ${e.message}")
+        }
+    }
+
+    private fun appendLogLine(line: String) {
+        val truncated = if (line.length > 300) line.take(300) + "... [truncated]" else line
+        synchronized(logBuffer) {
+            logBuffer.insert(0, truncated + "\n")
+            var lines = 0
+            var idx = 0
+            while (idx < logBuffer.length && lines < maxLogLines) {
+                if (logBuffer[idx] == '\n') lines++
+                idx++
+            }
+            if (idx < logBuffer.length) {
+                logBuffer.setLength(idx)
+            }
+            logDirty = true
+        }
+        rosViewModel.appendToMessageHistory(line)
     }
 
     /*
