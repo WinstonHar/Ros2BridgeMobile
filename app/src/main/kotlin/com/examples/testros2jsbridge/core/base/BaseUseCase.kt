@@ -1,5 +1,7 @@
 package com.examples.testros2jsbridge.core.base
 
-/*
-Common use case patterns
- */
+import kotlinx.coroutines.flow.Flow
+
+sealed class BaseUseCase {
+    suspend fun execute(): Any?
+}

@@ -1,5 +1,11 @@
 package com.examples.testros2jsbridge.domain.usecase.service
 
-/*
-Service advertisement logic
- */
+import com.examples.testros2jsbridge.domain.model.RosService
+import com.examples.testros2jsbridge.domain.repository.RosServiceRepository
+
+class AdvertiseServiceUseCase(private val rosServiceRepository: RosServiceRepository) {
+
+    suspend fun advertise(service: RosService) {
+        rosServiceRepository.saveService(service)
+    }
+}

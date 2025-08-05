@@ -1,5 +1,10 @@
-package com.examples.testros2jsbridge.domain.usecase.controller
+package com.examples.testros2jsbridge.domain.usecase.messaging
 
-/*
-Proper unsubscription management
- */
+import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
+
+class UnsubscribeFromTopicUseCase(private val rosTopicRepository: RosTopicRepository) {
+
+    suspend fun unsubscribe(topic: String) {
+        rosTopicRepository.unsubscribe(topic)
+    }
+}

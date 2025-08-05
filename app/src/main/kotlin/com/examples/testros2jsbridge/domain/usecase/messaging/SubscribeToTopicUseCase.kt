@@ -1,5 +1,13 @@
-package com.examples.testros2jsbridge.domain.usecase.controller
+package com.examples.testros2jsbridge.domain.usecase.messaging
 
-/*
-Clean subscription management
- */
+import com.examples.testros2jsbridge.domain.model.RosMessage
+import com.examples.testros2jsbridge.domain.model.RosTopic
+import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
+
+class SubscribeToTopicUseCase(
+    private val rosTopicRepository: RosTopicRepository
+) {
+    suspend fun subscribe(topic: RosTopic) {
+        rosTopicRepository.subscribe(topic)
+    }
+}
