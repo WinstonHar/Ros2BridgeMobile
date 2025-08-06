@@ -4,14 +4,13 @@ import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.Serializer
 import com.esotericsoftware.kryo.io.Input
 import com.esotericsoftware.kryo.io.Output
-
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.model.RosId
 
 class MessageSerializer : Serializer<RosMessage>() {
     override fun write(kryo: Kryo, output: Output, message: RosMessage) {
         output.writeString(message.id ?: "")
-        output.writeString(message.topic.id)
+        output.writeString(message.topic.value) //error with ID, need to fix
         output.writeString(message.type)
         output.writeString(message.content)
         output.writeLong(message.timestamp)
@@ -20,7 +19,7 @@ class MessageSerializer : Serializer<RosMessage>() {
         output.writeBoolean(message.isPublished)
     }
 
-    override fun read(kryo: Kryo, input: Input, type: Class<RosMessage>): RosMessage {
+    override fun read(kryo: Kryo, input: Input, type: Class<out RosMessage>): RosMessage {
         val id = input.readString().ifEmpty { null }
         val topicId = input.readString()
         val typeStr = input.readString()
@@ -29,6 +28,7 @@ class MessageSerializer : Serializer<RosMessage>() {
         val label = input.readString().ifEmpty { null }
         val sender = input.readString().ifEmpty { null }
         val isPublished = input.readBoolean()
+        val op = input.readString()
         return RosMessage(
             id = id,
             topic = RosId(topicId),
@@ -37,7 +37,8 @@ class MessageSerializer : Serializer<RosMessage>() {
             timestamp = timestamp,
             label = label,
             sender = sender,
-            isPublished = isPublished
+            isPublished = isPublished,
+            op = op
         )
     }
 }

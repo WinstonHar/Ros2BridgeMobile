@@ -8,19 +8,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.examples.testros2jsbridge.presentation.state.ControllerUiState
+import androidx.compose.ui.Alignment
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
-import com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl
-import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
+import com.examples.testros2jsbridge.domain.model.ControllerPreset
 
 @Composable
 fun ControllerScreen(
     viewModel: ControllerViewModel = viewModel(),
-    repository: ControllerRepositoryImpl,
-    onNavigateToConfig: (ControllerPreset) -> Unit
+    onNavigateToConfig: (ControllerPreset) -> Unit,
+    onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -32,7 +30,7 @@ fun ControllerScreen(
         onResult = { uri ->
             uri?.let {
                 context.contentResolver.openOutputStream(uri)?.let { out ->
-                    viewModel.exportConfig(out, repository)
+                    viewModel.exportConfig(out)
                 }
             }
         }
@@ -42,7 +40,7 @@ fun ControllerScreen(
         onResult = { uri ->
             uri?.let {
                 context.contentResolver.openInputStream(uri)?.let { inp ->
-                    viewModel.importConfig(inp, repository)
+                    viewModel.importConfig(inp)
                 }
             }
         }
@@ -67,9 +65,14 @@ fun ControllerScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             uiState.controllerButtons.forEach { btn ->
+                val assigned = uiState.buttonAssignments[btn]
                 ControllerButton(
-                    buttonName = btn,
-                    onClick = { viewModel.assignButton(btn, "") }
+                    label = { Text(btn) },
+                    assignedAction = assigned,
+                    onPress = { viewModel.assignButton(btn, assigned) },
+                    onRelease = onBack,
+                    modifier = Modifier,
+                    labelText = btn
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -81,17 +84,22 @@ fun ControllerScreen(
         var selectedButton by remember { mutableStateOf<String?>(null) }
         Row(modifier = Modifier.fillMaxWidth()) {
             uiState.controllerButtons.forEach { btn ->
+                val assigned = uiState.buttonAssignments[btn]
                 ControllerButton(
-                    buttonName = btn,
-                    onClick = { selectedButton = btn }
+                    label = { Text(btn) },
+                    assignedAction = assigned,
+                    onPress = { viewModel.assignButton(btn, assigned) },
+                    onRelease = onBack,
+                    modifier = Modifier,
+                    labelText = btn
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
         TopicSelector(
-            topics = uiState.appActions.map { it.displayName },
-            selectedTopic = null,
+            topics = uiState.appActions,
+            selectedTopic = selectedButton?.let { uiState.buttonAssignments[it] },
             onTopicSelected = { action ->
                 selectedButton?.let { btn ->
                     viewModel.assignButton(btn, action)
@@ -106,7 +114,7 @@ fun ControllerScreen(
         Row(modifier = Modifier.fillMaxWidth()) {
             DropdownMenu(
                 expanded = false,
-                onDismissRequest = {},
+                onDismissRequest = onBack,
                 modifier = Modifier.weight(1f)
             ) {
                 uiState.presets.forEach { preset ->
@@ -132,16 +140,19 @@ fun ControllerScreen(
             listOf("A", "B", "X", "Y").forEach { btn ->
                 Text(text = "$btn:", modifier = Modifier.padding(end = 4.dp))
                 TopicSelector(
-                    topics = uiState.appActions.map { it.displayName },
-                    selectedTopic = null,
-                    onTopicSelected = { action -> viewModel.assignAbxyButton(btn, action) },
+                    topics = uiState.appActions,
+                    selectedTopic = uiState.buttonAssignments[btn],
+                    onTopicSelected = { action ->
+                        viewModel.assignAbxyButton(btn, action?.displayName ?: "")
+                    },
                     label = "$btn Button Action"
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { viewModel.savePreset(uiState.selectedPreset?.name ?: "") }, modifier = Modifier.align(Alignment.End)) {
+        Button(onClick = { viewModel.savePreset(uiState.selectedPreset?.name ?: "") }, modifier = Modifier.align(
+            Alignment.End)) {
             Text("Save Preset")
         }
         Spacer(modifier = Modifier.height(16.dp))

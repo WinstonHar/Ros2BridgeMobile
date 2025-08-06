@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.examples.testros2jsbridge.presentation.ui.components.RosConnectionCard
 
 @Composable
 fun ConnectionScreen(
@@ -24,7 +25,7 @@ fun ConnectionScreen(
         onConnect = { viewModel.connect(uiState.ipInput, uiState.portInput) },
         onDisconnect = { viewModel.disconnect() }
     )
-    if (uiState.errorMessage != null && uiState.errorMessage.isNotBlank()) {
+    if (!uiState.errorMessage.isNullOrBlank()) {
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Error: ${uiState.errorMessage}", color = MaterialTheme.colorScheme.error)
     }

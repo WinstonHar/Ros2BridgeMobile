@@ -2,17 +2,15 @@ package com.examples.testros2jsbridge.domain.usecase.configuration
 
 import com.examples.testros2jsbridge.domain.model.AppConfiguration
 import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-interface ValidateConfigUseCase {
-    suspend fun isValidConfig(config: AppConfiguration): Boolean
-}
-
-class ValidateConfigUseCase(
+class ValidateConfigUseCase @Inject constructor(
     private val configurationRepository: ConfigurationRepository
-) : ValidateConfigUseCase {
+) {
 
-    override suspend fun isValidConfig(config: AppConfiguration): Boolean {
+     suspend fun isValidConfig(config: AppConfiguration): Boolean {
         return withContext(Dispatchers.IO) {
             // Validate ROS Server URL
             val urlPattern = Regex("""^wss?://[^\s]+$""")

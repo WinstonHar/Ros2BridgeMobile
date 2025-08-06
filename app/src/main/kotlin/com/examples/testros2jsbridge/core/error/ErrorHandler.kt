@@ -1,15 +1,14 @@
 package com.examples.testros2jsbridge.core.error
 
 import com.examples.testros2jsbridge.domain.model.RosId
-import kotlinx.coroutines.channels.BroadcastChannel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class ErrorHandler {
+    private val _errorFlow = MutableSharedFlow<String>(replay = 0)
+    val errorFlow = _errorFlow.asSharedFlow()
 
-    private val errorChannel = BroadcastChannel<String>(ChannelName) // ChannelName defined elsewhere
-
-    fun handle(exception: Throwable) {
-        // Broadcast the exception to all interested consumers
-        errorChannel.send(exception.message ?: "Unknown error")
+    suspend fun handle(exception: Throwable) {
+        _errorFlow.emit(exception.message ?: "Unknown error")
     }
 }

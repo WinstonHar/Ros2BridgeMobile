@@ -6,10 +6,10 @@ Eliminates manual ViewModel creation in MainActivity:103-108
 
 import android.content.Context
 import androidx.room.Room
-import com.example.ros2bridge.data.local.database.RosDatabase
-import com.example.ros2bridge.data.local.database.dao.PublisherDao
-import com.example.ros2bridge.data.local.database.dao.SubscriberDao
-import com.example.ros2bridge.data.local.database.dao.ConfigurationDao
+import com.examples.testros2jsbridge.data.local.database.RosDatabase
+import com.examples.testros2jsbridge.data.local.database.dao.ConfigurationDao
+import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

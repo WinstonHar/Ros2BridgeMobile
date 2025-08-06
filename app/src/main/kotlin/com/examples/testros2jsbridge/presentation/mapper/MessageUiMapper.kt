@@ -6,6 +6,7 @@ import com.examples.testros2jsbridge.presentation.state.GeometryUiState
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 
 object MessageUiMapper {
     private val jsonFormatter = Json { prettyPrint = true; isLenient = true }

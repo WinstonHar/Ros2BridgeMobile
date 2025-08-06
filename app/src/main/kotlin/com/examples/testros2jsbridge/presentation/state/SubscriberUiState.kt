@@ -15,5 +15,6 @@ data class SubscriberUiState(
     val showErrorDialog: Boolean = false,                 // Show error dialog
     val errorMessage: String? = null,                     // Error message to display
     val showAddSubscriberDialog: Boolean = false,         // Show/hide add subscriber dialog
-    val showSubscriberHistory: Boolean = false            // Show/hide message history for selected subscriber
+    val showSubscriberHistory: Boolean = false,           // Show/hide message history for selected subscriber
+    val messageHistory: List<String> = emptyList()        // Log/history for received messages
 )

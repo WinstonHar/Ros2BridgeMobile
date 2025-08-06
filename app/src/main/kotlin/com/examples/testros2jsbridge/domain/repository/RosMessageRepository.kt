@@ -5,12 +5,19 @@ Message handling contract
  */
 
 import com.examples.testros2jsbridge.domain.model.*
-import kotlinx.coroutines.flow.Flow
 
-interface RosMessageRepository : com.examples.testros2jsbridge.core.base.RosRepository {
-    val messages: Flow<RosMessage>
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
+import kotlinx.coroutines.flow.MutableStateFlow
 
-    suspend fun saveMessage(message: RosMessage)
-    suspend fun getMessage(messageId: RosId): RosMessage
-    suspend fun getMessagesByTopic(topicId: RosId): List<RosMessage>
+interface RosMessageRepository{
+    val messages: MutableStateFlow<List<RosMessageDto>>
+
+    suspend fun saveMessage(message: RosMessageDto)
+    suspend fun getMessage(messageId: String): RosMessageDto?
+    suspend fun getMessagesByTopic(topic: RosId): List<RosMessageDto>
+
+    fun publishMessage(message: RosMessage)
+    fun clearCustomMessage()
+    fun onCustomMessageChange(newMessage: String)
+    fun updateConnectionStatus(status: String)
 }

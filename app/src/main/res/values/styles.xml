@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.TestRos2JSBridge" parent="Theme.Material3.DayNight.NoActionBar">
+       
+    </style>
+</resources>

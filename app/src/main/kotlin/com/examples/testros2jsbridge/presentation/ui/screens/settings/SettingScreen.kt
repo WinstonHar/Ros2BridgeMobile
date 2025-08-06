@@ -5,10 +5,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.examples.testros2jsbridge.presentation.state.SettingUiState
 
 @Composable
-fun SettingScreen(viewModel: SettingsViewModel) {
+fun SettingScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.padding(16.dp)) {
@@ -44,10 +43,11 @@ fun SettingScreen(viewModel: SettingsViewModel) {
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Auto-connect toggle
+
+        // Auto-connect toggle (offloaded to reconnectOnFailure)
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Checkbox(checked = uiState.autoConnectEnabled, onCheckedChange = viewModel::setAutoConnectEnabled)
-            Text("Auto-connect to last ROS server")
+            Checkbox(checked = uiState.reconnectOnFailure, onCheckedChange = { viewModel.setReconnectOnFailure(it) })
+            Text("Auto-reconnect on failure")
         }
         Spacer(modifier = Modifier.height(16.dp))
 

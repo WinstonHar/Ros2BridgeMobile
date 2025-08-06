@@ -5,16 +5,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.examples.testros2jsbridge.domain.model.AppAction
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopicSelector(
-    topics: List<String>,
-    selectedTopic: String?,
-    onTopicSelected: (String) -> Unit,
+    topics: List<AppAction>,
+    selectedTopic: AppAction?,
+    onTopicSelected: (AppAction?) -> Unit,
     label: String = "Select Topic"
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var currentTopic by remember { mutableStateOf(selectedTopic ?: "") }
+    var currentTopic by remember { mutableStateOf(selectedTopic) }
 
     Column(modifier = Modifier.padding(16.dp)) {
         Text(text = label, style = MaterialTheme.typography.titleMedium)
@@ -24,11 +26,8 @@ fun TopicSelector(
             onExpandedChange = { expanded = !expanded }
         ) {
             OutlinedTextField(
-                value = currentTopic,
-                onValueChange = {
-                    currentTopic = it
-                    onTopicSelected(it)
-                },
+                value = currentTopic?.displayName ?: "",
+                onValueChange = {},
                 label = { Text(label) },
                 readOnly = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -42,7 +41,7 @@ fun TopicSelector(
             ) {
                 topics.forEach { topic ->
                     DropdownMenuItem(
-                        text = { Text(topic) },
+                        text = { Text(topic.displayName) },
                         onClick = {
                             currentTopic = topic
                             onTopicSelected(topic)

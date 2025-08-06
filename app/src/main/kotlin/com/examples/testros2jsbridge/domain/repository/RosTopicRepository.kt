@@ -5,11 +5,15 @@ Topic management interface
  */
 
 import com.examples.testros2jsbridge.domain.model.*
-import kotlinx.coroutines.flow.Flow
 
-interface RosTopicRepository : com.examples.testros2jsbridge.core.base.RosRepository {
-    val topics: Flow<RosTopic>
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosTopicDto
+import kotlinx.coroutines.flow.StateFlow
 
-    suspend fun saveTopic(topic: RosTopic)
-    suspend fun getTopic(topicId: RosId): RosTopic
+interface RosTopicRepository {
+    val subscribedTopics: StateFlow<Set<RosTopicDto>>
+
+    fun subscribe(topic: RosTopic)
+    fun unsubscribe(topicName: String)
+    fun clearSubscriptions()
+    suspend fun getTopics(): List<RosTopicDto>
 }

@@ -2,14 +2,14 @@ package com.examples.testros2jsbridge.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
+import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
 import org.json.JSONArray
 import org.json.JSONObject
 import org.yaml.snakeyaml.Yaml
@@ -17,12 +17,12 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStream
 import java.io.OutputStreamWriter
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.sign
+import javax.inject.Inject
+import com.examples.testros2jsbridge.domain.model.JoystickMapping
+import com.examples.testros2jsbridge.domain.model.RosId
 
-class ControllerRepositoryImpl(
-    private val context: Context,
+class ControllerRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val prefs: SharedPreferences
 ) : ControllerRepository {
 
@@ -43,24 +43,8 @@ class ControllerRepositoryImpl(
         // Persist as needed
     }
 
-    fun getControllers(): List<RosController> {
-        val controllers = mutableListOf<RosController>()
-
-        subscribers.forEach { subscriber ->
-            if (subscriber is RosTopicSubscriber<*, *>) {
-                val topic = subscriber.topic
-                if (topic.name == "controller_state") {
-                    val messageType = ROSMsg::class.java
-                    val messageList: List<ROSMsg> = rosMessageService.getMessages(topic, messageType)
-                    messageList.forEach { msg ->
-                        val controller = ControllerStateMsg.fromByteArray(msg.data)
-                        controllers.add(controller)
-                    }
-                }
-            }
-        }
-
-        return controllers
+    override suspend fun getController(): ControllerConfig {
+        TODO("Not yet implemented")
     }
 
     fun saveJoystickMappings(mappings: List<JoystickMapping>) {
@@ -94,7 +78,7 @@ class ControllerRepositoryImpl(
                     list.add(
                         JoystickMapping(
                             displayName = obj.optString("displayName", "Joystick"),
-                            topic = obj.optString("topic", null),
+                            topic = obj.optString("topic", null) as RosId?,
                             type = obj.optString("type", null),
                             axisX = obj.optInt("axisX", 0),
                             axisY = obj.optInt("axisY", 1),
@@ -168,7 +152,7 @@ class ControllerRepositoryImpl(
                     list.add(
                         ControllerPreset(
                             name = obj.optString("name", "Preset"),
-                            topic = obj.optString("topic", ""),
+                            topic = obj.optString("topic", "") as RosId?,
                             abxy = abxyMap
                         )
                     )
@@ -176,7 +160,7 @@ class ControllerRepositoryImpl(
             } catch (_: Exception) {}
         }
         if (list.isEmpty()) {
-            list.add(ControllerPreset("Default", "/cmd_vel", mapOf("A" to "", "B" to "", "X" to "", "Y" to "")))
+            list.add(ControllerPreset("Default", "/cmd_vel" as RosId?, mapOf("A" to "", "B" to "", "X" to "", "Y" to "")))
         }
         return list
     }
@@ -216,7 +200,14 @@ class ControllerRepositoryImpl(
                     val source = obj.optString("source", "")
                     val msg = obj.optString("msg", "")
                     if (btn in controllerButtons) {
-                        map[btn] = AppAction(name, topic, type, source, msg)
+                        map[btn] = AppAction(
+                            id = btn, // Use button name as id for assignments
+                            displayName = name,
+                            topic = topic,
+                            type = type,
+                            source = source,
+                            msg = msg
+                        )
                     }
                 }
             } catch (_: Exception) {}
@@ -248,8 +239,22 @@ class ControllerRepositoryImpl(
                     val max = obj.optDouble("max", 1.0).toFloat()
                     val step = obj.optDouble("step", 0.1).toFloat()
                     val value = obj.optDouble("value", 0.0).toFloat()
-                    actions.add(AppAction("Increment $name", topic, type, "SliderIncrement", actions.size.toString()))
-                    actions.add(AppAction("Decrement $name", topic, type, "SliderDecrement", actions.size.toString()))
+                    actions.add(AppAction(
+                        id = "slider_inc_${name}_$topic",
+                        displayName = "Increment $name",
+                        topic = topic,
+                        type = type,
+                        source = "SliderIncrement",
+                        msg = actions.size.toString()
+                    ))
+                    actions.add(AppAction(
+                        id = "slider_dec_${name}_$topic",
+                        displayName = "Decrement $name",
+                        topic = topic,
+                        type = type,
+                        source = "SliderDecrement",
+                        msg = actions.size.toString()
+                    ))
                 }
             } catch (_: Exception) {}
         }
@@ -266,7 +271,14 @@ class ControllerRepositoryImpl(
                     val topic = obj.optString("topic", "")
                     val type = obj.optString("type", "")
                     val msg = obj.optString("msg", obj.optString("message", ""))
-                    actions.add(AppAction(name, topic, type, "Geometry", msg))
+                    actions.add(AppAction(
+                        id = "geometry_${name}_$topic",
+                        displayName = name,
+                        topic = topic,
+                        type = type,
+                        source = "Geometry",
+                        msg = msg
+                    ))
                 }
             } catch (_: Exception) {}
         }
@@ -283,7 +295,14 @@ class ControllerRepositoryImpl(
                     val topic = obj.optString("topic", "")
                     val type = obj.optString("type", "")
                     val msg = obj.optString("msg", "")
-                    actions.add(AppAction(name, topic, type, "Standard Message", msg))
+                    actions.add(AppAction(
+                        id = "stdmsg_${name}_$topic",
+                        displayName = name,
+                        topic = topic,
+                        type = type,
+                        source = "Standard Message",
+                        msg = msg
+                    ))
                 }
             }
         } catch (_: Exception) {}
@@ -298,19 +317,34 @@ class ControllerRepositoryImpl(
                     val obj = arr.getJSONObject(i)
                     if (obj.optString("displayName") == "Cycle Presets") continue
                     actions.add(AppAction(
-                        obj.optString("displayName", ""),
-                        obj.optString("topic", ""),
-                        obj.optString("type", ""),
-                        obj.optString("source", ""),
-                        obj.optString("msg", "")
+                        id = obj.optString("id", obj.optString("displayName", "") + "_" + obj.optString("topic", "")),
+                        displayName = obj.optString("displayName", ""),
+                        topic = obj.optString("topic", ""),
+                        type = obj.optString("type", ""),
+                        source = obj.optString("source", ""),
+                        msg = obj.optString("msg", "")
                     ))
                 }
             } catch (_: Exception) {}
         }
 
         // Cycle preset actions
-        actions.add(AppAction("Cycle Presets Forwards", "/ignore", "Set", "CyclePresetForward", ""))
-        actions.add(AppAction("Cycle Presets Backwards", "/ignore", "Set", "CyclePresetBackward", ""))
+        actions.add(AppAction(
+            id = "cycle_presets_forward",
+            displayName = "Cycle Presets Forwards",
+            topic = "/ignore",
+            type = "Set",
+            source = "CyclePresetForward",
+            msg = ""
+        ))
+        actions.add(AppAction(
+            id = "cycle_presets_backward",
+            displayName = "Cycle Presets Backwards",
+            topic = "/ignore",
+            type = "Set",
+            source = "CyclePresetBackward",
+            msg = ""
+        ))
 
         return actions
     }
@@ -381,7 +415,7 @@ class ControllerRepositoryImpl(
                         displayName = jm["displayName"] as? String ?: "",
                         max = (jm["max"] as? Float ?: (jm["max"] as? Double)?.toFloat() ?: (jm["max"] as? Number)?.toFloat() ?: 1.0f),
                         step = (jm["step"] as? Float ?: (jm["step"] as? Double)?.toFloat() ?: (jm["step"] as? Number)?.toFloat() ?: 0.2f),
-                        topic = jm["topic"] as? String,
+                        topic = jm["topic"] as? String as RosId?,
                         type = jm["type"] as? String
                     )
                 )
@@ -396,7 +430,7 @@ class ControllerRepositoryImpl(
                 controllerPresets.add(
                     ControllerPreset(
                         name = cp["name"] as? String ?: "",
-                        topic = cp["topic"] as? String ?: "",
+                        topic = (cp["topic"] as? String ?: "") as RosId?,
                         abxy = (cp["abxy"] as? Map<String, String>) ?: mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
                     )
                 )
@@ -409,11 +443,12 @@ class ControllerRepositoryImpl(
         for ((key, value) in baMap) {
             if (key is String && value is Map<*, *>) {
                 buttonAssignments[key] = AppAction(
+                    id = key,
                     displayName = value["displayName"] as? String ?: "",
-                    msg = value["msg"] as? String ?: "",
-                    source = value["source"] as? String ?: "",
                     topic = value["topic"] as? String ?: "",
-                    type = value["type"] as? String ?: ""
+                    type = value["type"] as? String ?: "",
+                    source = value["source"] as? String ?: "",
+                    msg = value["msg"] as? String ?: ""
                 )
             }
         }

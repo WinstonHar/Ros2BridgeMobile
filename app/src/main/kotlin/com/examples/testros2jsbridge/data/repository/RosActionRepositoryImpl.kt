@@ -1,4 +1,3 @@
-
 package com.examples.testros2jsbridge.data.repository
 
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
@@ -7,14 +6,30 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosActionDto
+import com.examples.testros2jsbridge.domain.model.RosAction
+import com.examples.testros2jsbridge.domain.model.RosId
+import kotlinx.serialization.InternalSerializationApi
 import java.util.UUID
-import android.util.Log
+import com.examples.testros2jsbridge.domain.repository.RosActionRepository
+import javax.inject.Inject
 
-class RosActionRepositoryImpl(
-    private val rosbridgeClient: RosbridgeClient
+class RosActionRepositoryImpl @Inject constructor(
+    private val rosbridgeClient: RosbridgeClient,
+    override val actions: MutableStateFlow<List<RosAction>>
 ) : RosActionRepository {
+    // Coroutine scope for launching jobs
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun forceClearAllActionBusyLocks() {
+    // Track goal IDs and statuses for each action
+    private val lastGoalIdMap = mutableMapOf<String, String>()
+    private val lastGoalStatusMap = mutableMapOf<String, String>()
+    private val pendingGoalMap = mutableMapOf<String, Triple<String, String, Map<String, ActionFieldValue>>>()
+    private val actionStatusFlows = mutableMapOf<String, MutableSharedFlow<Map<String, String>>>()
+
+
+     override fun forceClearAllActionBusyLocks() {
         lastGoalIdMap.clear()
         lastGoalStatusMap.clear()
         pendingGoalMap.clear()
@@ -23,16 +38,14 @@ class RosActionRepositoryImpl(
     override fun sendOrQueueActionGoal(
         actionName: String,
         actionType: String,
-        goalFields: JsonObject,
+        goalFields: Map<String, ActionFieldValue>,
         goalUuid: String,
-        onResult: ((String) -> Unit)?
+        onResult: ((RosActionDto) -> Unit)?
     ) {
         val prevGoalId = lastGoalIdMap[actionName]
         val prevGoalStatus = lastGoalStatusMap[actionName]
-        val handleTerminal: (String) -> Unit = { resultJson ->
-            val jsonElem = Json.parseToJsonElement(resultJson)
-            val obj = jsonElem.jsonObject
-            val statusCode = obj["values"]!!.jsonObject["status"]!!.jsonPrimitive.intOrNull ?: -1
+        val handleTerminal: (RosActionDto) -> Unit = { resultDto: RosActionDto ->
+            val statusCode = resultDto.resultCode ?: -1
             val statusString = when (statusCode) {
                 2 -> "ACTIVE"
                 3 -> "PREEMPTED"
@@ -48,7 +61,7 @@ class RosActionRepositoryImpl(
                 else -> "UNKNOWN"
             }
             lastGoalStatusMap[actionName] = statusString
-            onResult?.invoke(resultJson)
+            onResult?.invoke(resultDto)
         }
         if (prevGoalId != null && prevGoalStatus != null && prevGoalStatus != "SUCCEEDED" && prevGoalStatus != "CANCELED" && prevGoalStatus != "ABORTED" && prevGoalStatus != "REJECTED") {
             pendingGoalMap[actionName] = Triple(actionName, actionType, goalFields)
@@ -59,12 +72,12 @@ class RosActionRepositoryImpl(
             lastGoalStatusMap[actionName] = "PENDING"
             var terminalHandled = false
             val timeoutMillis = 10000L
-            val statusHandler: (String) -> Unit = { statusMsg ->
+            val statusHandler: (String) -> Unit = { statusMsg: String ->
                 val status = extractStatusForGoal(statusMsg, lastGoalIdMap[actionName])
                 if (!terminalHandled && (status == "SUCCEEDED" || status == "CANCELED" || status == "ABORTED" || status == "REJECTED")) {
                     terminalHandled = true
-                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultJson ->
-                        handleTerminal(resultJson)
+                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultDto: RosActionDto ->
+                        handleTerminal(resultDto)
                     }
                 }
                 handleStatusUpdate(statusMsg, actionName, actionType)
@@ -74,8 +87,8 @@ class RosActionRepositoryImpl(
                 delay(timeoutMillis)
                 if (!terminalHandled) {
                     terminalHandled = true
-                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultJson ->
-                        handleTerminal(resultJson)
+                    getActionResultViaService(actionName, actionType, lastGoalIdMap[actionName] ?: "") { resultDto ->
+                        handleTerminal(resultDto)
                     }
                     forceClearAllActionBusyLocks()
                 }
@@ -83,59 +96,22 @@ class RosActionRepositoryImpl(
         }
     }
 
-    private fun sendActionGoalViaService(actionName: String, actionType: String, goalFields: JsonObject, uuid: String): String? {
-        val names = getActionNames(actionName, actionType) ?: return null
-        val uuidBytes = uuidToByteArrayString(uuid)
-        return try {
-            val sendGoalRequest = buildJsonObject {
-                put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
-                put("goal", goalFields)
-            }
-            val op = RosBridgeServiceCall(
-                op = "call_service",
-                id = "service_call_${System.currentTimeMillis()}",
-                service = names.sendGoalService,
-                type = names.sendGoalType,
-                args = sendGoalRequest
-            )
-            val jsonString = Json.encodeToString(op)
-            rosbridgeClient.send(jsonString)
-            uuid
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    override fun cancelActionGoal(actionName: String, actionType: String, uuid: String) {
-        val names = getActionNames(actionName, actionType) ?: return
-        val cancelTopic = names.cancelTopic
-        val cancelType = "action_msgs/msg/GoalInfo"
-        advertiseTopic(cancelTopic, cancelType)
-        val now = System.currentTimeMillis()
-        val sec = (now / 1000).toInt()
-        val nanosec = ((now % 1000) * 1_000_000).toInt()
-        val uuidBytes = uuidToByteArrayString(uuid)
-        val cancelMsgJson = buildJsonObject {
-            put("stamp", buildJsonObject {
-                put("sec", sec)
-                put("nanosec", nanosec)
-            })
-            put("goal_id", buildJsonObject {
-                put("uuid", Json.parseToJsonElement(uuidBytes))
-            })
-        }.toString()
-        publishCustomRawMessage(cancelTopic, cancelType, cancelMsgJson)
-    }
-
     private val serviceResultHandlers = mutableMapOf<String, (String) -> Unit>()
-    private fun getActionResultViaService(actionName: String, actionType: String, goalUuid: String, onResult: (String) -> Unit) {
+    private fun getActionResultViaService(actionName: String, actionType: String, goalUuid: String, onResult: (RosActionDto) -> Unit) {
         val names = getActionNames(actionName, actionType) ?: return
         val uuidBytes = uuidToByteArrayString(goalUuid)
         val getResultRequest = buildJsonObject {
             put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
         }
         val id = "service_call_${System.currentTimeMillis()}"
-        serviceResultHandlers[id] = onResult
+        serviceResultHandlers[id] = { resultJson ->
+            try {
+                val dto = kotlinx.serialization.json.Json.decodeFromString(RosActionDto.serializer(), resultJson)
+                onResult(dto)
+            } catch (e: Exception) {
+                // Optionally log or handle error
+            }
+        }
         rosbridgeClient.send(Json.encodeToString(
             RosBridgeServiceCall(
                 op = "call_service",
@@ -168,28 +144,139 @@ class RosActionRepositoryImpl(
         }
     }
 
-    override fun subscribeToActionFeedback(actionName: String, actionType: String, onMessage: (String) -> Unit) {
+    @OptIn(InternalSerializationApi::class)
+    private fun sendActionGoalViaService(actionName: String, actionType: String, goalFields: Map<String, ActionFieldValue>, uuid: String): String? {
+        val names = getActionNames(actionName, actionType) ?: return null
+        val uuidBytes = uuidToByteArrayString(uuid)
+        return try {
+            val rosActionDto = RosActionDto(
+                action = actionName,
+                type = actionType,
+                goal = goalFields,
+                id = uuid,
+                goalId = uuid,
+                status = null,
+                result = null,
+                feedback = null,
+                resultCode = null,
+                resultText = null
+            )
+            // You may need to convert ActionFieldValue back to JsonObject for the actual service call
+            val sendGoalRequest = buildJsonObject {
+                put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
+                put("goal", actionFieldValueMapToJsonObject(goalFields))
+            }
+            val op = RosBridgeServiceCall(
+                op = "call_service",
+                id = "service_call_${System.currentTimeMillis()}",
+                service = names.sendGoalService,
+                type = names.sendGoalType,
+                args = sendGoalRequest
+            )
+            val jsonString = Json.encodeToString(op)
+            rosbridgeClient.send(jsonString)
+            uuid
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+     override fun cancelActionGoal(actionName: String, actionType: String, uuid: String) {
+        val names = getActionNames(actionName, actionType) ?: return
+        val cancelTopic = names.cancelTopic
+        val cancelType = "action_msgs/msg/GoalInfo"
+        advertiseTopic(cancelTopic, cancelType)
+        val now = System.currentTimeMillis()
+        val sec = (now / 1000).toInt()
+        val nanosec = ((now % 1000) * 1_000_000).toInt()
+        val uuidBytes = uuidToByteArrayString(uuid)
+        val cancelMsgJson = buildJsonObject {
+            put("stamp", buildJsonObject {
+                put("sec", sec)
+                put("nanosec", nanosec)
+            })
+            put("goal_id", buildJsonObject {
+                put("uuid", Json.parseToJsonElement(uuidBytes))
+            })
+        }.toString()
+        publishCustomRawMessage(cancelTopic, cancelType, cancelMsgJson)
+    }
+
+    @OptIn(InternalSerializationApi::class)
+    override fun subscribeToActionFeedback(
+        actionName: String,
+        actionType: String,
+        onMessage: (RosActionDto) -> Unit
+    ) {
         val names = getActionNames(actionName, actionType) ?: return
         val feedbackTopic = names.feedbackTopic
         val feedbackType = names.feedbackType
-        rosbridgeClient.subscribe(feedbackTopic, feedbackType, onMessage)
+        rosbridgeClient.subscribe(feedbackTopic, feedbackType) { msgJson ->
+            try {
+                val dto = kotlinx.serialization.json.Json.decodeFromString(RosActionDto.serializer(), msgJson)
+                onMessage(dto)
+            } catch (e: Exception) {
+                // Optionally log or handle error
+            }
+        }
     }
 
-    override fun subscribeToActionStatus(actionName: String, onMessage: (String) -> Unit) {
+     override fun subscribeToActionStatus(actionName: String, onMessage: (String) -> Unit) {
         val statusTopic = "$actionName/status"
         val statusType = "action_msgs/msg/GoalStatusArray"
         rosbridgeClient.subscribe(statusTopic, statusType, onMessage)
     }
-    // This should be called by RosbridgeClient when a service response arrives
-    fun handleServiceResponse(id: String, response: String) {
-        serviceResultHandlers.remove(id)?.invoke(response)
-    }
 
     override fun actionStatusFlow(actionName: String): SharedFlow<Map<String, String>> {
-        return actionStatusFlows.getOrPut(actionName) { MutableSharedFlow(extraBufferCapacity = 8) }
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun saveAction(action: RosAction) {
+        TODO("Not yet implemented")
+    }
+
+    override suspend fun getAction(actionId: RosId): RosAction {
+        TODO("Not yet implemented")
     }
 
     // Helper functions
+
+    // Converts JsonObject to Map<String, ActionFieldValue>
+    private fun jsonObjectToActionFieldValueMap(jsonObject: JsonObject): Map<String, ActionFieldValue> =
+        jsonObject.mapValues { (_, v) -> jsonElementToActionFieldValue(v) }
+
+    // Converts Map<String, ActionFieldValue> back to JsonObject
+    private fun actionFieldValueMapToJsonObject(map: Map<String, ActionFieldValue>): JsonObject =
+        buildJsonObject {
+            map.forEach { (k, v) -> put(k, actionFieldValueToJsonElement(v)) }
+        }
+
+    // Recursively convert JsonElement to ActionFieldValue
+    private fun jsonElementToActionFieldValue(element: JsonElement): ActionFieldValue = when {
+        element is JsonPrimitive && element.isString -> ActionFieldValue.StringValue(element.content)
+        element is JsonPrimitive && element.booleanOrNull != null -> ActionFieldValue.BoolValue(element.boolean)
+        element is JsonPrimitive && element.intOrNull != null -> ActionFieldValue.IntValue(element.int)
+        element is JsonPrimitive && element.doubleOrNull != null -> ActionFieldValue.DoubleValue(element.double)
+        element is JsonObject -> ActionFieldValue.ObjectValue(
+            element.mapValues { (_, v) -> jsonElementToActionFieldValue(v) }
+        )
+        element is JsonArray -> ActionFieldValue.ListValue(
+            element.map { jsonElementToActionFieldValue(it) }
+        )
+        else -> ActionFieldValue.StringValue(element.toString())
+    }
+
+    // Recursively convert ActionFieldValue to JsonElement
+    private fun actionFieldValueToJsonElement(value: ActionFieldValue): JsonElement = when (value) {
+        is ActionFieldValue.StringValue -> JsonPrimitive(value.value)
+        is ActionFieldValue.BoolValue -> JsonPrimitive(value.value)
+        is ActionFieldValue.IntValue -> JsonPrimitive(value.value)
+        is ActionFieldValue.DoubleValue -> JsonPrimitive(value.value)
+        is ActionFieldValue.ObjectValue -> buildJsonObject {
+            value.value.forEach { (k, v) -> put(k, actionFieldValueToJsonElement(v)) }
+        }
+        is ActionFieldValue.ListValue -> JsonArray(value.value.map { actionFieldValueToJsonElement(it) })
+    }
     private fun getActionNames(actionName: String, actionType: String): RosActionNames? {
         val parts = actionType.split('/')
         if (parts.size < 3) return null
@@ -206,6 +293,18 @@ class RosActionRepositoryImpl(
             getResultType = "$pkg/action/${actionNameBase}_GetResult"
         )
     }
+
+    // Data class for action topic/type names
+    private data class RosActionNames(
+        val feedbackTopic: String,
+        val statusTopic: String,
+        val cancelTopic: String,
+        val sendGoalService: String,
+        val getResultService: String,
+        val feedbackType: String,
+        val sendGoalType: String,
+        val getResultType: String
+    )
 
     private fun uuidToByteArrayString(uuid: String): String {
         return try {

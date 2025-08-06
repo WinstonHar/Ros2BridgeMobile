@@ -1,12 +1,14 @@
 package com.examples.testros2jsbridge.core.base
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
 abstract class BaseViewModel<T> : ViewModel() {
-    val data: LiveData<T> = MutableLiveData()
+    private val _data = MutableLiveData<T>()
+    val data: LiveData<T> = _data
 
     protected fun updateData(value: T) {
-        data.value = value
+        _data.value = value
     }
 }

@@ -16,5 +16,7 @@ data class ConnectionUiState(
     val showAuthDialog: Boolean = false,
     val authTokenInput: String = "",
     val serverNameInput: String = "",
-    val lastUpdated: Long = System.currentTimeMillis()
+    val lastUpdated: Long = System.currentTimeMillis(),
+    val isConnected: Boolean = false,
+    val connectionStatus: String = ""
 )

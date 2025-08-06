@@ -1,35 +1,28 @@
 package com.examples.testros2jsbridge.data.local.database.dao
 
-import com.examples.testros2jsbridge.domain.model.Publisher
-import com.examples.testros2jsbridge.domain.model.RosId
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.Update
+import com.examples.testros2jsbridge.data.local.database.entities.PublisherEntity
 
-/**
- * In-memory DAO for Publisher management.
- */
-class PublisherDao {
-    private val _publishers = MutableStateFlow<List<Publisher>>(emptyList())
-    val publishers: StateFlow<List<Publisher>> get() = _publishers
+@Dao
+abstract class PublisherDao {
+    @Insert
+    abstract suspend fun insertPublisher(publisher: PublisherEntity)
 
-    private val publisherMap = mutableMapOf<RosId, Publisher>()
+    @Update
+    abstract suspend fun updatePublisher(publisher: PublisherEntity)
 
-    fun savePublisher(publisher: Publisher) {
-        publisher.id?.let { publisherMap[it] = publisher }
-        _publishers.value = publisherMap.values.toList()
-    }
+    @Query("SELECT * FROM publisher")
+    abstract suspend fun getAllPublishers(): List<PublisherEntity>
 
-    fun getPublisher(publisherId: RosId): Publisher? {
-        return publisherMap[publisherId]
-    }
+    @Query("SELECT * FROM publisher WHERE id = :publisherId LIMIT 1")
+    abstract suspend fun getPublisherById(publisherId: String): PublisherEntity?
 
-    fun deletePublisher(publisherId: RosId) {
-        publisherMap.remove(publisherId)
-        _publishers.value = publisherMap.values.toList()
-    }
+    @Query("DELETE FROM publisher WHERE id = :publisherId")
+    abstract suspend fun deletePublisherById(publisherId: String)
 
-    fun clearPublishers() {
-        publisherMap.clear()
-        _publishers.value = emptyList()
-    }
+    @Query("DELETE FROM publisher")
+    abstract suspend fun clearPublishers()
 }

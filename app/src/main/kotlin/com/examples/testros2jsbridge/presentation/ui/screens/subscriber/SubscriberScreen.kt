@@ -46,7 +46,7 @@ fun SubscriberScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text(text = subscriber.label, style = MaterialTheme.typography.bodyLarge)
+                            subscriber.label?.let { Text(text = it, style = MaterialTheme.typography.bodyLarge) }
                             Text(text = "${subscriber.topic.value} (${subscriber.type})", style = MaterialTheme.typography.bodySmall)
                             Text(text = "Last: ${subscriber.lastMessage ?: "-"}", style = MaterialTheme.typography.bodySmall)
                         }

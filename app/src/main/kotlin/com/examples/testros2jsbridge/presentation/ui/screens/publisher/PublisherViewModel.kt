@@ -13,8 +13,11 @@ import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class PublisherViewModel(
+@HiltViewModel
+class PublisherViewModel @Inject constructor(
     private val publisherRepository: com.examples.testros2jsbridge.domain.repository.PublisherRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PublisherUiState())
@@ -26,6 +29,15 @@ class PublisherViewModel(
                 _uiState.value = _uiState.value.copy(publishers = publishers)
             }
         }
+    }
+
+    /**
+     * Appends a message to the message history in the UI state.
+     */
+    fun appendToMessageHistory(msg: String) {
+        val truncated = if (msg.length > 300) msg.take(300) + "... [truncated]" else msg
+        val newHistory = (_uiState.value.messageHistory + truncated).takeLast(25)
+        _uiState.value = _uiState.value.copy(messageHistory = newHistory)
     }
 
     fun selectPublisher(publisher: Publisher) {
@@ -99,6 +111,7 @@ class PublisherViewModel(
         viewModelScope.launch {
             val updatedPublisher = publisher.copy(lastPublishedTimestamp = System.currentTimeMillis())
             publisherRepository.savePublisher(updatedPublisher)
+            appendToMessageHistory("Published to ${publisher.topic.value}: ${publisher.message}")
         }
     }
 

@@ -2,6 +2,9 @@ package com.examples.testros2jsbridge.data.local.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.examples.testros2jsbridge.data.local.database.dao.ConfigurationDao
+import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import com.examples.testros2jsbridge.data.local.database.entities.ConfigurationEntity
 import com.examples.testros2jsbridge.data.local.database.entities.PublisherEntity
 import com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity

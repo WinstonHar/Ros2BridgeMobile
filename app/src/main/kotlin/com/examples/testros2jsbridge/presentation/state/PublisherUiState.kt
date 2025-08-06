@@ -15,5 +15,6 @@ data class PublisherUiState(
     val showErrorDialog: Boolean = false,                  // Show error dialog
     val errorMessage: String? = null,                      // Error message to display
     val showAddPublisherDialog: Boolean = false,           // Show/hide add publisher dialog
-    val showEditPublisherDialog: Boolean = false           // Show/hide edit publisher dialog
+    val showEditPublisherDialog: Boolean = false,          // Show/hide edit publisher dialog
+    val messageHistory: List<String> = emptyList()         // Log/history for published messages
 )

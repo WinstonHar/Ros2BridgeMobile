@@ -5,11 +5,11 @@ Interface for connection abstraction
  */
 
 import com.examples.testros2jsbridge.domain.model.*
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
-interface RosConnectionRepository : com.examples.testros2jsbridge.core.base.RosRepository {
-    val connections: Flow<RosConnection>
+interface RosConnectionRepository {
+    val connections: StateFlow<List<RosConnection>>
 
-    suspend fun saveConnection(connection: RosConnection)
-    suspend fun getConnection(connectionId: RosId): RosConnection
+    suspend fun saveConnection(connection: RosConnection?)
+    suspend fun getConnection(connectionId: RosId): RosConnection?
 }

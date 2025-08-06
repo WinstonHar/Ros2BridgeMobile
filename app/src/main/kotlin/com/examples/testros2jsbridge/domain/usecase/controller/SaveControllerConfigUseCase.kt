@@ -4,8 +4,9 @@ import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-class SaveControllerConfigUseCase(
+class SaveControllerConfigUseCase @Inject constructor(
     private val controllerRepository: ControllerRepository
 ) {
     suspend fun save(config: ControllerConfig) {

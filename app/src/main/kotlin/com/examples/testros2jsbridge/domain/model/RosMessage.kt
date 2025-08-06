@@ -12,5 +12,8 @@ data class RosMessage(
     val timestamp: Long = System.currentTimeMillis(),
     val label: String? = null, // For saved/reusable messages
     val sender: String? = null,
-    val isPublished: Boolean = true // True if sent, false if received
+    val isPublished: Boolean = true, // True if sent, false if received
+    val op: String,
+    val latch: Boolean? = null,
+    val queue_size: Int? = null
 )

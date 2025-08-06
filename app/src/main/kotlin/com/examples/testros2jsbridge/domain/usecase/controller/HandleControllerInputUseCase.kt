@@ -1,13 +1,14 @@
 package com.examples.testros2jsbridge.domain.usecase.controller
 
 import com.examples.testros2jsbridge.domain.model.AppAction
-import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
+import javax.inject.Inject
 
 /**
  * Handles key and joystick input events.
  */
-class HandleControllerInputUseCase {
+
+class HandleControllerInputUseCase @Inject constructor() {
 
 
     private val keyCodeToButtonMap: Map<Int, String> = mapOf(
@@ -43,7 +44,8 @@ class HandleControllerInputUseCase {
         return clamped(quantX, maxValue) to clamped(quantY, maxValue)
     }
 
-    private fun clamped(value: Float, maxValue: Float): Float {
-        return Math.min(Math.max(value, -maxValue), maxValue)
+    private fun clamped(value: Double, maxValue: Float): Float {
+        val maxVal = maxValue.toDouble()    
+        return Math.min(Math.max(value, -maxVal), maxVal).toFloat()
     }
 }

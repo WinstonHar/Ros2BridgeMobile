@@ -22,12 +22,12 @@ class RosNavigation {
         navController.navigate(Destinations.CONTROLLER_SCREEN)
     }
 
-    fun toGeometryMessage(navController: NavHostController, geometry: com.examples.testros2jsbridge.domain.model.GeometryMessage? = null) {
+    fun toGeometryMessage(navController: NavHostController, geometry: com.examples.testros2jsbridge.domain.model.RosMessage? = null) {
         // Pass geometry as argument if needed
         navController.navigate(Destinations.GEOMETRY_MESSAGE_SCREEN)
     }
 
-    fun toCustomProtocol(navController: NavHostController, protocol: com.examples.testros2jsbridge.domain.model.CustomProtocol? = null) {
+    fun toCustomProtocol(navController: NavHostController, protocol: com.examples.testros2jsbridge.presentation.state.ProtocolUiState.ProtocolFile? = null) {
         // Pass protocol as argument if needed
         navController.navigate(Destinations.CUSTOM_PROTOCOL_SCREEN)
     }
@@ -54,6 +54,7 @@ class RosNavigation {
         navController.navigate(Destinations.TOPIC_LIST_SCREEN)
     }
 
+    /* not implemented yet
     fun toMessages(navController: NavHostController, message: com.examples.testros2jsbridge.domain.model.RosMessage? = null) {
         navController.navigate(Destinations.MESSAGES_SCREEN)
     }
@@ -80,7 +81,7 @@ class RosNavigation {
 
     fun toAppConfiguration(navController: NavHostController, config: com.examples.testros2jsbridge.domain.model.AppConfiguration? = null) {
         navController.navigate(Destinations.APP_CONFIGURATION_SCREEN)
-    }
+    } */
 
     // Add more navigation helpers as needed for other screens and argument types
 }

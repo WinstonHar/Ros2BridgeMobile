@@ -13,5 +13,6 @@ data class Subscriber(
     val label: String? = null, // For UI display
     val isEnabled: Boolean = true, // For UI toggling
     val group: String? = null, // For grouping subscriptions (optional)
-    val timestamp: Long = System.currentTimeMillis() // Last subscription update
+    val timestamp: Long = System.currentTimeMillis(), // Last subscription update
+    val messageHistory: Any
 )

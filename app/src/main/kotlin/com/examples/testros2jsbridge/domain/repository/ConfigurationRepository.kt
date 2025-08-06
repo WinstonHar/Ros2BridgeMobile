@@ -1,15 +1,17 @@
 package com.examples.testros2jsbridge.domain.repository
 
-/*
-Configuration management interface
- */
-
-import com.examples.testros2jsbridge.domain.model.*
+import com.examples.testros2jsbridge.domain.model.AppConfiguration
+import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import kotlinx.coroutines.flow.Flow
+import java.io.InputStream
+import java.io.OutputStream
 
-interface ConfigurationRepository : com.examples.testros2jsbridge.core.base.RosRepository {
-    val configuration: Flow<AppConfiguration> // Use Flow for reactive updates
+interface ConfigurationRepository {
+    val config: Flow<AppConfiguration?>
 
-    suspend fun saveConfiguration(configuration: AppConfiguration)
-    suspend fun getConfiguration(): AppConfiguration
+    suspend fun saveConfig(config: AppConfiguration)
+    suspend fun getConfig(): AppConfiguration
+
+    fun exportConfigToStream(out: OutputStream)
+    fun importConfigFromStream(inp: InputStream)
 }

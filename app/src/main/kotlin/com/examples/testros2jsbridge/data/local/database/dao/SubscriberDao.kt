@@ -1,35 +1,32 @@
 package com.examples.testros2jsbridge.data.local.database.dao
 
-import com.examples.testros2jsbridge.domain.model.Subscriber
-import com.examples.testros2jsbridge.domain.model.RosId
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.Update
+import com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity
+import kotlinx.coroutines.flow.Flow
 
-/**
- * In-memory DAO for Subscriber management.
- */
-class SubscriberDao {
-    private val _subscribers = MutableStateFlow<List<Subscriber>>(emptyList())
-    val subscribers: StateFlow<List<Subscriber>> get() = _subscribers
+@Dao
+abstract class SubscriberDao {
+    @Insert
+    abstract suspend fun insertSubscriber(subscriber: SubscriberEntity)
 
-    private val subscriberMap = mutableMapOf<RosId, Subscriber>()
+    @Update
+    abstract suspend fun updateSubscriber(subscriber: SubscriberEntity)
 
-    fun saveSubscriber(subscriber: Subscriber) {
-        subscriber.topic.let { subscriberMap[it] = subscriber }
-        _subscribers.value = subscriberMap.values.toList()
-    }
+    @Query("SELECT * FROM subscriber")
+    abstract suspend fun getAllSubscribers(): List<SubscriberEntity>
 
-    fun getSubscriber(topicId: RosId): Subscriber? {
-        return subscriberMap[topicId]
-    }
+    @Query("SELECT * FROM subscriber")
+    abstract fun getAllSubscribersFlow(): Flow<List<SubscriberEntity>>
 
-    fun deleteSubscriber(topicId: RosId) {
-        subscriberMap.remove(topicId)
-        _subscribers.value = subscriberMap.values.toList()
-    }
+    @Query("SELECT * FROM subscriber WHERE topic = :topicId LIMIT 1")
+    abstract suspend fun getSubscriberByTopic(topicId: String): SubscriberEntity?
 
-    fun clearSubscribers() {
-        subscriberMap.clear()
-        _subscribers.value = emptyList()
-    }
+    @Query("DELETE FROM subscriber WHERE topic = :topicId")
+    abstract suspend fun deleteSubscriberByTopic(topicId: String)
+
+    @Query("DELETE FROM subscriber")
+    abstract suspend fun clearSubscribers()
 }

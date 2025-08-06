@@ -1,4 +1,4 @@
-
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
 package com.examples.testros2jsbridge.data.remote.rosbridge.dto
 
 import kotlinx.serialization.Serializable

@@ -7,7 +7,7 @@ Controller logic interface
 import com.examples.testros2jsbridge.domain.model.*
 import kotlinx.coroutines.flow.Flow
 
-interface ControllerRepository : com.examples.testros2jsbridge.core.base.RosRepository {
+interface ControllerRepository {
     val controller: Flow<ControllerConfig>
 
     suspend fun saveController(controller: ControllerConfig)

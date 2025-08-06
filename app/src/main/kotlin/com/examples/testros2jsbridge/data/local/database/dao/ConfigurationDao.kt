@@ -1,26 +1,25 @@
 package com.examples.testros2jsbridge.data.local.database.dao
 
-import com.examples.testros2jsbridge.domain.model.AppConfiguration
-import com.examples.testros2jsbridge.domain.model.RosId
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.Query
+import androidx.room.Update
+import com.examples.testros2jsbridge.data.local.database.entities.ConfigurationEntity
 
 /**
  * Centralized config DAO for managing AppConfiguration.
  */
-class ConfigurationDao {
-    private val _configuration = MutableStateFlow<AppConfiguration?>(null)
-    val configuration: StateFlow<AppConfiguration?> get() = _configuration
+@Dao
+abstract class ConfigurationDao {
+    @Insert
+    abstract suspend fun insertConfiguration(config: ConfigurationEntity)
 
-    fun saveConfiguration(config: AppConfiguration) {
-        _configuration.value = config
-    }
+    @Update
+    abstract suspend fun updateConfiguration(config: ConfigurationEntity)
 
-    fun getConfiguration(): AppConfiguration? {
-        return _configuration.value
-    }
+    @Query("SELECT * FROM configuration LIMIT 1")
+    abstract suspend fun getConfiguration(): ConfigurationEntity?
 
-    fun clearConfiguration() {
-        _configuration.value = null
-    }
+    @Query("DELETE FROM configuration")
+    abstract suspend fun clearConfiguration()
 }

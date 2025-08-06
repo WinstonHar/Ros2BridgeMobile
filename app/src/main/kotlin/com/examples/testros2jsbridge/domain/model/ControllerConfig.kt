@@ -1,5 +1,8 @@
 package com.examples.testros2jsbridge.domain.model
 
+import org.yaml.snakeyaml.Yaml
+import java.io.StringWriter
+
 /*
 Controller configuration business rules
 */
@@ -16,7 +19,53 @@ data class ControllerConfig(
     val buttonAssignments: Map<String, AppAction> = emptyMap(),
     val joystickPublishRate: Int = 5
     // Add other controller-specific settings as needed
-)
+) {
+    companion object
+}
+// --- Extension functions for YAML and Map conversion ---
+
+fun ControllerConfig.toYaml(): String {
+    val yaml = Yaml()
+    val writer = StringWriter()
+    yaml.dump(this.toMap(), writer)
+    return writer.toString()
+}
+
+fun ControllerConfig.Companion.fromYaml(yamlString: String): ControllerConfig {
+    val yaml = Yaml()
+    val map = yaml.load<Map<String, Any>>(yamlString)
+    return fromMap(map)
+}
+
+fun ControllerConfig.toMap(): Map<String, Any?> {
+    return mapOf(
+        "addressingMode" to addressingMode,
+        "sensitivity" to sensitivity,
+        "buttonPresets" to buttonPresets,
+        "invertYAxis" to invertYAxis,
+        "deadZone" to deadZone,
+        "customProfileName" to customProfileName,
+        "joystickMappings" to joystickMappings,
+        "controllerPresets" to controllerPresets,
+        "buttonAssignments" to buttonAssignments,
+        "joystickPublishRate" to joystickPublishRate
+    )
+}
+
+fun ControllerConfig.Companion.fromMap(map: Map<String, Any?>): ControllerConfig {
+    return ControllerConfig(
+        addressingMode = map["addressingMode"] as? RosId ?: RosId("DIRECT"),
+        sensitivity = (map["sensitivity"] as? Number)?.toFloat() ?: 1.0f,
+        buttonPresets = map["buttonPresets"] as? Map<String, String> ?: emptyMap(),
+        invertYAxis = map["invertYAxis"] as? Boolean ?: false,
+        deadZone = (map["deadZone"] as? Number)?.toFloat() ?: 0.05f,
+        customProfileName = map["customProfileName"] as? String,
+        joystickMappings = map["joystickMappings"] as? List<JoystickMapping> ?: emptyList(),
+        controllerPresets = map["controllerPresets"] as? List<ControllerPreset> ?: emptyList(),
+        buttonAssignments = map["buttonAssignments"] as? Map<String, AppAction> ?: emptyMap(),
+        joystickPublishRate = (map["joystickPublishRate"] as? Number)?.toInt() ?: 5
+    )
+}
 
 // These should be in their own files, but for reference:
 data class JoystickMapping(
@@ -37,8 +86,9 @@ data class ControllerPreset(
 )
 
 data class AppAction(
+    val id: String, // Unique identifier for persistence
     val displayName: String,
-    val topic: RosId,
+    val topic: String,
     val type: String,
     val source: String,
     val msg: String = ""

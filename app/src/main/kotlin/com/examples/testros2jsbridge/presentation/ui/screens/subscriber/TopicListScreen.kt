@@ -6,8 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
-import com.examples.testros2jsbridge.domain.model.Subscriber
 
 @Composable
 fun TopicListScreen(

@@ -3,6 +3,8 @@ package com.examples.testros2jsbridge.presentation.ui.screens.connection
 import com.examples.testros2jsbridge.presentation.state.ConnectionUiState
 
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -11,12 +13,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 
-class ConnectionViewModel : ViewModel() {
+@HiltViewModel
+class ConnectionViewModel @Inject constructor(
+    private val connectionRepository: com.examples.testros2jsbridge.domain.repository.RosConnectionRepository,
+    private val disconnectUseCase: com.examples.testros2jsbridge.domain.usecase.connection.DisconnectFromRosUseCase
+) : ViewModel() {
     private val _uiState = MutableStateFlow(ConnectionUiState())
     val uiState: StateFlow<ConnectionUiState> = _uiState
-
-    private val connectionRepository = com.examples.testros2jsbridge.data.repository.RosConnectionRepositoryImpl()
-    private val disconnectUseCase = com.examples.testros2jsbridge.domain.usecase.connection.DisconnectFromRosUseCase(connectionRepository)
 
     fun onIpAddressChange(ip: String) {
         _uiState.update { it.copy(ipInput = ip) }
@@ -41,6 +44,8 @@ class ConnectionViewModel : ViewModel() {
             _uiState.update {
                 it.copy(
                     connection = connection,
+                    isConnected = true,
+                    connectionStatus = "Connected",
                     isConnecting = false,
                     isConnectButtonEnabled = false,
                     isDisconnectButtonEnabled = true,
@@ -60,10 +65,11 @@ class ConnectionViewModel : ViewModel() {
                     _uiState.update {
                         it.copy(
                             connection = it.connection.copy(isConnected = false),
+                            isConnected = false,
+                            connectionStatus = "Disconnected",
                             isDisconnecting = false,
                             isConnectButtonEnabled = true,
-                            isDisconnectButtonEnabled = false,
-                            connection = it.connection.copy(isConnected = false)
+                            isDisconnectButtonEnabled = false
                         )
                     }
                 } else {
@@ -73,6 +79,8 @@ class ConnectionViewModel : ViewModel() {
                 _uiState.update {
                     it.copy(
                         connection = it.connection.copy(isConnected = false),
+                        isConnected = false,
+                        connectionStatus = "Disconnected",
                         isDisconnecting = false,
                         isConnectButtonEnabled = true,
                         isDisconnectButtonEnabled = false

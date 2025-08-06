@@ -25,8 +25,14 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideRosbridgeClient(okHttpClient: OkHttpClient): RosbridgeClient {
-        return RosbridgeClient(okHttpClient)
+    fun provideRosbridgeClient(
+        okHttpClient: OkHttpClient,
+        rosbridgeWebSocketListener: RosbridgeWebSocketListener
+    ): RosbridgeClient {
+        return RosbridgeClient(
+            okHttpClient,
+            listener = rosbridgeWebSocketListener
+        )
     }
 
     @Provides

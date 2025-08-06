@@ -3,9 +3,10 @@ package com.examples.testros2jsbridge.domain.repository
 import com.examples.testros2jsbridge.domain.model.Publisher
 import com.examples.testros2jsbridge.domain.model.RosId
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
-interface PublisherRepository : com.examples.testros2jsbridge.core.base.RosRepository {
-    val publishers: Flow<Publisher>
+interface PublisherRepository {
+    val publishers: StateFlow<List<Publisher>>
 
     suspend fun savePublisher(publisher: Publisher)
     suspend fun getPublisher(publisherId: RosId): Publisher?

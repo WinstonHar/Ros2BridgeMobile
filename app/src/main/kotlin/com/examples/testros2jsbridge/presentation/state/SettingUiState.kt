@@ -7,7 +7,7 @@ data class SettingUiState(
     val theme: String = "system",                // "light", "dark", "system"
     val language: String = "en",                 // Language code
     val notificationsEnabled: Boolean = true,     // App notifications toggle
-    val autoConnectEnabled: Boolean = false,      // Auto-connect to last ROS server
+    val reconnectOnFailure: Boolean = false,      // Auto-reconnect on failure
     val lastConnectedIp: String = "",            // Last used IP address
     val lastConnectedPort: String = "",          // Last used port
     val isSaving: Boolean = false,                // Show loading indicator when saving

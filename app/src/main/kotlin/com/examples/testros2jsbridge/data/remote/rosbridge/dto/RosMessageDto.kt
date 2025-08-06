@@ -1,5 +1,9 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
 package com.examples.testros2jsbridge.data.remote.rosbridge.dto
 
+import com.examples.testros2jsbridge.domain.model.RosId
+import com.examples.testros2jsbridge.domain.model.RosMessage
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,10 +13,21 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class RosMessageDto(
     val op: String,           // Operation type, e.g. "publish", "subscribe"
-    val topic: String,        // Topic name
+    @Contextual val topic: RosId,        // Topic name
     val type: String? = null, // Message type (optional for some ops)
-    val msg: Map<String, Any>? = null, // Message payload as a map (for generic JSON)
+    val msg: Map<String, String>? = null, // Message payload as a map (for generic JSON)
     val id: String? = null,   // Optional message ID for tracking
     val latch: Boolean? = null,
     val queue_size: Int? = null
+)
+
+// Extension function to convert from domain RosMessage to RosMessageDto
+fun RosMessage.toDto(): RosMessageDto = RosMessageDto(
+    op = this.op,
+    topic = this.topic,
+    type = this.type,
+    msg = mapOf("data" to this.content), // or adapt as needed for your ActionFieldValue
+    id = this.id,
+    latch = this.latch,
+    queue_size = this.queue_size
 )

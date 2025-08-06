@@ -3,23 +3,28 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.examples.testros2jsbridge.domain.model.AppAction
+import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
 
 @Composable
 fun ControllerConfigScreen(
     controllerButtons: List<String>,
-    appActions: List<String>,
-    presets: List<String>,
+    appActions: List<AppAction>,
+    presets: List<ControllerPreset>,
     selectedPreset: String?,
     onPresetSelected: (String) -> Unit,
     onAddPreset: () -> Unit,
     onRemovePreset: () -> Unit,
     onSavePreset: (String) -> Unit,
-    onControllerButtonAssign: (String, String) -> Unit,
+    onControllerButtonAssign: (String, AppAction?) -> Unit,
 ) {
+    // State: map of button name to assigned AppAction
+    var buttonAssignments by remember { mutableStateOf<Map<String, AppAction?>>(emptyMap()) }
     Column(modifier = Modifier.padding(16.dp)) {
         Text(text = "Connected controllers:", style = MaterialTheme.typography.titleMedium)
         Spacer(modifier = Modifier.height(8.dp))
@@ -28,9 +33,14 @@ fun ControllerConfigScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             controllerButtons.forEach { btn ->
+                val assigned = buttonAssignments[btn]
                 ControllerButton(
-                    buttonName = btn,
-                    onClick = { onControllerButtonAssign(btn, "") }
+                    label = { Text(btn) },
+                    assignedAction = assigned,
+                    onPress = { onControllerButtonAssign(btn, assigned) },
+                    onRelease = {},
+                    modifier = Modifier,
+                    labelText = btn
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -42,9 +52,14 @@ fun ControllerConfigScreen(
         var selectedButton by remember { mutableStateOf<String?>(null) }
         Row(modifier = Modifier.fillMaxWidth()) {
             controllerButtons.forEach { btn ->
+                val assigned = buttonAssignments[btn]
                 ControllerButton(
-                    buttonName = btn,
-                    onClick = { selectedButton = btn }
+                    label = { Text(btn) },
+                    assignedAction = assigned,
+                    onPress = { selectedButton = btn },
+                    onRelease = {},
+                    modifier = Modifier,
+                    labelText = btn
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -52,9 +67,10 @@ fun ControllerConfigScreen(
         Spacer(modifier = Modifier.height(8.dp))
         TopicSelector(
             topics = appActions,
-            selectedTopic = null,
+            selectedTopic = selectedButton?.let { buttonAssignments[it] },
             onTopicSelected = { action ->
                 selectedButton?.let { btn ->
+                    buttonAssignments = buttonAssignments.toMutableMap().apply { put(btn, action) }
                     onControllerButtonAssign(btn, action)
                 }
             },
@@ -72,8 +88,8 @@ fun ControllerConfigScreen(
             ) {
                 presets.forEach { preset ->
                     DropdownMenuItem(
-                        text = { Text(preset) },
-                        onClick = { onPresetSelected(preset) }
+                        text = { Text(preset.name) },
+                        onClick = { onPresetSelected(preset.name) }
                     )
                 }
             }
@@ -92,10 +108,14 @@ fun ControllerConfigScreen(
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf("A", "B", "X", "Y").forEach { btn ->
                 Text(text = "$btn:", modifier = Modifier.padding(end = 4.dp))
+                val assigned = buttonAssignments[btn]
                 TopicSelector(
                     topics = appActions,
-                    selectedTopic = null,
-                    onTopicSelected = { action -> onControllerButtonAssign(btn, action) },
+                    selectedTopic = assigned,
+                    onTopicSelected = { action ->
+                        buttonAssignments = buttonAssignments.toMutableMap().apply { put(btn, action) }
+                        onControllerButtonAssign(btn, action)
+                    },
                     label = "$btn Button Action"
                 )
                 Spacer(modifier = Modifier.width(8.dp))

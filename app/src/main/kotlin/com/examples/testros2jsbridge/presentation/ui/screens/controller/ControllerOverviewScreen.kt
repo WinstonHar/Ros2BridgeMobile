@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.domain.model.AppAction
-import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun ControllerOverviewScreen(
@@ -24,9 +26,9 @@ fun ControllerOverviewScreen(
     onAbxyButtonClick: (String) -> Unit = {},
     onPresetSwap: (ControllerPreset) -> Unit = {}
 ) {
-    val selectedPreset by viewModel.selectedPreset.collectAsState()
-    val presets by viewModel.presets.collectAsState()
-    val buttonAssignments by viewModel.buttonAssignments.collectAsState()
+    val selectedPreset: ControllerPreset? by viewModel.selectedPreset.collectAsState()
+    val presets: List<ControllerPreset> by viewModel.presets.collectAsState()
+    val buttonAssignments: Map<String, AppAction> by viewModel.buttonAssignments.collectAsState()
     var showPresetsOverlay by remember { mutableStateOf(false) }
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -61,13 +63,14 @@ fun ControllerOverviewScreen(
                 listOf("A", "B", "X", "Y").forEach { btn ->
                     val assignedAction = selectedPreset?.abxy?.get(btn)
                     ControllerButton(
-                        label = btn,
+                        label = { Text(btn) },
                         assignedAction = assignedAction?.let { actionName ->
                             viewModel.appActions.value.find { it.displayName == actionName }
                         },
                         onPress = { onAbxyButtonClick(btn) },
                         onRelease = {},
-                        modifier = Modifier.padding(8.dp)
+                        modifier = Modifier.padding(8.dp),
+                        labelText = btn
                     )
                 }
             }
@@ -130,7 +133,7 @@ fun ControllerOverviewScreen(
         if (showPresetsOverlay) {
             overlayHideJob.value?.cancel()
             overlayHideJob.value = coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
+                delay(1500)
                 showPresetsOverlay = false
             }
         }
@@ -143,7 +146,7 @@ fun ControllerOverviewScreen(
             showPresetsOverlay = true
             overlayHideJob.value?.cancel()
             overlayHideJob.value = coroutineScope.launch {
-                kotlinx.coroutines.delay(1500)
+                delay(1500)
                 showPresetsOverlay = false
             }
         }

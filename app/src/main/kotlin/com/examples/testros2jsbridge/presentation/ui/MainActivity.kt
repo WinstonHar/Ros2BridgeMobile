@@ -13,9 +13,10 @@ import com.examples.testros2jsbridge.presentation.ui.screens.connection.Connecti
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberScreen
-import com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolScreen
+import com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProtocolScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingScreen
 import com.examples.testros2jsbridge.presentation.ui.components.CollapsibleMessageHistoryList
+import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel
 
 /**
  * MainActivity provides the main entry point for the app UI, handling connection to rosbridge, navigation, and message history display.
@@ -35,10 +36,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainActivityContent() {
     // Navigation state: which module is active
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val tabTitles = listOf(
         "Connection", "Controller", "Publisher", "Subscriber", "Protocol", "Settings"
     )
+
+    // NavController for navigation
+    val navController = androidx.navigation.compose.rememberNavController()
+    val rosNavigation = remember { com.examples.testros2jsbridge.presentation.ui.navigation.RosNavigation() }
 
     Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
         // Top tab bar for navigation
@@ -56,18 +61,22 @@ fun MainActivityContent() {
         // Main content area: swap in modular Compose screens
         when (selectedTab) {
             0 -> ConnectionScreen()
-            1 -> ControllerScreen(onBack = {})
+            1 -> ControllerScreen(
+                onBack = {},
+                viewModel = viewModel<com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel>(),
+                onNavigateToConfig = { rosNavigation.toControllerConfig(navController) }
+            )
             2 -> PublisherScreen(viewModel = viewModel(), onBack = {})
             3 -> SubscriberScreen(viewModel = viewModel(), onBack = {})
-            4 -> ProtocolScreen(viewModel = viewModel(), onBack = {})
+            4 -> CustomProtocolScreen(viewModel = viewModel(), onBack = {})
             5 -> SettingScreen(viewModel = viewModel(), onBack = {})
         }
 
         Spacer(Modifier.height(16.dp))
 
         // Message history log (Compose)
-        val publisherViewModel: com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel = viewModel()
-        val messageHistory by publisherViewModel.messageHistory.collectAsState()
-        CollapsibleMessageHistoryList(messageHistory = messageHistory)
+        val publisherViewModel: PublisherViewModel = viewModel()
+        val uiState by publisherViewModel.uiState.collectAsState()
+        CollapsibleMessageHistoryList(messageHistory = uiState.messageHistory)
     }
 }

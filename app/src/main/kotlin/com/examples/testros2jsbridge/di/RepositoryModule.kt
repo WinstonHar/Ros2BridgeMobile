@@ -9,10 +9,10 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.examples.testros2jsbridge.data.repository.RosConnectionRepository
 import com.examples.testros2jsbridge.data.repository.RosConnectionRepositoryImpl
-import com.examples.testros2jsbridge.data.repository.RosMessageRepository
 import com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl
+import com.examples.testros2jsbridge.domain.repository.RosConnectionRepository
+import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 
 @Module
 @InstallIn(SingletonComponent::class)

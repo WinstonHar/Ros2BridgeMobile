@@ -4,8 +4,9 @@ import com.examples.testros2jsbridge.domain.repository.RosConnectionRepository
 import com.examples.testros2jsbridge.domain.model.RosConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
-class ConnectToRosUseCase(
+class ConnectToRosUseCase @Inject constructor(
     private val connectionRepository: RosConnectionRepository
 ) {
     suspend fun connect(ip: String, port: Int): Result<RosConnection> {
