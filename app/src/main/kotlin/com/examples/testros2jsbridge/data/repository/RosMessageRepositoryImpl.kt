@@ -13,12 +13,11 @@ import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import javax.inject.Inject
 
-class RosMessageRepositoryImpl @Inject constructor(
-    private val rosbridgeClient: RosbridgeClient
-) : RosMessageRepository {
 
-    private val subscriberDao = SubscriberDao()
-    private val publisherDao = PublisherDao()
+class RosMessageRepositoryImpl @Inject constructor(
+    private val rosbridgeClient: RosbridgeClient,
+    private val connectionDao: ConnectionDao
+) : RosMessageRepository {
 
     private val _messages: MutableStateFlow<List<RosMessageDto>> = MutableStateFlow<List<RosMessageDto>>(emptyList())
     override val messages: MutableStateFlow<List<RosMessageDto>> get() = _messages
@@ -61,7 +60,7 @@ class RosMessageRepositoryImpl @Inject constructor(
     }
 
     override fun updateConnectionStatus(status: String) {
-        val connectionDao = ConnectionDao.getInstance()
+        // Here, 'status' is used as the connectionId. Adjust as needed.
         connectionDao.updateStatus(
             status,
             isConnected = status == "connected"

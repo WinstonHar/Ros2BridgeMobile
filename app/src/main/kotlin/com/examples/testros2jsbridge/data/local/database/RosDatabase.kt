@@ -13,7 +13,8 @@ import com.examples.testros2jsbridge.data.local.database.entities.SubscriberEnti
     entities = [
         ConfigurationEntity::class,
         PublisherEntity::class,
-        SubscriberEntity::class
+        SubscriberEntity::class,
+        com.examples.testros2jsbridge.data.local.database.entities.ConnectionEntity::class
     ],
     version = 1
 )
@@ -21,4 +22,5 @@ abstract class RosDatabase : RoomDatabase() {
     abstract fun configurationDao(): ConfigurationDao
     abstract fun publisherDao(): PublisherDao
     abstract fun subscriberDao(): SubscriberDao
+    abstract fun connectionDao(): com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
 }

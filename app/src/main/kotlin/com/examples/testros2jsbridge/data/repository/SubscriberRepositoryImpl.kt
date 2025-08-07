@@ -13,15 +13,50 @@ class SubscriberRepositoryImpl @Inject constructor(
     private val subscriberDao: SubscriberDao,
     private val rosbridgeClient: RosbridgeClient
 ) : SubscriberRepository {
+
+    // Map SubscriberEntity to Subscriber
+    private fun entityToDomain(entity: com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity): Subscriber = Subscriber(
+        id = entity.id,
+        topic = RosId(entity.topic),
+        type = entity.type,
+        isActive = entity.isActive,
+        lastMessage = entity.lastMessage,
+        label = entity.label,
+        isEnabled = entity.isEnabled,
+        group = entity.group,
+        timestamp = entity.timestamp,
+        messageHistory = emptyList<String>()
+    )
+
+    // Map Subscriber to SubscriberEntity
+    private fun domainToEntity(subscriber: Subscriber): com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity =
+        com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity(
+            id = subscriber.id ?: java.util.UUID.randomUUID().toString(),
+            topic = subscriber.topic.value,
+            type = subscriber.type,
+            isActive = subscriber.isActive,
+            lastMessage = subscriber.lastMessage,
+            label = subscriber.label,
+            isEnabled = subscriber.isEnabled,
+            group = subscriber.group,
+            timestamp = subscriber.timestamp
+        )
+
     override fun getSubscribers(): Flow<List<Subscriber>> =
-        subscriberDao.subscribers
+        subscriberDao.getAllSubscribersFlow().map { list -> list.map { entityToDomain(it) } }
 
     override suspend fun saveSubscriber(subscriber: Subscriber) {
-        subscriberDao.saveSubscriber(subscriber)
+        val entity = domainToEntity(subscriber)
+        val existing = subscriberDao.getSubscriberByTopic(entity.topic)
+        if (existing == null) {
+            subscriberDao.insertSubscriber(entity)
+        } else {
+            subscriberDao.updateSubscriber(entity)
+        }
     }
 
     override suspend fun deleteSubscriber(topic: String) {
-        subscriberDao.deleteSubscriber(RosId(topic))
+        subscriberDao.deleteSubscriberByTopic(topic)
     }
 
     override suspend fun subscribeToTopic(topic: String, type: String, label: String?, onMessage: (String) -> Unit) {
@@ -38,11 +73,11 @@ class SubscriberRepositoryImpl @Inject constructor(
             timestamp = System.currentTimeMillis(),
             messageHistory = emptyList<String>()
         )
-        subscriberDao.saveSubscriber(subscriber)
+        saveSubscriber(subscriber)
     }
 
     override suspend fun unsubscribeFromTopic(topic: String) {
         rosbridgeClient.unsubscribe(topic)
-        subscriberDao.deleteSubscriber(RosId(topic))
+        deleteSubscriber(topic)
     }
 }

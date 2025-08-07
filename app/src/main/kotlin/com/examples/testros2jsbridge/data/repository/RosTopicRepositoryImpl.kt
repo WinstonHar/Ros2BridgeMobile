@@ -5,41 +5,55 @@ import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosTopicDto
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosTopic
 import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import javax.inject.Inject
 
+
 class RosTopicRepositoryImpl @Inject constructor(
-    private val rosbridgeClient: RosbridgeClient
+    private val rosbridgeClient: RosbridgeClient,
+    private val subscriberDao: com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 ) : RosTopicRepository {
 
     private val _subscribedTopics = MutableStateFlow<Set<RosTopicDto>>(emptySet())
     override val subscribedTopics: StateFlow<Set<RosTopicDto>> get() = _subscribedTopics
 
-    private val subscriberDao = com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao()
-
-    override fun subscribe(topicDto: RosTopic) {
-        _subscribedTopics.value = (_subscribedTopics.value + topicDto) as Set<RosTopicDto>
+    override fun subscribe(topic: RosTopic) {
+        val topicDto = RosTopicDto(
+            name = topic.name,
+            type = topic.type
+        )
+        _subscribedTopics.value = (_subscribedTopics.value + topicDto)
         // Send subscribe message to rosbridge
         val subscribeMsg = kotlinx.serialization.json.Json.encodeToString(
             com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto(
                 op = "subscribe",
-                topic = RosId(topicDto.name),
-                type = topicDto.type,
-                id = "sub_${topicDto.name}_${System.currentTimeMillis()}",
-                latch = topicDto.isLatched,
-                queue_size = topicDto.queueSize
+                topic = RosId(topic.name),
+                type = topic.type,
+                id = "sub_${topic.name}_${System.currentTimeMillis()}"
             )
         )
         rosbridgeClient.send(subscribeMsg)
-        // Optionally, add a new Subscriber to the DAO
-        val newSubscriber = com.examples.testros2jsbridge.domain.model.Subscriber(
-            topic = com.examples.testros2jsbridge.domain.model.RosId(topicDto.name),
-            type = topicDto.type,
-            messageHistory = emptyList<com.examples.testros2jsbridge.domain.model.RosMessage>()
-        )
-        subscriberDao.saveSubscriber(newSubscriber)
+        // Persist a new SubscriberEntity in the database
+        CoroutineScope(Dispatchers.IO).launch {
+            val now = System.currentTimeMillis()
+            val entity = com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity(
+                id = "sub_${topic.name}_$now",
+                topic = topic.name,
+                type = topic.type,
+                isActive = true,
+                lastMessage = null,
+                label = null,
+                isEnabled = true,
+                group = null,
+                timestamp = now
+            )
+            subscriberDao.insertSubscriber(entity)
+        }
     }
 
     override suspend fun getTopics(): List<RosTopicDto> {

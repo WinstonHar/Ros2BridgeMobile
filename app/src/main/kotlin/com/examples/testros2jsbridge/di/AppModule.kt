@@ -22,16 +22,9 @@ import javax.inject.Singleton
 object AppModule {
     @Provides
     @Singleton
-    fun provideDatabase(app: Context): RosDatabase =
-        Room.databaseBuilder(app, RosDatabase::class.java, "ros_database").build()
+    fun provideAppContext(@dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context): android.content.Context = context
 
-    @Provides
-    fun provideSubscriberDao(db: RosDatabase): SubscriberDao = db.subscriberDao()
-
-    @Provides
-    fun providePublisherDao(db: RosDatabase): PublisherDao = db.publisherDao()
-    
-    // Simple event dispatcher for rosbridge events
+    // Event dispatcher for rosbridge events
     object RosbridgeEventDispatcher {
         private val connectionListeners = mutableListOf<(Boolean) -> Unit>()
         private val messageListeners = mutableListOf<(String) -> Unit>()
@@ -56,41 +49,7 @@ object AppModule {
             errorListeners.forEach { it(t) }
         }
     }
-
-    @Provides
-    @Singleton
-    fun provideRosbridgeClient(app: Context): RosbridgeClient {
-        val prefs = app.getSharedPreferences("app_config", Context.MODE_PRIVATE)
-        val ip = prefs.getString("rosbridge_ip", "192.168.1.100") ?: "192.168.1.100"
-        val port = prefs.getInt("rosbridge_port", 9090)
-        val protocol = prefs.getString("rosbridge_protocol", "ws") ?: "ws"
-        val url = "$protocol://$ip:$port"
-
-        val listener = RosbridgeWebSocketListener(
-            onOpen = {
-                Logger.i("Rosbridge", "WebSocket connected: $url")
-                RosbridgeEventDispatcher.notifyConnection(true)
-            },
-            onMessage = { msg ->
-                Logger.d("Rosbridge", "Received message: $msg")
-                RosbridgeEventDispatcher.notifyMessage(msg)
-            },
-            onFailure = { t ->
-                Logger.e("Rosbridge", "WebSocket error: ${t.message}", t)
-                RosbridgeEventDispatcher.notifyError(t)
-                RosbridgeEventDispatcher.notifyConnection(false)
-            },
-            onClosing = {
-                Logger.i("Rosbridge", "WebSocket closing")
-                RosbridgeEventDispatcher.notifyConnection(false)
-            },
-            onClosed = {
-                Logger.i("Rosbridge", "WebSocket closed")
-                RosbridgeEventDispatcher.notifyConnection(false)
-            }
-        )
-        return RosbridgeClient(url, listener)
-    }
+    // Removed duplicate RosDatabase and RosbridgeClient providers. These are now only in DatabaseModule and NetworkModule.
 
     @Provides
     @Singleton
@@ -111,31 +70,4 @@ object AppModule {
     fun providePublisherRepository(publisherDao: PublisherDao): PublisherRepository =
         PublisherRepositoryImpl(publisherDao)
 
-    @Provides
-    @Singleton
-    fun provideRosConnectionRepository(rosbridgeClient: RosbridgeClient): RosConnectionRepository =
-        RosConnectionRepositoryImpl(rosbridgeClient)
-
-    @Provides
-    @Singleton
-    fun provideRosMessageRepository(rosbridgeClient: RosbridgeClient): RosMessageRepository =
-        RosMessageRepositoryImpl(rosbridgeClient)
-
-    @Provides
-    @Singleton
-    fun provideRosServiceRepository(rosbridgeClient: RosbridgeClient): RosServiceRepository =
-        RosServiceRepositoryImpl(rosbridgeClient)
-
-    @Provides
-    @Singleton
-    fun provideRosActionRepository(rosbridgeClient: RosbridgeClient): RosActionRepository =
-        RosActionRepositoryImpl(
-            rosbridgeClient,
-            actions = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
-        )
-
-    @Provides
-    @Singleton
-    fun provideRosTopicRepository(rosbridgeClient: RosbridgeClient): RosTopicRepository =
-        RosTopicRepositoryImpl(rosbridgeClient)
 }
