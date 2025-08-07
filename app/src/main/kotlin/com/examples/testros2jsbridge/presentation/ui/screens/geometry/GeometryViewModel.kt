@@ -25,30 +25,33 @@ class GeometryViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val topic = RosId(_uiState.value.topicInput)
-            val messageDtos = repository.getMessagesByTopic(topic)
-            val messages = messageDtos.map { dto ->
-                RosMessage(
-                    id = dto.id,
-                    topic = dto.topic,
-                    type = dto.type ?: "",
-                    content = dto.msg?.let {
-                        val jsonElement = Json.encodeToJsonElement(
-                            MapSerializer(String.serializer(), String.serializer()),
-                            it
-                        )
-                        jsonElement.toString()
-                    } ?: "",
-                    timestamp = System.currentTimeMillis(),
-                    label = null,
-                    sender = null,
-                    isPublished = true,
-                    op = dto.op ?: "",
-                    latch = dto.latch,
-                    queue_size = dto.queue_size
-                )
+            val topicInput = _uiState.value.topicInput
+            if (topicInput.isNotBlank()) {
+                val topic = RosId(topicInput)
+                val messageDtos = repository.getMessagesByTopic(topic)
+                val messages = messageDtos.map { dto ->
+                    RosMessage(
+                        id = dto.id,
+                        topic = dto.topic,
+                        type = dto.type ?: "",
+                        content = dto.msg?.let {
+                            val jsonElement = Json.encodeToJsonElement(
+                                MapSerializer(String.serializer(), String.serializer()),
+                                it
+                            )
+                            jsonElement.toString()
+                        } ?: "",
+                        timestamp = System.currentTimeMillis(),
+                        label = null,
+                        sender = null,
+                        isPublished = true,
+                        op = dto.op ?: "",
+                        latch = dto.latch,
+                        queue_size = dto.queue_size
+                    )
+                }
+                _uiState.value = _uiState.value.copy(messages = messages)
             }
-            _uiState.value = _uiState.value.copy(messages = messages)
         }
     }
 

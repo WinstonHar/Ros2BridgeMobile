@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionScreen
@@ -49,9 +50,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainActivityContent() {
     // Navigation state: which module is active
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val tabTitles = listOf(
-        "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Protocol", "Settings"
+        "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Geometry", "Protocol", "Settings"
     )
 
     // NavController for navigation
@@ -95,8 +96,9 @@ fun MainActivityContent() {
                 )
                 3 -> PublisherScreen(viewModel = hiltViewModel(), onBack = {})
                 4 -> SubscriberScreen(viewModel = hiltViewModel(), onBack = {})
-                5 -> CustomProtocolScreen(viewModel = hiltViewModel(), onBack = {})
-                6 -> SettingScreen(viewModel = hiltViewModel(), onBack = {})
+                5 -> com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryMessageScreen(viewModel = hiltViewModel())
+                6 -> CustomProtocolScreen(viewModel = hiltViewModel(), onBack = {})
+                7 -> SettingScreen(viewModel = hiltViewModel(), onBack = {})
             }
 
             Spacer(Modifier.height(16.dp))

@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -19,14 +20,17 @@ fun ControllerButton(
     assignedAction: AppAction?,
     onPress: () -> Unit,
     onRelease: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    textAlignCenter: Boolean = false
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val backgroundColor = if (isPressed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (isPressed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
         modifier = modifier
             .padding(4.dp)
-            .background(if (isPressed) MaterialTheme.colorScheme.primary else Color.LightGray)
+            .background(backgroundColor, shape = MaterialTheme.shapes.small)
             .clickable(
                 onClick = {
                     isPressed = true
@@ -45,8 +49,22 @@ fun ControllerButton(
                     }
                 )
             }
-            .size(48.dp)
+            .size(48.dp),
+        contentAlignment = Alignment.Center
     ) {
-        label()
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            if (textAlignCenter) {
+                Text(
+                    text = labelText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.align(Alignment.Center),
+                    color = contentColor,
+                    maxLines = 1,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+            } else {
+                label()
+            }
+        }
     }
 }
