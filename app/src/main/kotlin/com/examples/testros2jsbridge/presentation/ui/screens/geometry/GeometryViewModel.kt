@@ -7,6 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.presentation.state.GeometryUiState
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import com.examples.testros2jsbridge.domain.geometry.GeometryMessageBuilder
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +25,11 @@ import javax.inject.Inject
 class GeometryViewModel @Inject constructor(
     private val rosMessageRepository: RosMessageRepository
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(GeometryUiState())
+    private val _uiState = MutableStateFlow(
+        GeometryUiState(
+            fieldValues = emptyMap() // Add fieldValues to state
+        )
+    )
     val uiState: StateFlow<GeometryUiState> = _uiState
 
     init {
@@ -56,6 +65,7 @@ class GeometryViewModel @Inject constructor(
         }
     }
 
+
     fun updateNameInput(name: String) {
         _uiState.value = _uiState.value.copy(nameInput = name)
     }
@@ -68,6 +78,9 @@ class GeometryViewModel @Inject constructor(
     fun updateMessageContentInput(content: String) {
         _uiState.value = _uiState.value.copy(messageContentInput = content)
     }
+    fun updateFieldValue(tag: String, value: String) {
+        _uiState.value = _uiState.value.copy(fieldValues = _uiState.value.fieldValues.toMutableMap().apply { put(tag, value) })
+    }
 
     fun selectMessage(message: RosMessage) {
         _uiState.value = _uiState.value.copy(
@@ -79,11 +92,17 @@ class GeometryViewModel @Inject constructor(
         )
     }
 
+
+    // saveMessage now delegates to GeometryMessageBuilder in the domain layer.
     fun saveMessage() {
+        val msgJson = GeometryMessageBuilder.build(
+            _uiState.value.typeInput,
+            _uiState.value.fieldValues
+        )
         val newMessage = RosMessage(
             topic = RosId(_uiState.value.topicInput),
             type = _uiState.value.typeInput,
-            content = _uiState.value.messageContentInput,
+            content = msgJson,
             label = _uiState.value.nameInput.ifBlank { null },
             id = null,
             timestamp = System.currentTimeMillis(),
@@ -93,10 +112,11 @@ class GeometryViewModel @Inject constructor(
             latch = null,
             queue_size = null
         )
-        // Add to UI state list (simulate save)
         val updated = _uiState.value.messages + newMessage
         _uiState.value = _uiState.value.copy(messages = updated)
     }
+
+    // buildMessage function removed; logic is now in domain.geometry.GeometryMessageBuilder
 
     fun publishMessage() {
         val msg = _uiState.value.selectedMessage ?: return

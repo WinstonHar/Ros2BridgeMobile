@@ -15,5 +15,6 @@ data class GeometryUiState(
     val isSaving: Boolean = false,                          // Show loading indicator when saving
     val showErrorDialog: Boolean = false,                   // Show error dialog
     val errorMessage: String? = null,                       // Error message to display
-    val showSavedButtons: Boolean = true                    // Show/hide reusable message buttons
+    val showSavedButtons: Boolean = true,                   // Show/hide reusable message buttons
+    val fieldValues: Map<String, String> = emptyMap()       // Dynamic field values for geometry message
 )

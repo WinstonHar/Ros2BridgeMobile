@@ -20,9 +20,9 @@ sealed class GeometryFieldSpec(val label: String) {
 val geometryTypeFields: Map<String, List<GeometryFieldSpec>> = mapOf(
     // Acceleration
     "Accel" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
-    "AccelStamped" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
+    "AccelStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
     "AccelWithCovariance" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
-    "AccelWithCovarianceStamped" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
+    "AccelWithCovarianceStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
     // Inertia
     "Inertia" to listOf(
         GeometryFieldSpec.FloatField("m", "m (mass)"),
@@ -35,6 +35,7 @@ val geometryTypeFields: Map<String, List<GeometryFieldSpec>> = mapOf(
         GeometryFieldSpec.FloatField("izz", "izz")
     ),
     "InertiaStamped" to listOf(
+        GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"),
         GeometryFieldSpec.FloatField("m", "m (mass)"),
         GeometryFieldSpec.Vector3("com"),
         GeometryFieldSpec.FloatField("ixx", "ixx"),
@@ -51,31 +52,31 @@ val geometryTypeFields: Map<String, List<GeometryFieldSpec>> = mapOf(
         GeometryFieldSpec.FloatField("y", "y (float32)"),
         GeometryFieldSpec.FloatField("z", "z (float32)")
     ),
-    "PointStamped" to listOf(GeometryFieldSpec.Vector3()),
+    "PointStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3()),
     // Polygon
     "Polygon" to listOf(GeometryFieldSpec.Point32Array),
-    "PolygonStamped" to listOf(GeometryFieldSpec.Point32Array),
+    "PolygonStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Point32Array),
     // Pose
     "Pose" to listOf(GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation")),
-    "PoseArray" to listOf(GeometryFieldSpec.PoseArray),
-    "PoseStamped" to listOf(GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation")),
+    "PoseArray" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.PoseArray),
+    "PoseStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation")),
     "PoseWithCovariance" to listOf(GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation"), GeometryFieldSpec.Covariance),
-    "PoseWithCovarianceStamped" to listOf(GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation"), GeometryFieldSpec.Covariance),
+    "PoseWithCovarianceStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("position"), GeometryFieldSpec.Quaternion("orientation"), GeometryFieldSpec.Covariance),
     // Quaternion
     "Quaternion" to listOf(GeometryFieldSpec.Quaternion()),
-    "QuaternionStamped" to listOf(GeometryFieldSpec.Quaternion("quaternion")),
+    "QuaternionStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Quaternion("quaternion")),
     // Transform
     "Transform" to listOf(GeometryFieldSpec.Vector3("translation"), GeometryFieldSpec.Quaternion("rotation")),
-    "TransformStamped" to listOf(GeometryFieldSpec.Vector3("translation"), GeometryFieldSpec.Quaternion("rotation")),
+    "TransformStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("translation"), GeometryFieldSpec.Quaternion("rotation")),
     // Twist
     "Twist" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
-    "TwistStamped" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
+    "TwistStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular")),
     "TwistWithCovariance" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
-    "TwistWithCovarianceStamped" to listOf(GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
+    "TwistWithCovarianceStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("linear"), GeometryFieldSpec.Vector3("angular"), GeometryFieldSpec.Covariance),
     // Vector3
     "Vector3" to listOf(GeometryFieldSpec.Vector3()),
-    "Vector3Stamped" to listOf(GeometryFieldSpec.Vector3("vector")),
+    "Vector3Stamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("vector")),
     // Wrench
     "Wrench" to listOf(GeometryFieldSpec.Vector3("force"), GeometryFieldSpec.Vector3("torque")),
-    "WrenchStamped" to listOf(GeometryFieldSpec.Vector3("force"), GeometryFieldSpec.Vector3("torque"))
+    "WrenchStamped" to listOf(GeometryFieldSpec.StringField("header_frame_id", "header_frame_id"), GeometryFieldSpec.Vector3("force"), GeometryFieldSpec.Vector3("torque"))
 )
