@@ -18,17 +18,18 @@ import javax.inject.Inject
 
 @HiltViewModel
 class GeometryViewModel @Inject constructor(
-    private val repository: RosMessageRepository
+    private val rosMessageRepository: RosMessageRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(GeometryUiState())
     val uiState: StateFlow<GeometryUiState> = _uiState
 
     init {
+        // On ViewModel init, load messages for the current topic if set
         viewModelScope.launch {
             val topicInput = _uiState.value.topicInput
             if (topicInput.isNotBlank()) {
                 val topic = RosId(topicInput)
-                val messageDtos = repository.getMessagesByTopic(topic)
+                val messageDtos = rosMessageRepository.getMessagesByTopic(topic)
                 val messages = messageDtos.map { dto ->
                     RosMessage(
                         id = dto.id,
@@ -55,20 +56,27 @@ class GeometryViewModel @Inject constructor(
         }
     }
 
-    fun selectMessage(message: RosMessage) {
-        _uiState.value = _uiState.value.copy(selectedMessage = message, topicInput = message.topic.toString(), typeInput = message.type, messageContentInput = message.content)
+    fun updateNameInput(name: String) {
+        _uiState.value = _uiState.value.copy(nameInput = name)
     }
-
     fun updateTopicInput(topic: String) {
         _uiState.value = _uiState.value.copy(topicInput = topic)
     }
-
     fun updateTypeInput(type: String) {
         _uiState.value = _uiState.value.copy(typeInput = type)
     }
-
     fun updateMessageContentInput(content: String) {
         _uiState.value = _uiState.value.copy(messageContentInput = content)
+    }
+
+    fun selectMessage(message: RosMessage) {
+        _uiState.value = _uiState.value.copy(
+            selectedMessage = message,
+            nameInput = message.label ?: "",
+            topicInput = message.topic.toString(),
+            typeInput = message.type,
+            messageContentInput = message.content
+        )
     }
 
     fun saveMessage() {
@@ -76,64 +84,29 @@ class GeometryViewModel @Inject constructor(
             topic = RosId(_uiState.value.topicInput),
             type = _uiState.value.typeInput,
             content = _uiState.value.messageContentInput,
-            label = _uiState.value.selectedMessage?.label,
+            label = _uiState.value.nameInput.ifBlank { null },
             id = null,
             timestamp = System.currentTimeMillis(),
             sender = null,
             isPublished = true,
-            op = "",
+            op = "publish",
             latch = null,
             queue_size = null
         )
-        val newMessageDto = RosMessageDto(
-            id = newMessage.id,
-            topic = newMessage.topic,
-            type = newMessage.type,
-            msg = mapOf("content" to newMessage.content),
-            op = newMessage.op,
-            latch = newMessage.latch,
-            queue_size = newMessage.queue_size
-        )
-        _uiState.value = _uiState.value.copy(isSaving = true)
-        viewModelScope.launch {
-            try {
-                repository.saveMessage(newMessageDto)
-                val updatedMessageDtos = repository.getMessagesByTopic(newMessage.topic)
-                val updatedMessages = updatedMessageDtos.map { dto ->
-                    RosMessage(
-                        id = dto.id,
-                        topic = dto.topic,
-                        type = dto.type ?: "",
-                        content = dto.msg?.let {
-                            val jsonElement = Json.encodeToJsonElement(
-                                MapSerializer(String.serializer(), String.serializer()),
-                                it
-                            )
-                            jsonElement.toString()
-                        } ?: "",
-                        timestamp = System.currentTimeMillis(),
-                        label = null,
-                        sender = null,
-                        isPublished = true,
-                        op = dto.op ?: "",
-                        latch = dto.latch,
-                        queue_size = dto.queue_size
-                    )
-                }
-                _uiState.value = _uiState.value.copy(messages = updatedMessages, isSaving = false, selectedMessage = newMessage)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isSaving = false, showErrorDialog = true, errorMessage = e.message)
-            }
-        }
+        // Add to UI state list (simulate save)
+        val updated = _uiState.value.messages + newMessage
+        _uiState.value = _uiState.value.copy(messages = updated)
     }
 
     fun publishMessage() {
         val msg = _uiState.value.selectedMessage ?: return
-        repository.publishMessage(msg)
+        rosMessageRepository.publishMessage(msg)
     }
 
+
+
     fun deleteMessage(message: RosMessage) {
-        //no-op not currently supported
+        // Not implemented
     }
 
     fun showSavedButtons(show: Boolean) {
