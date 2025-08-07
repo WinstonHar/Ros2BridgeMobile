@@ -1,6 +1,7 @@
 package com.examples.testros2jsbridge.presentation.ui.navigation
 
 import androidx.compose.runtime.collectAsState
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
@@ -18,6 +19,13 @@ import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingScr
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.TopicListScreen
 import androidx.navigation.NavHostController
+import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionViewModel
 
 @Suppress("unused")
 object Destinations {
@@ -39,9 +47,14 @@ object Destinations {
 
 fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
     composable(route = Destinations.MAIN_ACTIVITY) { MainActivity() }
-    composable(route = Destinations.CONNECTION_SCREEN) { ConnectionScreen() }
+    composable(route = Destinations.CONNECTION_SCREEN) {
+        ConnectionScreen(
+            viewModel = hiltViewModel(),
+            onBack = { navController.popBackStack() }
+        )
+    }
     composable(route = Destinations.CONTROLLER_CONFIG_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: ControllerViewModel = hiltViewModel()
         val uiState = viewModel.uiState.collectAsState()
         ControllerConfigScreen(
             controllerButtons = uiState.value.controllerButtons,
@@ -56,7 +69,7 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         )
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: ControllerViewModel = hiltViewModel()
         ControllerOverviewScreen(
             viewModel = viewModel,
             backgroundImageRes = null, // composable compatiable logic not created yet
@@ -65,7 +78,7 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         )
     }
     composable(route = Destinations.CONTROLLER_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: ControllerViewModel = hiltViewModel()
         ControllerScreen(
             viewModel = viewModel,
             onNavigateToConfig = { navController.navigate(Destinations.CONTROLLER_CONFIG_SCREEN) },
@@ -73,18 +86,18 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         )
     }
     composable(route = Destinations.GEOMETRY_MESSAGE_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: GeometryViewModel = hiltViewModel()
         GeometryMessageScreen(viewModel = viewModel)
     }
     composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: ProtocolViewModel = hiltViewModel()
         CustomProtocolScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() }
         )
     }
     composable(route = Destinations.CREATE_PUBLISHER_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: PublisherViewModel = hiltViewModel()
         CreatePublisherScreen(
             viewModel = viewModel,
             onPublisherCreated = { navController.navigate(Destinations.PUBLISHER_LIST_SCREEN) },
@@ -92,7 +105,7 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         )
     }
     composable(route = Destinations.PUBLISHER_LIST_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: PublisherViewModel = hiltViewModel()
         PublisherListScreen(
             viewModel = viewModel,
             onPublisherSelected = { navController.navigate(Destinations.PUBLISHER_SCREEN) },
@@ -101,28 +114,28 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         )
     }
     composable(route = Destinations.PUBLISHER_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: PublisherViewModel = hiltViewModel()
         PublisherScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() }
         )
     }
     composable(route = Destinations.SETTINGS_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: SettingsViewModel = hiltViewModel()
         SettingScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() }
         )
     }
     composable(route = Destinations.SUBSCRIBER_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: SubscriberViewModel = hiltViewModel()
         SubscriberScreen(
             viewModel = viewModel,
             onBack = { navController.popBackStack() }
         )
     }
     composable(route = Destinations.TOPIC_LIST_SCREEN) {
-        val viewModel: com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        val viewModel: SubscriberViewModel = hiltViewModel()
         TopicListScreen(
             viewModel = viewModel,
             onTopicSelected = { topic: String, type: String ->

@@ -8,10 +8,11 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.state.PublisherUiState
 import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
 import com.examples.testros2jsbridge.domain.model.Publisher
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun PublisherScreen(
-    viewModel: PublisherViewModel,
+    viewModel: PublisherViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()

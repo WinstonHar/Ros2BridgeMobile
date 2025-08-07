@@ -18,10 +18,11 @@ import com.examples.testros2jsbridge.domain.model.AppAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun ControllerOverviewScreen(
-    viewModel: ControllerViewModel,
+    viewModel: ControllerViewModel = hiltViewModel(),
     backgroundImageRes: Int? = null,
     onAbxyButtonClick: (String) -> Unit = {},
     onPresetSwap: (ControllerPreset) -> Unit = {}

@@ -8,10 +8,11 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.state.GeometryUiState
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.presentation.mapper.MessageUiMapper
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun GeometryMessageScreen(
-    viewModel: GeometryViewModel
+    viewModel: GeometryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 

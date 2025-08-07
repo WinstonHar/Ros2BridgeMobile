@@ -1,7 +1,6 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.connection
 
 import com.examples.testros2jsbridge.presentation.state.ConnectionUiState
-
 import androidx.lifecycle.ViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject

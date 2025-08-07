@@ -11,12 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.Alignment
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun ControllerScreen(
-    viewModel: ControllerViewModel = viewModel(),
+    viewModel: ControllerViewModel = hiltViewModel(),
     onNavigateToConfig: (ControllerPreset) -> Unit,
     onBack: () -> Unit
 ) {

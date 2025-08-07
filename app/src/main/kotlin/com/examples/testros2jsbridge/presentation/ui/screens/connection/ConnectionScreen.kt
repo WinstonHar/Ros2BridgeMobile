@@ -7,12 +7,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.examples.testros2jsbridge.presentation.ui.components.RosConnectionCard
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun ConnectionScreen(
-    viewModel: ConnectionViewModel = viewModel()
+    viewModel: ConnectionViewModel = hiltViewModel(),
+    onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     RosConnectionCard(

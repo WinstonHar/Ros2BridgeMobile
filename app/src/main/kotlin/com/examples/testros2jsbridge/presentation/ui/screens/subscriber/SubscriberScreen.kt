@@ -10,10 +10,11 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
 import com.examples.testros2jsbridge.domain.model.Subscriber
 import com.examples.testros2jsbridge.presentation.ui.components.CollapsibleMessageHistoryList
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun SubscriberScreen(
-    viewModel: SubscriberViewModel,
+    viewModel: SubscriberViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()

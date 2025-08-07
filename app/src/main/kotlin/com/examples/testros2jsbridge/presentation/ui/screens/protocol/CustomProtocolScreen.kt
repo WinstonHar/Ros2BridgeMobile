@@ -14,10 +14,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.TextFieldValue
 import com.examples.testros2jsbridge.domain.model.AppAction
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun CustomProtocolScreen(
-    viewModel: ProtocolViewModel,
+    viewModel: ProtocolViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()

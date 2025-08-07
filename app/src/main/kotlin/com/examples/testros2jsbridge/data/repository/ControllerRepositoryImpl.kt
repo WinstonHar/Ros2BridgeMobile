@@ -44,7 +44,8 @@ class ControllerRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getController(): ControllerConfig {
-        TODO("Not yet implemented")
+        // Return the current controller config from the state flow
+        return _controller.value
     }
 
     fun saveJoystickMappings(mappings: List<JoystickMapping>) {

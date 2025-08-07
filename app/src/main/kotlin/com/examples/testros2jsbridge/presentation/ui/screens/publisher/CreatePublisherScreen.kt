@@ -8,10 +8,11 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.state.PublisherUiState
 import com.examples.testros2jsbridge.domain.model.Publisher
 import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun CreatePublisherScreen(
-    viewModel: PublisherViewModel,
+    viewModel: PublisherViewModel  = hiltViewModel(),
     onPublisherCreated: (Publisher) -> Unit,
     onCancel: () -> Unit
 ) {

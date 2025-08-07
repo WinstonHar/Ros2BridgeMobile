@@ -12,10 +12,11 @@ import androidx.compose.ui.unit.dp
 import com.examples.testros2jsbridge.presentation.state.PublisherUiState
 import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
 import com.examples.testros2jsbridge.domain.model.Publisher
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun PublisherListScreen(
-    viewModel: PublisherViewModel,
+    viewModel: PublisherViewModel  = hiltViewModel(),
     onPublisherSelected: (Publisher) -> Unit,
     onEditPublisher: (Publisher) -> Unit,
     onDeletePublisher: (Publisher) -> Unit

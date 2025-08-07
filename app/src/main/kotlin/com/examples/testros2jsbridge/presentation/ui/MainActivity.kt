@@ -8,7 +8,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherScreen
@@ -17,11 +16,15 @@ import com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProt
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingScreen
 import com.examples.testros2jsbridge.presentation.ui.components.CollapsibleMessageHistoryList
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * MainActivity provides the main entry point for the app UI, handling connection to rosbridge, navigation, and message history display.
  * All business logic is delegated to modular ViewModels and Compose screens.
  */
+
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,22 +63,22 @@ fun MainActivityContent() {
 
         // Main content area: swap in modular Compose screens
         when (selectedTab) {
-            0 -> ConnectionScreen()
+            0 -> ConnectionScreen(viewModel = hiltViewModel(), onBack = {})
             1 -> ControllerScreen(
                 onBack = {},
-                viewModel = viewModel<com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel>(),
+                viewModel = hiltViewModel<com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel>(),
                 onNavigateToConfig = { rosNavigation.toControllerConfig(navController) }
             )
-            2 -> PublisherScreen(viewModel = viewModel(), onBack = {})
-            3 -> SubscriberScreen(viewModel = viewModel(), onBack = {})
-            4 -> CustomProtocolScreen(viewModel = viewModel(), onBack = {})
-            5 -> SettingScreen(viewModel = viewModel(), onBack = {})
+            2 -> PublisherScreen(viewModel = hiltViewModel(), onBack = {})
+            3 -> SubscriberScreen(viewModel = hiltViewModel(), onBack = {})
+            4 -> CustomProtocolScreen(viewModel = hiltViewModel(), onBack = {})
+            5 -> SettingScreen(viewModel = hiltViewModel(), onBack = {})
         }
 
         Spacer(Modifier.height(16.dp))
 
         // Message history log (Compose)
-        val publisherViewModel: PublisherViewModel = viewModel()
+        val publisherViewModel: PublisherViewModel = hiltViewModel()
         val uiState by publisherViewModel.uiState.collectAsState()
         CollapsibleMessageHistoryList(messageHistory = uiState.messageHistory)
     }
