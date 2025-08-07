@@ -122,7 +122,7 @@ fun ControllerOverviewScreen(
                     // Y (top)
                     ControllerButton(
                         labelText = "Y",
-                        assignedAction = buttonAssignments["Button Y"],
+                        assignedAction = buttonAssignments["Y"],
                         onPress = { onAbxyButtonClick("Y") },
                         onRelease = {},
                         modifier = Modifier
@@ -133,7 +133,7 @@ fun ControllerOverviewScreen(
                     // X (left)
                     ControllerButton(
                         labelText = "X",
-                        assignedAction = buttonAssignments["Button X"],
+                        assignedAction = buttonAssignments["X"],
                         onPress = { onAbxyButtonClick("X") },
                         onRelease = {},
                         modifier = Modifier
@@ -144,7 +144,7 @@ fun ControllerOverviewScreen(
                     // B (right)
                     ControllerButton(
                         labelText = "B",
-                        assignedAction = buttonAssignments["Button B"],
+                        assignedAction = buttonAssignments["B"],
                         onPress = { onAbxyButtonClick("B") },
                         onRelease = {},
                         modifier = Modifier
@@ -155,7 +155,7 @@ fun ControllerOverviewScreen(
                     // A (bottom)
                     ControllerButton(
                         labelText = "A",
-                        assignedAction = buttonAssignments["Button A"],
+                        assignedAction = buttonAssignments["A"],
                         onPress = { onAbxyButtonClick("A") },
                         onRelease = {},
                         modifier = Modifier

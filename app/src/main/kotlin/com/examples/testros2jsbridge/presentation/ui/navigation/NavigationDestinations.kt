@@ -60,28 +60,51 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
             controllerButtons = uiState.value.controllerButtons,
             appActions = uiState.value.appActions,
             presets = uiState.value.presets,
-            selectedPreset = uiState.value.selectedPreset as String?,
+            selectedPreset = uiState.value.selectedPreset?.name,
+            joystickMappings = uiState.value.config.joystickMappings,
             onPresetSelected = viewModel::selectPreset,
             onAddPreset = viewModel::addPreset,
             onRemovePreset = viewModel::removePreset,
             onSavePreset = viewModel::savePreset,
-            onControllerButtonAssign = viewModel::assignButton
+            onControllerButtonAssign = viewModel::assignButton,
+            onJoystickMappingsChanged = viewModel::updateJoystickMappings
+        )
+    }
+    composable(
+        route = "${Destinations.CONTROLLER_CONFIG_SCREEN}/{presetName}",
+        arguments = listOf(androidx.navigation.navArgument("presetName") { type = androidx.navigation.NavType.StringType })
+    ) { backStackEntry ->
+        val viewModel: ControllerViewModel = hiltViewModel()
+        val uiState = viewModel.uiState.collectAsState()
+        val presetName = backStackEntry.arguments?.getString("presetName")
+        ControllerConfigScreen(
+            controllerButtons = uiState.value.controllerButtons,
+            appActions = uiState.value.appActions,
+            presets = uiState.value.presets,
+            selectedPreset = presetName ?: uiState.value.selectedPreset?.name,
+            joystickMappings = uiState.value.config.joystickMappings,
+            onPresetSelected = viewModel::selectPreset,
+            onAddPreset = viewModel::addPreset,
+            onRemovePreset = viewModel::removePreset,
+            onSavePreset = viewModel::savePreset,
+            onControllerButtonAssign = viewModel::assignButton,
+            onJoystickMappingsChanged = viewModel::updateJoystickMappings
         )
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
         val viewModel: ControllerViewModel = hiltViewModel()
         ControllerOverviewScreen(
             viewModel = viewModel,
-            backgroundImageRes = null, // composable compatiable logic not created yet
-            onAbxyButtonClick = { btn: String, actionName: String -> viewModel.assignAbxyButton(btn, actionName) } as (String) -> Unit,
-            onPresetSwap = { presetName: String -> viewModel.selectPreset(presetName) } as (ControllerPreset) -> Unit
+            backgroundImageRes = null,
+            onAbxyButtonClick = { btn -> viewModel.assignAbxyButton(btn, "") },
+            onPresetSwap = { preset -> viewModel.selectPreset(preset.name) }
         )
     }
     composable(route = Destinations.CONTROLLER_SCREEN) {
         val viewModel: ControllerViewModel = hiltViewModel()
         ControllerScreen(
             viewModel = viewModel,
-            onNavigateToConfig = { navController.navigate(Destinations.CONTROLLER_CONFIG_SCREEN) },
+            navController = navController,
             onBack = { navController.popBackStack() }
         )
     }

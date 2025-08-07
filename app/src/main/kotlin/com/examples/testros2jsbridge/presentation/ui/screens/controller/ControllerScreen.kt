@@ -14,11 +14,12 @@ import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 
 @Composable
 fun ControllerScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
-    onNavigateToConfig: (ControllerPreset) -> Unit,
+    navController: NavController,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -63,7 +64,10 @@ fun ControllerScreen(
         uiState.presets.forEach { preset ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 Text(text = preset.name, modifier = Modifier.weight(1f))
-                Button(onClick = { onNavigateToConfig(preset) }) {
+                Button(onClick = {
+                    // Navigate to ControllerConfigScreen, passing preset name as argument
+                    navController.navigate("controller_config_screen/${preset.name}")
+                }) {
                     Text("Configure")
                 }
             }
@@ -139,12 +143,22 @@ fun ControllerScreen(
             Button(onClick = { viewModel.removePreset() }) { Text("Remove") }
         }
         Spacer(modifier = Modifier.height(8.dp))
+        var presetName by remember(uiState.selectedPreset?.name) { mutableStateOf(uiState.selectedPreset?.name ?: "") }
         OutlinedTextField(
-            value = uiState.selectedPreset?.name ?: "",
-            onValueChange = { viewModel.savePreset(it) },
+            value = presetName,
+            onValueChange = {
+                presetName = it
+            },
             label = { Text("Preset Name") },
             modifier = Modifier.fillMaxWidth()
         )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { viewModel.savePreset(presetName) },
+            modifier = Modifier.align(Alignment.End)
+        ) {
+            Text("Save Preset")
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf("A", "B", "X", "Y").forEach { btn ->

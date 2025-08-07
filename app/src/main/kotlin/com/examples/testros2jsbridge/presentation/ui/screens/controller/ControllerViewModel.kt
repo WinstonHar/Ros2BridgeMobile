@@ -50,7 +50,40 @@ class ControllerViewModel @Inject constructor(
         val newPreset = ControllerPreset(
             name = "New Preset",
             topic = null,
-            abxy = mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
+            buttonAssignments = mapOf(
+                "A" to AppAction(
+                    id = "A",
+                    displayName = "",
+                    topic = "",
+                    type = "",
+                    source = "",
+                    msg = ""
+                ),
+                "B" to AppAction(
+                    id = "B",
+                    displayName = "",
+                    topic = "",
+                    type = "",
+                    source = "",
+                    msg = ""
+                ),
+                "X" to AppAction(
+                    id = "X",
+                    displayName = "",
+                    topic = "",
+                    type = "",
+                    source = "",
+                    msg = ""
+                ),
+                "Y" to AppAction(
+                    id = "Y",
+                    displayName = "",
+                    topic = "",
+                    type = "",
+                    source = "",
+                    msg = ""
+                )
+            )
         )
         val updated = _presets.value + newPreset
         _presets.value = updated
@@ -75,20 +108,18 @@ class ControllerViewModel @Inject constructor(
     }
 
     fun assignButton(button: String, action: com.examples.testros2jsbridge.domain.model.AppAction?) {
-        if (action == null) return
-        val updated = _buttonAssignments.value.toMutableMap().apply { put(button, action) }
+        val updated = _buttonAssignments.value.toMutableMap()
+        if (action != null) {
+            updated[button] = action
+        } else {
+            updated.remove(button)
+        }
         _buttonAssignments.value = updated
         saveConfigWithAssignments(updated)
     }
 
     fun assignAbxyButton(btn: String, actionName: String) {
-        val selected = _selectedPreset.value ?: return
-        val updatedAbxy = selected.abxy.toMutableMap().apply { put(btn, actionName) }
-        val updatedPreset = selected.copy(abxy = updatedAbxy)
-        val updated = _presets.value.map { if (it.name == selected.name) updatedPreset else it }
-        _presets.value = updated
-        saveConfigWithPresets(updated)
-        _selectedPreset.value = updatedPreset
+        // Removed: abxy logic is obsolete. Use buttonAssignments instead.
     }
 
     fun handleKeyEvent(keyCode: Int): AppAction? {
@@ -111,6 +142,15 @@ class ControllerViewModel @Inject constructor(
             _presets.value = config.controllerPresets
             _buttonAssignments.value = config.buttonAssignments
             _selectedPreset.value = config.controllerPresets.firstOrNull()
+        }
+    }
+
+    fun updateJoystickMappings(newMappings: List<com.examples.testros2jsbridge.domain.model.JoystickMapping>) {
+        val uiState = _uiState.value.copy(config = _uiState.value.config.copy(joystickMappings = newMappings))
+        val config = ControllerUiMapper.toDomainConfig(uiState)
+        viewModelScope.launch {
+            saveControllerConfigUseCase.save(config)
+            _uiState.value = ControllerUiMapper.toUiState(config)
         }
     }
 

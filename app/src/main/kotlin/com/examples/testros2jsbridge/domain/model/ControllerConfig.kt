@@ -15,7 +15,13 @@ data class ControllerConfig(
     val deadZone: Float = 0.05f,
     val customProfileName: String? = null,
     val joystickMappings: List<JoystickMapping> = emptyList(),
-    val controllerPresets: List<ControllerPreset> = emptyList(),
+    val controllerPresets: List<ControllerPreset> = listOf(
+        ControllerPreset(
+            name = "Default",
+            buttonAssignments = emptyMap(),
+            joystickMappings = emptyList()
+        )
+    ),
     val buttonAssignments: Map<String, AppAction> = emptyMap(),
     val joystickPublishRate: Int = 5
     // Add other controller-specific settings as needed
@@ -60,8 +66,26 @@ fun ControllerConfig.Companion.fromMap(map: Map<String, Any?>): ControllerConfig
         invertYAxis = map["invertYAxis"] as? Boolean ?: false,
         deadZone = (map["deadZone"] as? Number)?.toFloat() ?: 0.05f,
         customProfileName = map["customProfileName"] as? String,
-        joystickMappings = map["joystickMappings"] as? List<JoystickMapping> ?: emptyList(),
-        controllerPresets = map["controllerPresets"] as? List<ControllerPreset> ?: emptyList(),
+        joystickMappings = (map["joystickMappings"] as? List<Map<String, Any?>>)?.map { jm ->
+            JoystickMapping(
+                displayName = jm["displayName"] as? String ?: "",
+                topic = jm["topic"] as? RosId,
+                type = jm["type"] as? String ?: ""
+            )
+        } ?: emptyList(),
+        controllerPresets = (map["controllerPresets"] as? List<Map<String, Any?>>)?.map { cp ->
+            ControllerPreset(
+                name = cp["name"] as? String ?: "",
+                buttonAssignments = cp["buttonAssignments"] as? Map<String, AppAction> ?: emptyMap(),
+                joystickMappings = (cp["joystickMappings"] as? List<Map<String, Any?>>)?.map { jm ->
+                    JoystickMapping(
+                        displayName = jm["displayName"] as? String ?: "",
+                        topic = jm["topic"] as? RosId,
+                        type = jm["type"] as? String ?: ""
+                    )
+                } ?: emptyList()
+            )
+        } ?: emptyList(),
         buttonAssignments = map["buttonAssignments"] as? Map<String, AppAction> ?: emptyMap(),
         joystickPublishRate = (map["joystickPublishRate"] as? Number)?.toInt() ?: 5
     )
@@ -82,7 +106,8 @@ data class JoystickMapping(
 data class ControllerPreset(
     val name: String = "Preset",
     val topic: RosId? = null,
-    val abxy: Map<String, String> = mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
+    val buttonAssignments: Map<String, AppAction> = emptyMap(),
+    val joystickMappings: List<JoystickMapping> = emptyList()
 )
 
 data class AppAction(

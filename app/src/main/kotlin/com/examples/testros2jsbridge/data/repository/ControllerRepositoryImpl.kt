@@ -128,7 +128,11 @@ class ControllerRepositoryImpl @Inject constructor(
             val obj = JSONObject().apply {
                 put("name", preset.name)
                 put("topic", preset.topic)
-                put("abxy", JSONObject(preset.abxy as Map<*, *>))
+                val assignmentsObj = JSONObject()
+                preset.buttonAssignments.forEach { (btn, action) ->
+                    assignmentsObj.put(btn, action.displayName)
+                }
+                put("buttonAssignments", assignmentsObj)
             }
             jsonArray.put(obj)
         }
@@ -144,24 +148,33 @@ class ControllerRepositoryImpl @Inject constructor(
                 val jsonArray = JSONArray(jsonString)
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
-                    val abxyMap = mutableMapOf<String, String>()
-                    obj.optJSONObject("abxy")?.let { abxyObj ->
-                        abxyObj.keys().forEach { key ->
-                            abxyMap[key] = abxyObj.getString(key)
+                    val assignmentsMap = mutableMapOf<String, AppAction>()
+                    obj.optJSONObject("buttonAssignments")?.let { assignmentsObj ->
+                        assignmentsObj.keys().forEach { key ->
+                            val displayName = assignmentsObj.getString(key)
+                            // Only displayName is saved, so create a minimal AppAction
+                            assignmentsMap[key] = AppAction(
+                                id = key,
+                                displayName = displayName,
+                                topic = "",
+                                type = "",
+                                source = "",
+                                msg = ""
+                            )
                         }
                     }
                     list.add(
                         ControllerPreset(
                             name = obj.optString("name", "Preset"),
                             topic = obj.optString("topic", "") as RosId?,
-                            abxy = abxyMap
+                            buttonAssignments = assignmentsMap
                         )
                     )
                 }
             } catch (_: Exception) {}
         }
         if (list.isEmpty()) {
-            list.add(ControllerPreset("Default", "/cmd_vel" as RosId?, mapOf("A" to "", "B" to "", "X" to "", "Y" to "")))
+            list.add(ControllerPreset("Default", RosId("/cmd_vel"), emptyMap()))
         }
         return list
     }
@@ -375,7 +388,7 @@ class ControllerRepositoryImpl @Inject constructor(
                 mapOf(
                     "name" to cp.name,
                     "topic" to cp.topic,
-                    "abxy" to cp.abxy
+                    "buttonAssignments" to cp.buttonAssignments
                 )
             },
             "buttonAssignments" to latestButtonAssignments.mapValues { (_, action) ->
@@ -428,11 +441,40 @@ class ControllerRepositoryImpl @Inject constructor(
         val cpList = configMap["controllerPresets"] as? List<*> ?: emptyList<Any>()
         for (cp in cpList) {
             if (cp is Map<*, *>) {
+                val assignmentsRaw = cp["buttonAssignments"] as? Map<String, Any> ?: emptyMap()
+                val assignmentsMap = assignmentsRaw.mapValues { (key, value) ->
+                    when (value) {
+                        is Map<*, *> -> AppAction(
+                            id = key,
+                            displayName = value["displayName"] as? String ?: key,
+                            topic = value["topic"] as? String ?: "",
+                            type = value["type"] as? String ?: "",
+                            source = value["source"] as? String ?: "",
+                            msg = value["msg"] as? String ?: ""
+                        )
+                        is String -> AppAction(
+                            id = key,
+                            displayName = value,
+                            topic = "",
+                            type = "",
+                            source = "",
+                            msg = ""
+                        )
+                        else -> AppAction(
+                            id = key,
+                            displayName = key,
+                            topic = "",
+                            type = "",
+                            source = "",
+                            msg = ""
+                        )
+                    }
+                }
                 controllerPresets.add(
                     ControllerPreset(
                         name = cp["name"] as? String ?: "",
                         topic = (cp["topic"] as? String ?: "") as RosId?,
-                        abxy = (cp["abxy"] as? Map<String, String>) ?: mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
+                        buttonAssignments = assignmentsMap
                     )
                 )
             }
