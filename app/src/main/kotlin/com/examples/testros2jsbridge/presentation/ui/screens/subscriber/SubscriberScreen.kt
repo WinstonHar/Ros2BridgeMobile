@@ -1,6 +1,7 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.subscriber
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -22,7 +23,16 @@ fun SubscriberScreen(
     val selectedSubscriber = uiState.selectedSubscriber
     val messageHistory = uiState.messageHistory
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(text = "Subscribers", style = MaterialTheme.typography.titleLarge)
             Button(onClick = onBack) { Text("Back") }
@@ -67,6 +77,7 @@ fun SubscriberScreen(
         Spacer(modifier = Modifier.height(8.dp))
         CollapsibleMessageHistoryList(messageHistory = messageHistory)
     }
+}
 
     if (uiState.showAddSubscriberDialog) {
         AddSubscriberDialog(viewModel = viewModel)

@@ -34,7 +34,16 @@ fun ControllerOverviewScreen(
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         // Background image if provided
         backgroundImageRes?.let {
             Image(
@@ -128,6 +137,7 @@ fun ControllerOverviewScreen(
             }
         }
     }
+}
     // Show overlay when preset swap is triggered
     LaunchedEffect(selectedPreset) {
         // Only show overlay if swap was triggered

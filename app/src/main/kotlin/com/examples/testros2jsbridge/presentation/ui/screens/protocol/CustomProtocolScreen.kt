@@ -1,6 +1,7 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.protocol
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -40,7 +41,17 @@ fun CustomProtocolScreen(
         viewModel.loadCustomAppActions(context)
     }
 
-    Column(modifier = Modifier.padding(16.dp)) {
+
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -348,4 +359,4 @@ fun CustomProtocolScreen(
             )
         }
     }
-}
+} }

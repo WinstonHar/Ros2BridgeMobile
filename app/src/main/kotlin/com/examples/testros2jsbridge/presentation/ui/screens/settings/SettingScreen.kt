@@ -1,6 +1,7 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.settings
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,7 +12,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), onBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
         Text(text = "App Settings", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -74,4 +84,5 @@ fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), onBack: () -> 
             )
         }
     }
+}
 }

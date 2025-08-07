@@ -24,12 +24,12 @@ fun CollapsibleMessageHistoryList(messageHistory: List<String>) {
     val reversedHistory = remember(messageHistory) { messageHistory.asReversed() }
 
     Surface(
-        color = Color.Transparent,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
-            .background(colorResource(id = android.R.color.background_light))
     ) {
         Column(
             modifier = Modifier

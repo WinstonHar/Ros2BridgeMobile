@@ -1,6 +1,7 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.connection
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,18 +17,33 @@ fun ConnectionScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    RosConnectionCard(
-        ipAddress = uiState.ipInput,
-        port = uiState.portInput,
-        isConnected = uiState.isConnected,
-        connectionStatus = uiState.connectionStatus,
-        onIpAddressChange = viewModel::onIpAddressChange,
-        onPortChange = viewModel::onPortChange,
-        onConnect = { viewModel.connect(uiState.ipInput, uiState.portInput) },
-        onDisconnect = { viewModel.disconnect() }
-    )
-    if (!uiState.errorMessage.isNullOrBlank()) {
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = "Error: ${uiState.errorMessage}", color = MaterialTheme.colorScheme.error)
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            RosConnectionCard(
+                ipAddress = uiState.ipInput,
+                port = uiState.portInput,
+                isConnected = uiState.isConnected,
+                connectionStatus = uiState.connectionStatus,
+                onIpAddressChange = viewModel::onIpAddressChange,
+                onPortChange = viewModel::onPortChange,
+                onConnect = { viewModel.connect(uiState.ipInput, uiState.portInput) },
+                onDisconnect = { viewModel.disconnect() }
+            )
+            if (!uiState.errorMessage.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Error: ${uiState.errorMessage}",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
     }
 }
