@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.domain.model.AppAction
@@ -44,6 +45,7 @@ fun ControllerOverviewScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            // Use BoxWithConstraints for future layout logic if needed
             // Background image if provided
             backgroundImageRes?.let {
                 Image(
@@ -57,7 +59,7 @@ fun ControllerOverviewScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f))
+                    .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
             ) {
                 // L1/L2 (top left)
                 Column(
@@ -110,11 +112,12 @@ fun ControllerOverviewScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(buttonAssignments["Start"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
-                // ABXY plus layout (center, legacy-inspired)
+                // ABXY plus layout (center, plus)
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .size(180.dp)
+                        .size(230.dp)
+                        .zIndex(1f)
                 ) {
                     // Y (top)
                     ControllerButton(
@@ -124,7 +127,7 @@ fun ControllerOverviewScreen(
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .offset(y = (-32).dp),
+                            .offset(y = (32).dp),
                         textAlignCenter = true
                     )
                     // X (left)
@@ -135,7 +138,7 @@ fun ControllerOverviewScreen(
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.CenterStart)
-                            .offset(x = (-32).dp),
+                            .offset(x = (32).dp),
                         textAlignCenter = true
                     )
                     // B (right)
@@ -146,7 +149,7 @@ fun ControllerOverviewScreen(
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .offset(x = 32.dp),
+                            .offset(x = (-32).dp),
                         textAlignCenter = true
                     )
                     // A (bottom)
@@ -157,7 +160,7 @@ fun ControllerOverviewScreen(
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .offset(y = 32.dp),
+                            .offset(y = (-32).dp),
                         textAlignCenter = true
                     )
                     // Center label (optional, for visual reference)
@@ -171,7 +174,7 @@ fun ControllerOverviewScreen(
                 Text(
                     text = selectedPreset?.name ?: "No Preset Selected",
                     style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp)
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).zIndex(2f)
                 )
             }
             // Overview of all button assignments (bottom left, scrollable if needed)
@@ -205,7 +208,8 @@ fun ControllerOverviewScreen(
                         modifier = Modifier
                             .horizontalScroll(rememberScrollState())
                             .padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         presets.forEachIndexed { idx, preset ->
                             val isSelected = preset.name == selectedPreset?.name
@@ -220,7 +224,7 @@ fun ControllerOverviewScreen(
                                     containerColor = if (isSelected) Color(0xFF606DB4) else MaterialTheme.colorScheme.surfaceVariant,
                                     contentColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                                 ),
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier.padding(vertical = 4.dp)
                             ) {
                                 Text(preset.name)
                             }

@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -80,33 +81,43 @@ fun MainActivityContent() {
             }
             Spacer(Modifier.height(8.dp))
 
-            // Main content area: swap in modular Compose screens
-            when (selectedTab) {
-                0 -> ConnectionScreen(viewModel = hiltViewModel(), onBack = {})
-                1 -> ControllerScreen(
-                    onBack = {},
-                    viewModel = hiltViewModel<com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel>(),
-                    onNavigateToConfig = { rosNavigation.toControllerConfig(navController) }
-                )
-                2 -> com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerOverviewScreen(
-                    viewModel = hiltViewModel(),
-                    backgroundImageRes = null,
-                    onAbxyButtonClick = {},
-                    onPresetSwap = {}
-                )
-                3 -> PublisherScreen(viewModel = hiltViewModel(), onBack = {})
-                4 -> SubscriberScreen(viewModel = hiltViewModel(), onBack = {})
-                5 -> com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryMessageScreen(viewModel = hiltViewModel())
-                6 -> CustomProtocolScreen(viewModel = hiltViewModel(), onBack = {})
-                7 -> SettingScreen(viewModel = hiltViewModel(), onBack = {})
+            // Make the main content area scrollable
+            androidx.compose.foundation.rememberScrollState().let { scrollState ->
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                ) {
+                    // Main content area: swap in modular Compose screens
+                    when (selectedTab) {
+                        0 -> ConnectionScreen(viewModel = hiltViewModel(), onBack = {})
+                        1 -> ControllerScreen(
+                            onBack = {},
+                            viewModel = hiltViewModel<com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel>(),
+                            onNavigateToConfig = { rosNavigation.toControllerConfig(navController) }
+                        )
+                        2 -> com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerOverviewScreen(
+                            viewModel = hiltViewModel(),
+                            backgroundImageRes = null,
+                            onAbxyButtonClick = {},
+                            onPresetSwap = {}
+                        )
+                        3 -> PublisherScreen(viewModel = hiltViewModel(), onBack = {})
+                        4 -> SubscriberScreen(viewModel = hiltViewModel(), onBack = {})
+                        5 -> com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryMessageScreen(viewModel = hiltViewModel())
+                        6 -> CustomProtocolScreen(viewModel = hiltViewModel(), onBack = {})
+                        7 -> SettingScreen(viewModel = hiltViewModel(), onBack = {})
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Message history log (Compose)
+                    val publisherViewModel: PublisherViewModel = hiltViewModel()
+                    val uiState by publisherViewModel.uiState.collectAsState()
+                    CollapsibleMessageHistoryList(messageHistory = uiState.messageHistory)
+                }
             }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Message history log (Compose)
-            val publisherViewModel: PublisherViewModel = hiltViewModel()
-            val uiState by publisherViewModel.uiState.collectAsState()
-            CollapsibleMessageHistoryList(messageHistory = uiState.messageHistory)
         }
     }
 }
