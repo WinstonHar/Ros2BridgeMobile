@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
@@ -53,7 +55,9 @@ fun ControllerConfigScreen(
     onSavePreset: (String) -> Unit,
     onControllerButtonAssign: (String, AppAction?) -> Unit,
     onJoystickMappingsChanged: (List<JoystickMapping>) -> Unit,
+    onBack: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
     val presetObj = presets.find { it.name == selectedPreset }
     var buttonAssignments by remember(selectedPreset, presets) {
         mutableStateOf(
@@ -78,6 +82,7 @@ fun ControllerConfigScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
             // Controller connection status
@@ -330,6 +335,13 @@ fun ControllerConfigScreen(
                 }) {
                     Text("Add Joystick Mapping")
                 }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(
+                onClick = { onBack() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Back")
             }
         }
     }

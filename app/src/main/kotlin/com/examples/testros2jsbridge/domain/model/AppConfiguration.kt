@@ -7,9 +7,9 @@ App-wide settings management
  */
 
 data class AppConfiguration(
-    val rosServerUrl: RosId = RosId(""),
-    val defaultPublishTopic: RosId = RosId(""),
-    val defaultSubscribeTopic: RosId = RosId(""),
+    val rosServerUrl: RosId = RosId("10.0.0.0"),
+    val defaultPublishTopic: RosId = RosId("/default_topic"),
+    val defaultSubscribeTopic: RosId = RosId("/default_subscribe"),
     val userName: String = "",
     val enableLogging: Boolean = false,
     val reconnectOnFailure: Boolean = false,

@@ -67,7 +67,8 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
             onRemovePreset = viewModel::removePreset,
             onSavePreset = viewModel::savePreset,
             onControllerButtonAssign = viewModel::assignButton,
-            onJoystickMappingsChanged = viewModel::updateJoystickMappings
+            onJoystickMappingsChanged = viewModel::updateJoystickMappings,
+            onBack = { navController.popBackStack() }
         )
     }
     composable(
@@ -88,7 +89,8 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
             onRemovePreset = viewModel::removePreset,
             onSavePreset = viewModel::savePreset,
             onControllerButtonAssign = viewModel::assignButton,
-            onJoystickMappingsChanged = viewModel::updateJoystickMappings
+            onJoystickMappingsChanged = viewModel::updateJoystickMappings,
+            onBack = { navController.popBackStack() }
         )
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {

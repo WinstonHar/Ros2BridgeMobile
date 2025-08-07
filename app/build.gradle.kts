@@ -77,7 +77,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
-    
     {
         exclude(group = "com.esotericsoftware.kryo", module = "kryo")
     }

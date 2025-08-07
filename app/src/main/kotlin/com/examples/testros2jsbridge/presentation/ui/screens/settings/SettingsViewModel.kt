@@ -18,8 +18,25 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingUiState())
     val uiState: StateFlow<SettingUiState> = _uiState
 
+    init {
+        // Load config from repository on startup
+        viewModelScope.launch {
+            configurationRepository.config.collect { config ->
+                config?.let {
+                    _uiState.value = _uiState.value.copy(
+                        theme = it.theme,
+                        language = it.language,
+                        notificationsEnabled = it.notificationsEnabled,
+                        reconnectOnFailure = it.reconnectOnFailure
+                    )
+                }
+            }
+        }
+    }
+
     fun setTheme(theme: String) {
         _uiState.value = _uiState.value.copy(theme = theme)
+        saveSettings() // Persist immediately for instant theme switching
     }
 
     fun setLanguage(language: String) {
@@ -41,7 +58,8 @@ class SettingsViewModel @Inject constructor(
                 val config = AppConfiguration(
                     theme = _uiState.value.theme,
                     language = _uiState.value.language,
-                    notificationsEnabled = _uiState.value.notificationsEnabled
+                    notificationsEnabled = _uiState.value.notificationsEnabled,
+                    reconnectOnFailure = _uiState.value.reconnectOnFailure
                 )
                 configurationRepository.saveConfig(config)
                 _uiState.value = _uiState.value.copy(isSaving = false)
