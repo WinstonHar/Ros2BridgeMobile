@@ -1,24 +1,17 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.geometry
 
 import androidx.lifecycle.ViewModel
-import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.builtins.serializer
 import androidx.lifecycle.viewModelScope
-import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
-import com.examples.testros2jsbridge.domain.model.RosId
-import com.examples.testros2jsbridge.presentation.state.GeometryUiState
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.toDto
 import com.examples.testros2jsbridge.domain.geometry.GeometryMessageBuilder
+import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
+import com.examples.testros2jsbridge.presentation.state.GeometryUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,35 +26,25 @@ class GeometryViewModel @Inject constructor(
     val uiState: StateFlow<GeometryUiState> = _uiState
 
     init {
-        // On ViewModel init, load messages for the current topic if set
+        // On ViewModel init, load all saved geometry messages from repository for persistence
         viewModelScope.launch {
-            val topicInput = _uiState.value.topicInput
-            if (topicInput.isNotBlank()) {
-                val topic = RosId(topicInput)
-                val messageDtos = rosMessageRepository.getMessagesByTopic(topic)
-                val messages = messageDtos.map { dto ->
-                    RosMessage(
-                        id = dto.id,
-                        topic = dto.topic,
-                        type = dto.type ?: "",
-                        content = dto.msg?.let {
-                            val jsonElement = Json.encodeToJsonElement(
-                                MapSerializer(String.serializer(), String.serializer()),
-                                it
-                            )
-                            jsonElement.toString()
-                        } ?: "",
-                        timestamp = System.currentTimeMillis(),
-                        label = null,
-                        sender = null,
-                        isPublished = true,
-                        op = dto.op ?: "",
-                        latch = dto.latch,
-                        queue_size = dto.queue_size
-                    )
-                }
-                _uiState.value = _uiState.value.copy(messages = messages)
+            val messageDtos = rosMessageRepository.messages.value
+            val messages = messageDtos.map { dto ->
+                RosMessage(
+                    id = dto.id,
+                    topic = dto.topic,
+                    type = dto.type ?: "",
+                    content = dto.content ?: "",
+                    timestamp = dto.timestamp ?: System.currentTimeMillis(),
+                    label = dto.label,
+                    sender = dto.sender,
+                    isPublished = dto.isPublished ?: true,
+                    op = dto.op,
+                    latch = dto.latch,
+                    queue_size = dto.queue_size
+                )
             }
+            _uiState.value = _uiState.value.copy(messages = messages)
         }
     }
 
@@ -114,6 +97,10 @@ class GeometryViewModel @Inject constructor(
         )
         val updated = _uiState.value.messages + newMessage
         _uiState.value = _uiState.value.copy(messages = updated)
+        // Persist the new message
+        viewModelScope.launch {
+            rosMessageRepository.saveMessage(newMessage.toDto())
+        }
     }
 
     // buildMessage function removed; logic is now in domain.geometry.GeometryMessageBuilder
@@ -126,7 +113,15 @@ class GeometryViewModel @Inject constructor(
 
 
     fun deleteMessage(message: RosMessage) {
-        // Not implemented
+        // Remove from UI state
+        val updated = _uiState.value.messages.filterNot {
+            it.timestamp == message.timestamp && it.topic == message.topic && it.type == message.type && it.content == message.content
+        }
+        _uiState.value = _uiState.value.copy(messages = updated)
+        // Remove from repository for persistence
+        viewModelScope.launch {
+            rosMessageRepository.deleteMessage(message.toDto())
+        }
     }
 
     fun showSavedButtons(show: Boolean) {

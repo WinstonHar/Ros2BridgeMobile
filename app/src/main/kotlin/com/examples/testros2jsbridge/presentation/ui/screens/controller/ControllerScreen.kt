@@ -1,20 +1,39 @@
+
 package com.examples.testros2jsbridge.presentation.ui.screens.controller
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
-import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
-import com.examples.testros2jsbridge.domain.model.ControllerPreset
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
+import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
 
 @Composable
 fun ControllerScreen(
@@ -53,151 +72,173 @@ fun ControllerScreen(
         contentColor = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(16.dp)
         ) {
-        Text(text = "Controllers", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        // List of available controllers (presets)
-        uiState.presets.forEach { preset ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Text(text = preset.name, modifier = Modifier.weight(1f))
-                Button(onClick = {
-                    // Navigate to ControllerConfigScreen, passing preset name as argument
-                    navController.navigate("controller_config_screen/${preset.name}")
-                }) {
-                    Text("Configure")
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        // Controller Buttons
-        Text(text = "Controller Buttons", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            uiState.controllerButtons.forEach { btn ->
-                val assigned = uiState.buttonAssignments[btn]
-                ControllerButton(
-                    label = { Text(btn) },
-                    assignedAction = assigned,
-                    onPress = { viewModel.assignButton(btn, assigned) },
-                    onRelease = onBack,
-                    modifier = Modifier,
-                    labelText = btn
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        // App Actions
-        Text(text = "Available App Actions", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        var selectedButton by remember { mutableStateOf<String?>(null) }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            uiState.controllerButtons.forEach { btn ->
-                val assigned = uiState.buttonAssignments[btn]
-                ControllerButton(
-                    label = { Text(btn) },
-                    assignedAction = assigned,
-                    onPress = { viewModel.assignButton(btn, assigned) },
-                    onRelease = onBack,
-                    modifier = Modifier,
-                    labelText = btn
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        TopicSelector(
-            topics = uiState.appActions,
-            selectedTopic = selectedButton?.let { uiState.buttonAssignments[it] },
-            onTopicSelected = { action ->
-                selectedButton?.let { btn ->
-                    viewModel.assignButton(btn, action)
-                }
-            },
-            label = "App Action"
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        // Preset Management
-        Text(text = "Controller Presets (ABXY)", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            DropdownMenu(
-                expanded = false,
-                onDismissRequest = onBack,
-                modifier = Modifier.weight(1f)
-            ) {
+            item {
+                Text(text = "Controllers", style = MaterialTheme.typography.titleLarge)
+                Spacer(modifier = Modifier.height(8.dp))
+                // List of available controllers (presets)
                 uiState.presets.forEach { preset ->
-                    DropdownMenuItem(
-                        text = { Text(preset.name) },
-                        onClick = { viewModel.selectPreset(preset.name) }
-                    )
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Text(text = preset.name, modifier = Modifier.weight(1f))
+                        Button(onClick = {
+                            // Navigate to ControllerConfigScreen, passing preset name as argument
+                            navController.navigate("controller_config_screen/${preset.name}")
+                        }) {
+                            Text("Configure")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
-            }
-            Button(onClick = { viewModel.addPreset() }) { Text("Add") }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(onClick = { viewModel.removePreset() }) { Text("Remove") }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        var presetName by remember(uiState.selectedPreset?.name) { mutableStateOf(uiState.selectedPreset?.name ?: "") }
-        OutlinedTextField(
-            value = presetName,
-            onValueChange = {
-                presetName = it
-            },
-            label = { Text("Preset Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = { viewModel.savePreset(presetName) },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Save Preset")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth()) {
-            listOf("A", "B", "X", "Y").forEach { btn ->
-                Text(text = "$btn:", modifier = Modifier.padding(end = 4.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                // Controller Buttons
+                Text(text = "Controller Buttons", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    uiState.controllerButtons.forEach { btn ->
+                        val assigned = uiState.buttonAssignments[btn]
+                        ControllerButton(
+                            label = { Text(btn) },
+                            assignedAction = assigned,
+                            onPress = { viewModel.assignButton(btn, assigned) },
+                            onRelease = onBack,
+                            modifier = Modifier,
+                            labelText = btn
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                // App Actions
+                Text(text = "Available App Actions", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                var selectedButton by remember { mutableStateOf<String?>(null) }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    uiState.controllerButtons.forEach { btn ->
+                        val assigned = uiState.buttonAssignments[btn]
+                        ControllerButton(
+                            label = { Text(btn) },
+                            assignedAction = assigned,
+                            onPress = { viewModel.assignButton(btn, assigned) },
+                            onRelease = onBack,
+                            modifier = Modifier,
+                            labelText = btn
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 TopicSelector(
                     topics = uiState.appActions,
-                    selectedTopic = uiState.buttonAssignments[btn],
+                    selectedTopic = selectedButton?.let { uiState.buttonAssignments[it] },
                     onTopicSelected = { action ->
-                        viewModel.assignAbxyButton(btn, action?.displayName ?: "")
+                        selectedButton?.let { btn ->
+                            viewModel.assignButton(btn, action)
+                        }
                     },
-                    label = "$btn Button Action"
+                    label = "App Action"
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { viewModel.savePreset(uiState.selectedPreset?.name ?: "") }, modifier = Modifier.align(
-            Alignment.End)) {
-            Text("Save Preset")
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        // Export/Import Config
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { exportLauncher.launch("controller_config.yaml") },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Export Config")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(
-                onClick = {
-                    importLauncher.launch(arrayOf("application/x-yaml", "text/yaml", "text/plain", "application/octet-stream", "*/*"))
-                },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Import Config")
+                Spacer(modifier = Modifier.height(16.dp))
+                // Preset Management
+                Text(
+                    text = "Controller Presets (ABXY)",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    DropdownMenu(
+                        expanded = false,
+                        onDismissRequest = onBack,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        uiState.presets.forEach { preset ->
+                            DropdownMenuItem(
+                                text = { Text(preset.name) },
+                                onClick = { viewModel.selectPreset(preset.name) }
+                            )
+                        }
+                    }
+                    Button(onClick = { viewModel.addPreset() }) { Text("Add") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(onClick = { viewModel.removePreset() }) { Text("Remove") }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                var presetName by remember(uiState.selectedPreset?.name) {
+                    mutableStateOf(
+                        uiState.selectedPreset?.name ?: ""
+                    )
+                }
+                OutlinedTextField(
+                    value = presetName,
+                    onValueChange = {
+                        presetName = it
+                    },
+                    label = { Text("Preset Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { viewModel.savePreset(presetName) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.End)
+                ) {
+                    Text("Save Preset")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    listOf("A", "B", "X", "Y").forEach { btn ->
+                        Text(text = "$btn:", modifier = Modifier.padding(end = 4.dp))
+                        TopicSelector(
+                            topics = uiState.appActions,
+                            selectedTopic = uiState.buttonAssignments[btn],
+                            onTopicSelected = { action ->
+                                viewModel.assignAbxyButton(btn, action?.displayName ?: "")
+                            },
+                            label = "$btn Button Action"
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { viewModel.savePreset(uiState.selectedPreset?.name ?: "") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentWidth(Alignment.End)
+                ) {
+                    Text("Save Preset")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                // Export/Import Config
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = { exportLauncher.launch("controller_config.yaml") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Export Config")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            importLauncher.launch(
+                                arrayOf(
+                                    "application/x-yaml",
+                                    "text/yaml",
+                                    "text/plain",
+                                    "application/octet-stream",
+                                    "*/*"
+                                )
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Import Config")
+                    }
+                }
             }
         }
     }
-}
 }

@@ -91,21 +91,17 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        // Make the main content scrollable if needed
-                        androidx.compose.foundation.rememberScrollState().let { scrollState ->
-                            androidx.compose.foundation.layout.Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .verticalScroll(scrollState)
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                        ) {
+                            NavHost(
+                                navController = navController,
+                                startDestination = Destinations.CONNECTION_SCREEN,
+                                modifier = Modifier.fillMaxSize()
                             ) {
-                                NavHost(
-                                    navController = navController,
-                                    startDestination = Destinations.CONNECTION_SCREEN,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    setupNavigation(navController)
-                                }
+                                setupNavigation(navController)
                             }
                         }
                     }

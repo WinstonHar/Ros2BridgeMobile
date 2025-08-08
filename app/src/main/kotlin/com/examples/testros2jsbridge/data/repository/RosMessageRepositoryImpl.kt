@@ -14,6 +14,7 @@ import com.examples.testros2jsbridge.domain.model.RosMessage
 import javax.inject.Inject
 
 
+
 class RosMessageRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
     private val connectionDao: ConnectionDao
@@ -21,6 +22,16 @@ class RosMessageRepositoryImpl @Inject constructor(
 
     private val _messages: MutableStateFlow<List<RosMessageDto>> = MutableStateFlow<List<RosMessageDto>>(emptyList())
     override val messages: MutableStateFlow<List<RosMessageDto>> get() = _messages
+
+
+    override suspend fun deleteMessage(message: RosMessageDto) {
+        _messages.value = _messages.value.filterNot {
+            it.id == message.id &&
+            it.topic == message.topic &&
+            it.type == message.type &&
+            it.content == message.content
+        }
+    }
 
     override suspend fun getMessagesByTopic(topic: RosId): List<RosMessageDto> {
         return _messages.value.filter { it.topic.value == topic.value }

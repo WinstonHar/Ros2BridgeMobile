@@ -10,6 +10,7 @@ import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import kotlinx.coroutines.flow.MutableStateFlow
 
 interface RosMessageRepository{
+    suspend fun deleteMessage(message: RosMessageDto)
     val messages: MutableStateFlow<List<RosMessageDto>>
 
     suspend fun saveMessage(message: RosMessageDto)

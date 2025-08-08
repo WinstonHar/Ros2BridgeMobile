@@ -1,18 +1,29 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.examples.testros2jsbridge.presentation.state.PublisherUiState
-import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
-import com.examples.testros2jsbridge.domain.model.Publisher
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.examples.testros2jsbridge.domain.model.Publisher
+import com.examples.testros2jsbridge.presentation.mapper.PublisherUiMapper
 
 @Composable
 fun PublisherListScreen(

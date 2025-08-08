@@ -18,7 +18,12 @@ data class RosMessageDto(
     val msg: Map<String, String>? = null, // Message payload as a map (for generic JSON)
     val id: String? = null,   // Optional message ID for tracking
     val latch: Boolean? = null,
-    val queue_size: Int? = null
+    val queue_size: Int? = null,
+    val label: String? = null, // For saved/reusable messages
+    val timestamp: Long? = null, // For message history
+    val sender: String? = null,
+    val isPublished: Boolean? = null, // True if sent, false if received
+    val content: String? = null // JSON string for message content
 )
 
 // Extension function to convert from domain RosMessage to RosMessageDto
@@ -26,8 +31,13 @@ fun RosMessage.toDto(): RosMessageDto = RosMessageDto(
     op = this.op,
     topic = this.topic,
     type = this.type,
-    msg = mapOf("data" to this.content), // or adapt as needed for your ActionFieldValue
+    msg = null, // Not used for geometry messages, use content field
     id = this.id,
     latch = this.latch,
-    queue_size = this.queue_size
+    queue_size = this.queue_size,
+    label = this.label,
+    timestamp = this.timestamp,
+    sender = this.sender,
+    isPublished = this.isPublished,
+    content = this.content
 )

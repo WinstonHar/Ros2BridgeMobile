@@ -80,6 +80,8 @@ dependencies {
     {
         exclude(group = "com.esotericsoftware.kryo", module = "kryo")
     }
+
+    implementation("androidx.compose.foundation:foundation:1.6.7")
 }
 plugins {
     alias(libs.plugins.android.application)
