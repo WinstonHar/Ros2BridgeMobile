@@ -3,8 +3,8 @@ package com.examples.testros2jsbridge.presentation.ui.screens.protocol
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.AppAction
+import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,12 +12,104 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+import kotlinx.serialization.json.jsonObject
 
 @HiltViewModel
-class ProtocolViewModel @Inject constructor(
+class ProtocolViewModel @javax.inject.Inject constructor(
     private val protocolRepository: ProtocolRepository
 ) : ViewModel() {
+    // --- Custom Protocol Compose UI State ---
+
+    data class ProtocolField(val type: String, val name: String, val default: String?)
+
+    private val _activeProtocol = MutableStateFlow<CustomProtocol?>(null)
+    val activeProtocol: StateFlow<CustomProtocol?> = _activeProtocol.asStateFlow()
+
+    private val _protocolFields = MutableStateFlow<List<ProtocolField>>(emptyList())
+    val protocolFields: StateFlow<List<ProtocolField>> = _protocolFields.asStateFlow()
+
+    private val _protocolFieldValues = MutableStateFlow<Map<String, String>>(emptyMap())
+    val protocolFieldValues: StateFlow<Map<String, String>> = _protocolFieldValues.asStateFlow()
+
+    private val _editingAppAction = MutableStateFlow<AppAction?>(null)
+    val editingAppAction: StateFlow<AppAction?> = _editingAppAction.asStateFlow()
+
+    /**
+     * Parse a .msg/.srv/.action file from assets and update protocolFields.
+     */
+    fun loadProtocolFields(context: Context, protocol: CustomProtocol) {
+    _activeProtocol.value = protocol
+    val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, protocol.type)
+    _protocolFields.value = fields
+    _protocolFieldValues.value = fields.associate { it.name to (it.default ?: "") }
+    }
+
+    /**
+     * Utility to parse protocol fields from assets (msg/srv/action).
+     */
+    fun parseProtocolFieldsFromAssets(context: Context, importPath: String, type: CustomProtocol.Type): List<ProtocolField> {
+        val fields = mutableListOf<ProtocolField>()
+        try {
+            context.assets.open(importPath).bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    val trimmed = line.trim()
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                    if ((type == CustomProtocol.Type.SRV || type == CustomProtocol.Type.ACTION) && trimmed == "---") continue
+                    val parts = trimmed.split(" ", limit = 2)
+                    if (parts.size >= 2) {
+                        val typePart = parts[0]
+                        val namePart = parts[1].split("=").first().trim()
+                        val defaultPart = parts[1].split("=").getOrNull(1)?.trim()
+                        fields.add(ProtocolField(typePart, namePart, defaultPart))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            com.examples.testros2jsbridge.core.util.Logger.e("ProtocolViewModel", "Error parsing protocol fields from $importPath", e)
+        }
+        return fields
+    }
+
+    /**
+     * Update a protocol field value.
+     */
+    fun updateProtocolFieldValue(name: String, value: String) {
+        _protocolFieldValues.value = _protocolFieldValues.value.toMutableMap().apply { put(name, value) }
+    }
+
+    /**
+     * Set editing AppAction (for edit mode in UI).
+     */
+    fun setEditingAppAction(action: AppAction?, context: Context? = null) {
+        _editingAppAction.value = action
+        if (action != null) {
+            val protocol = findProtocolForAppAction(action)
+            if (protocol != null && context != null) {
+                val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, protocol.type)
+                _activeProtocol.value = protocol
+                _protocolFields.value = fields
+                val msgMap = parseMsgJsonToFieldMap(action.msg)
+                _protocolFieldValues.value = fields.associate { it.name to (msgMap[it.name] ?: it.default ?: "") }
+            }
+        }
+    }
+
+    // Helper to find protocol for an AppAction (by topic/type or other unique identifier)
+    private fun findProtocolForAppAction(action: AppAction): CustomProtocol? {
+    val allProtocols = _availableMsgProtocols.value + _availableSrvProtocols.value + _availableActionProtocols.value
+    return allProtocols.find { it.name == action.type || it.name == action.displayName }
+    }
+
+    // Helper to parse msg JSON string into a map of field values
+    private fun parseMsgJsonToFieldMap(msg: String): Map<String, String> {
+        return try {
+            val json = kotlinx.serialization.json.Json.parseToJsonElement(msg).jsonObject
+            json.mapValues { (_, v) -> v.toString().trim('"') }
+        } catch (e: Exception) {
+            com.examples.testros2jsbridge.core.util.Logger.e("ProtocolViewModel", "Error parsing msg JSON: $msg", e)
+            emptyMap()
+        }
+    }
     // State for available protocols
     private val _availableMsgProtocols = MutableStateFlow<List<CustomProtocol>>(emptyList())
     val availableMsgProtocols: StateFlow<List<CustomProtocol>> = _availableMsgProtocols.asStateFlow()

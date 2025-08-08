@@ -57,7 +57,9 @@ object DatabaseModule {
             context.applicationContext,
             RosDatabase::class.java,
             "ros_database"
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
@@ -78,5 +80,10 @@ object DatabaseModule {
     @Provides
     fun provideConnectionDao(database: RosDatabase): com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao {
         return database.connectionDao()
+    }
+
+    @Provides
+    fun provideGeometryMessageDao(database: RosDatabase): com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao {
+        return database.geometryMessageDao()
     }
 }

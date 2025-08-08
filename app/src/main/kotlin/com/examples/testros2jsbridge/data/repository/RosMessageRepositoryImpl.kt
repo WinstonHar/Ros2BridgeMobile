@@ -1,44 +1,68 @@
 package com.examples.testros2jsbridge.data.repository
 
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
-import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
-import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
+import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
+import com.examples.testros2jsbridge.data.local.database.entities.toDto
+import com.examples.testros2jsbridge.data.local.database.entities.toEntity
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-import kotlinx.coroutines.flow.*
-import kotlinx.serialization.json.*
-import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.toDto
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
+import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.*
 import javax.inject.Inject
-
-
 
 class RosMessageRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
-    private val connectionDao: ConnectionDao
+    private val connectionDao: ConnectionDao,
+    private val geometryMessageDao: GeometryMessageDao
 ) : RosMessageRepository {
+
 
     private val _messages: MutableStateFlow<List<RosMessageDto>> = MutableStateFlow<List<RosMessageDto>>(emptyList())
     override val messages: MutableStateFlow<List<RosMessageDto>> get() = _messages
 
+    init {
+        // Load all geometry messages from Room on repository init
+        kotlinx.coroutines.GlobalScope.launch {
+            val entities = geometryMessageDao.getAll()
+            _messages.value = entities.map { it.toDto() }
+        }
+    }
+
+
 
     override suspend fun deleteMessage(message: RosMessageDto) {
-        _messages.value = _messages.value.filterNot {
-            it.id == message.id &&
-            it.topic == message.topic &&
+        // Remove from Room
+        val all = geometryMessageDao.getAll()
+        val entity = all.find {
+            it.label == message.label &&
+            it.topic == message.topic.value &&
             it.type == message.type &&
             it.content == message.content
         }
+        if (entity != null) {
+            geometryMessageDao.delete(entity)
+        }
+        // Update in-memory list
+        val updated = geometryMessageDao.getAll().map { it.toDto() }
+        _messages.value = updated
     }
 
     override suspend fun getMessagesByTopic(topic: RosId): List<RosMessageDto> {
         return _messages.value.filter { it.topic.value == topic.value }
     }
 
+
     override suspend fun saveMessage(message: RosMessageDto) {
-        _messages.value = _messages.value.filter { it.id != message.id } + message
+        // Save to Room
+        geometryMessageDao.insert(message.toEntity())
+        // Update in-memory list
+        val updated = geometryMessageDao.getAll().map { it.toDto() }
+        _messages.value = updated
     }
 
     override suspend fun getMessage(messageId: String): RosMessageDto? {
@@ -56,8 +80,12 @@ class RosMessageRepositoryImpl @Inject constructor(
         val dto = message.toDto()
         val jsonString = Json.encodeToString(RosMessageDto.serializer(), dto)
         rosbridgeClient.send(jsonString)
-        // Optionally update local message history
-        _messages.value = (_messages.value + dto)
+        // Optionally update local message history and persist
+        kotlinx.coroutines.GlobalScope.launch {
+            geometryMessageDao.insert(dto.toEntity())
+            val updated = geometryMessageDao.getAll().map { it.toDto() }
+            _messages.value = updated
+        }
     }
 
     private val _customMessage = MutableStateFlow("")

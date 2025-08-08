@@ -18,7 +18,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.3.14")
 
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.04.00"))
+    implementation(platform("androidx.compose:compose-bom:2025.04.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -28,6 +28,7 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("androidx.compose.ui:ui-viewbinding")
     implementation("androidx.compose.material:material-icons-extended:1.6.7")
+
 
     // Room Database
     implementation("androidx.room:room-runtime:2.6.1")

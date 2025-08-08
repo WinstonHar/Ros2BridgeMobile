@@ -9,6 +9,8 @@ import com.examples.testros2jsbridge.presentation.mapper.ControllerUiMapper
 import com.examples.testros2jsbridge.domain.usecase.controller.HandleControllerInputUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.SaveControllerConfigUseCase
+import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -22,7 +24,8 @@ class ControllerViewModel @Inject constructor(
     private val handleControllerInputUseCase: HandleControllerInputUseCase,
     private val loadControllerConfigUseCase: LoadControllerConfigUseCase,
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
-    val controllerRepository: com.examples.testros2jsbridge.domain.repository.ControllerRepository
+    val controllerRepository: com.examples.testros2jsbridge.domain.repository.ControllerRepository,
+    private val rosMessageRepository: RosMessageRepository
 ) : ViewModel() {
 
     private val _detectedControllerButtons = MutableStateFlow<List<String>>(emptyList())
@@ -72,6 +75,27 @@ class ControllerViewModel @Inject constructor(
             _uiState.value = ControllerUiMapper.toUiState(config)
         }
         refreshControllerButtons()
+
+        // Collect all saved geometry messages and expose as AppActions
+        viewModelScope.launch {
+            rosMessageRepository.messages.collect { messageList ->
+                val geometryActions = messageList.mapNotNull { it.toAppAction() }
+                _appActions.value = geometryActions
+            }
+        }
+    }
+
+    // Extension function to map RosMessageDto to AppAction
+    private fun RosMessageDto.toAppAction(): com.examples.testros2jsbridge.domain.model.AppAction? {
+        // Use label or topic as displayName, and content as msg
+        return com.examples.testros2jsbridge.domain.model.AppAction(
+            id = this.id ?: (this.label ?: this.topic.value),
+            displayName = this.label ?: this.topic.value,
+            topic = this.topic.value,
+            type = this.type ?: "",
+            source = "geometry",
+            msg = this.content ?: ""
+        )
     }
 
     fun selectPreset(presetName: String) {

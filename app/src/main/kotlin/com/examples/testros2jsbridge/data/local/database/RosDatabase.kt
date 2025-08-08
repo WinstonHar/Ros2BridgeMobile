@@ -14,13 +14,15 @@ import com.examples.testros2jsbridge.data.local.database.entities.SubscriberEnti
         ConfigurationEntity::class,
         PublisherEntity::class,
         SubscriberEntity::class,
-        com.examples.testros2jsbridge.data.local.database.entities.ConnectionEntity::class
+        com.examples.testros2jsbridge.data.local.database.entities.ConnectionEntity::class,
+        com.examples.testros2jsbridge.data.local.database.entities.GeometryMessageEntity::class
     ],
-    version = 1
+    version = 2
 )
 abstract class RosDatabase : RoomDatabase() {
     abstract fun configurationDao(): ConfigurationDao
     abstract fun publisherDao(): PublisherDao
     abstract fun subscriberDao(): SubscriberDao
     abstract fun connectionDao(): com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+    abstract fun geometryMessageDao(): com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 }

@@ -26,25 +26,26 @@ class GeometryViewModel @Inject constructor(
     val uiState: StateFlow<GeometryUiState> = _uiState
 
     init {
-        // On ViewModel init, load all saved geometry messages from repository for persistence
+        // On ViewModel init, observe all saved geometry messages from repository for persistence
         viewModelScope.launch {
-            val messageDtos = rosMessageRepository.messages.value
-            val messages = messageDtos.map { dto ->
-                RosMessage(
-                    id = dto.id,
-                    topic = dto.topic,
-                    type = dto.type ?: "",
-                    content = dto.content ?: "",
-                    timestamp = dto.timestamp ?: System.currentTimeMillis(),
-                    label = dto.label,
-                    sender = dto.sender,
-                    isPublished = dto.isPublished ?: true,
-                    op = dto.op,
-                    latch = dto.latch,
-                    queue_size = dto.queue_size
-                )
+            rosMessageRepository.messages.collect { messageDtos ->
+                val messages = messageDtos.map { dto ->
+                    RosMessage(
+                        id = dto.id,
+                        topic = dto.topic,
+                        type = dto.type ?: "",
+                        content = dto.content ?: "",
+                        timestamp = dto.timestamp ?: System.currentTimeMillis(),
+                        label = dto.label,
+                        sender = dto.sender,
+                        isPublished = dto.isPublished ?: true,
+                        op = dto.op,
+                        latch = dto.latch,
+                        queue_size = dto.queue_size
+                    )
+                }
+                _uiState.value = _uiState.value.copy(messages = messages)
             }
-            _uiState.value = _uiState.value.copy(messages = messages)
         }
     }
 

@@ -20,6 +20,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,25 +46,49 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.AppAction
+import com.examples.testros2jsbridge.domain.model.CustomProtocol
+import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomProtocolScreen(
     viewModel: ProtocolViewModel = hiltViewModel(),
+    controllerViewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
+
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var editingAction by remember { mutableStateOf<AppAction?>(null) }
+    val activeProtocol by viewModel.activeProtocol.collectAsState()
+    val protocolFields by viewModel.protocolFields.collectAsState()
+    val protocolFieldValues by viewModel.protocolFieldValues.collectAsState()
+    val editingAction by viewModel.editingAppAction.collectAsState()
+    val customAppActions = viewModel.customAppActions.collectAsState().value
+
+    // Local state for AppAction editor
     var actionDisplayName by remember { mutableStateOf(TextFieldValue()) }
     var actionTopic by remember { mutableStateOf(TextFieldValue()) }
     var actionType by remember { mutableStateOf(TextFieldValue()) }
     var actionSource by remember { mutableStateOf(TextFieldValue()) }
     var actionMsg by remember { mutableStateOf(TextFieldValue()) }
-    var importResult by remember { mutableStateOf<List<com.examples.testros2jsbridge.domain.model.CustomProtocol>>(emptyList()) }
-    var selectedImportedProtocols by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var protocolFieldValues by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var selectedProtocolForConfig by remember { mutableStateOf<com.examples.testros2jsbridge.domain.model.CustomProtocol?>(null) }
-    val customAppActions = viewModel.customAppActions.collectAsState().value
+
+    // Sync local state with editingAction
+    LaunchedEffect(editingAction) {
+        val action = editingAction
+        if (action != null) {
+            actionDisplayName = TextFieldValue(action.displayName)
+            actionTopic = TextFieldValue(action.topic)
+            actionType = TextFieldValue(action.type)
+            actionSource = TextFieldValue(action.source)
+            actionMsg = TextFieldValue(action.msg)
+        } else {
+            actionDisplayName = TextFieldValue()
+            actionTopic = TextFieldValue()
+            actionType = TextFieldValue()
+            actionSource = TextFieldValue()
+            actionMsg = TextFieldValue()
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadProtocols(context)
@@ -83,6 +111,80 @@ fun CustomProtocolScreen(
             item {
                 Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
+            }
+            // Dropdown for selected protocols
+            item {
+                // Use ExposedDropdownMenuBox for a true dropdown experience
+                val allProtocols = uiState.availableMessages + uiState.availableServices + uiState.availableActions
+                var expanded by remember { mutableStateOf(false) }
+                var dropdownSelected by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = dropdownSelected?.name ?: "Select Protocol",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Configure Protocol") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        allProtocols.forEach { proto ->
+                            DropdownMenuItem(
+                                text = { Text(proto.name) },
+                                onClick = {
+                                    dropdownSelected = proto
+                                    expanded = false
+                                    // Map ProtocolFile to CustomProtocol for loadProtocolFields
+                                    viewModel.loadProtocolFields(
+                                        context,
+                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            // Dynamic protocol fields for selected protocol
+            if (activeProtocol != null && protocolFields.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Configure Fields for ${activeProtocol!!.name}", style = MaterialTheme.typography.titleMedium)
+                }
+                items(protocolFields) { field: ProtocolViewModel.ProtocolField ->
+                    OutlinedTextField(
+                        value = protocolFieldValues[field.name] ?: "",
+                        onValueChange = { viewModel.updateProtocolFieldValue(field.name, it) },
+                        label = { Text(field.name + " (${field.type})") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item {
+                    Button(onClick = {
+                        // Save as AppAction
+                        val id = java.util.UUID.randomUUID().toString()
+                        viewModel.saveCustomAppAction(
+                            context,
+                            AppAction(
+                                id = id,
+                                displayName = protocolFieldValues["displayName"] ?: activeProtocol!!.name,
+                                topic = protocolFieldValues["topic"] ?: "",
+                                type = protocolFieldValues["type"] ?: activeProtocol!!.type.name,
+                                source = protocolFieldValues["source"] ?: "",
+                                msg = protocolFieldValues["msg"] ?: ""
+                            )
+                        )
+                    }) {
+                        Text("Save as App Action")
+                    }
+                }
             }
             // Available Messages (.msg)
             item {
@@ -152,86 +254,7 @@ fun CustomProtocolScreen(
                 }
             }
             item { Spacer(modifier = Modifier.height(16.dp)) }
-            item {
-                // Show dynamic form for selected imported protocol
-                selectedProtocolForConfig?.let { proto ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Configure Protocol: ${proto.name}",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    OutlinedTextField(
-                        value = protocolFieldValues["displayName"] ?: "",
-                        onValueChange = {
-                            protocolFieldValues =
-                                protocolFieldValues.toMutableMap().apply { put("displayName", it) }
-                        },
-                        label = { Text("Display Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = protocolFieldValues["topic"] ?: "",
-                        onValueChange = {
-                            protocolFieldValues =
-                                protocolFieldValues.toMutableMap().apply { put("topic", it) }
-                        },
-                        label = { Text("Topic") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = protocolFieldValues["type"] ?: proto.type.name,
-                        onValueChange = {
-                            protocolFieldValues =
-                                protocolFieldValues.toMutableMap().apply { put("type", it) }
-                        },
-                        label = { Text("Type") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = protocolFieldValues["source"] ?: "",
-                        onValueChange = {
-                            protocolFieldValues =
-                                protocolFieldValues.toMutableMap().apply { put("source", it) }
-                        },
-                        label = { Text("Source") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = protocolFieldValues["msg"] ?: "",
-                        onValueChange = {
-                            protocolFieldValues =
-                                protocolFieldValues.toMutableMap().apply { put("msg", it) }
-                        },
-                        label = { Text("Message (JSON)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        Button(onClick = {
-                            // Save as AppAction
-                            val id = java.util.UUID.randomUUID().toString()
-                            viewModel.saveCustomAppAction(
-                                context,
-                                AppAction(
-                                    id = id,
-                                    displayName = protocolFieldValues["displayName"] ?: proto.name,
-                                    topic = protocolFieldValues["topic"] ?: "",
-                                    type = protocolFieldValues["type"] ?: proto.type.name,
-                                    source = protocolFieldValues["source"] ?: "",
-                                    msg = protocolFieldValues["msg"] ?: ""
-                                )
-                            )
-                            // Reset form
-                            protocolFieldValues = emptyMap()
-                            selectedProtocolForConfig = null
-                        }) {
-                            Text("Save as App Action")
-                        }
-                    }
-                }
-            }
+            // Removed selectedProtocolForConfig block; handled above with activeProtocol
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -274,12 +297,7 @@ fun CustomProtocolScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (editingAction != null) {
                         Button(onClick = {
-                            editingAction = null
-                            actionDisplayName = TextFieldValue()
-                            actionTopic = TextFieldValue()
-                            actionType = TextFieldValue()
-                            actionSource = TextFieldValue()
-                            actionMsg = TextFieldValue()
+                            viewModel.setEditingAppAction(null)
                         }) { Text("Cancel") }
                         Spacer(modifier = Modifier.width(8.dp))
                     }
@@ -296,12 +314,7 @@ fun CustomProtocolScreen(
                                 msg = actionMsg.text
                             )
                         )
-                        editingAction = null
-                        actionDisplayName = TextFieldValue()
-                        actionTopic = TextFieldValue()
-                        actionType = TextFieldValue()
-                        actionSource = TextFieldValue()
-                        actionMsg = TextFieldValue()
+                        viewModel.setEditingAppAction(null)
                     }) {
                         Text(if (editingAction == null) "Save App Action" else "Update App Action")
                     }
@@ -338,13 +351,13 @@ fun CustomProtocolScreen(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
+                                Button(onClick = {
+                                    controllerViewModel.triggerAppAction(action)
+                                }, modifier = Modifier.padding(end = 8.dp)) {
+                                    Text("Send")
+                                }
                                 IconButton(onClick = {
-                                    editingAction = action
-                                    actionDisplayName = TextFieldValue(action.displayName)
-                                    actionTopic = TextFieldValue(action.topic)
-                                    actionType = TextFieldValue(action.type)
-                                    actionSource = TextFieldValue(action.source)
-                                    actionMsg = TextFieldValue(action.msg)
+                                    viewModel.setEditingAppAction(action)
                                 }) {
                                     Icon(Icons.Default.Edit, contentDescription = "Edit")
                                 }

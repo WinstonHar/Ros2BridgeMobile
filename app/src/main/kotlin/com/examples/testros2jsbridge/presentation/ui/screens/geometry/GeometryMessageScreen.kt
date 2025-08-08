@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
@@ -35,6 +37,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.presentation.mapper.MessageUiMapper
@@ -46,6 +55,9 @@ fun GeometryMessageScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     Surface(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
@@ -56,14 +68,65 @@ fun GeometryMessageScreen(
                 .padding(16.dp)
         ) {
             item {
+                // Dynamic fields for selected geometry type (must be defined before use)
+                var selectedType by remember { mutableStateOf(uiState.typeInput.takeIf { it in com.examples.testros2jsbridge.domain.geometry.geometryTypes } ?: com.examples.testros2jsbridge.domain.geometry.geometryTypes.first()) }
+                val fieldSpecs = com.examples.testros2jsbridge.domain.geometry.geometryTypeFields[selectedType] ?: emptyList()
+                val fieldTags = remember(selectedType) {
+                    fieldSpecs.flatMap { spec ->
+                        when (spec) {
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Vector3 ->
+                                listOf(
+                                    spec.prefix.let { if (it.isEmpty()) "x" else "${it}_x" },
+                                    spec.prefix.let { if (it.isEmpty()) "y" else "${it}_y" },
+                                    spec.prefix.let { if (it.isEmpty()) "z" else "${it}_z" }
+                                )
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Quaternion ->
+                                listOf(
+                                    spec.prefix.let { if (it.isEmpty()) "x" else "${it}_x" },
+                                    spec.prefix.let { if (it.isEmpty()) "y" else "${it}_y" },
+                                    spec.prefix.let { if (it.isEmpty()) "z" else "${it}_z" },
+                                    spec.prefix.let { if (it.isEmpty()) "w" else "${it}_w" }
+                                )
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Covariance ->
+                                (0 until 36).map { "covariance$it" }
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Point32Array ->
+                                (0 until 3).flatMap { idx -> listOf("points${idx}_x", "points${idx}_y", "points${idx}_z") }
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.PoseArray ->
+                                (0 until 2).flatMap { idx -> listOf("poses${idx}_position_x", "poses${idx}_position_y", "poses${idx}_position_z", "poses${idx}_orientation_x", "poses${idx}_orientation_y", "poses${idx}_orientation_z", "poses${idx}_orientation_w") }
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.FloatField -> listOf(spec.tag)
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.IntField -> listOf(spec.tag)
+                            is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.StringField -> listOf(spec.tag)
+                        }
+                    }
+                }
+                val fieldStates = remember(selectedType) {
+                    fieldTags.associateWith { mutableStateOf("") }
+                }
+                val focusRequesters = remember(selectedType) {
+                    fieldTags.associateWith { FocusRequester() }
+                }
+
                 Text(text = "Geometry Messages", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
+                // FocusRequesters for Name, Topic, and first dynamic field
+                val nameFocusRequester = remember { FocusRequester() }
+                val topicFocusRequester = remember { FocusRequester() }
+                // The first dynamic field tag, if any
+                val firstDynamicTag = fieldTags.firstOrNull()
                 // Name input
                 OutlinedTextField(
                     value = uiState.nameInput,
                     onValueChange = viewModel::updateNameInput,
                     label = { Text("Name") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(nameFocusRequester),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        imeAction = ImeAction.Next,
+                        keyboardType = KeyboardType.Text,
+                        capitalization = KeyboardCapitalization.Sentences
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { topicFocusRequester.requestFocus() }
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 // Topic input
@@ -71,13 +134,24 @@ fun GeometryMessageScreen(
                     value = uiState.topicInput,
                     onValueChange = viewModel::updateTopicInput,
                     label = { Text("Topic") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(topicFocusRequester),
+                    keyboardOptions = KeyboardOptions.Default.copy(
+                        imeAction = if (firstDynamicTag != null) ImeAction.Next else ImeAction.Done,
+                        keyboardType = KeyboardType.Text
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = {
+                            firstDynamicTag?.let { tag ->
+                                focusRequesters[tag]?.requestFocus()
+                            } ?: focusManager.clearFocus()
+                        },
+                        onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 // Type dropdown
                 var expanded by remember { mutableStateOf(false) }
                 val types = com.examples.testros2jsbridge.domain.geometry.geometryTypes
-                var selectedType by remember { mutableStateOf(uiState.typeInput.takeIf { it in types } ?: types.first()) }
                 LaunchedEffect(uiState.typeInput) {
                     if (uiState.typeInput in types && uiState.typeInput != selectedType) {
                         selectedType = uiState.typeInput
@@ -113,40 +187,10 @@ fun GeometryMessageScreen(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Dynamic fields for selected geometry type
-            val fieldSpecs = com.examples.testros2jsbridge.domain.geometry.geometryTypeFields[selectedType] ?: emptyList()
-            // Build a list of all field tags for the selected type
-            val fieldTags = remember(selectedType) {
-                fieldSpecs.flatMap { spec ->
-                    when (spec) {
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Vector3 ->
-                            listOf(
-                                spec.prefix.let { if (it.isEmpty()) "x" else "${it}_x" },
-                                spec.prefix.let { if (it.isEmpty()) "y" else "${it}_y" },
-                                spec.prefix.let { if (it.isEmpty()) "z" else "${it}_z" }
-                            )
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Quaternion ->
-                            listOf(
-                                spec.prefix.let { if (it.isEmpty()) "x" else "${it}_x" },
-                                spec.prefix.let { if (it.isEmpty()) "y" else "${it}_y" },
-                                spec.prefix.let { if (it.isEmpty()) "z" else "${it}_z" },
-                                spec.prefix.let { if (it.isEmpty()) "w" else "${it}_w" }
-                            )
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Covariance ->
-                            (0 until 36).map { "covariance$it" }
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.Point32Array ->
-                            (0 until 3).flatMap { idx -> listOf("points${idx}_x", "points${idx}_y", "points${idx}_z") }
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.PoseArray ->
-                            (0 until 2).flatMap { idx -> listOf("poses${idx}_position_x", "poses${idx}_position_y", "poses${idx}_position_z", "poses${idx}_orientation_x", "poses${idx}_orientation_y", "poses${idx}_orientation_z", "poses${idx}_orientation_w") }
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.FloatField -> listOf(spec.tag)
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.IntField -> listOf(spec.tag)
-                        is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.StringField -> listOf(spec.tag)
-                    }
-                }
-            }
-            // Use a map of tag to mutableStateOf for field values
-            val fieldStates = remember(selectedType) {
-                fieldTags.associateWith { mutableStateOf("") }
+            // Helper to get next field tag
+            fun nextTag(current: String): String? {
+                val idx = fieldTags.indexOf(current)
+                return if (idx != -1 && idx < fieldTags.size - 1) fieldTags[idx + 1] else null
             }
 
             fieldSpecs.forEach { spec ->
@@ -155,11 +199,22 @@ fun GeometryMessageScreen(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("x", "y", "z").forEach { axis ->
                                 val tag = if (spec.prefix.isEmpty()) axis else "${spec.prefix}_$axis"
+                                val next = nextTag(tag)
                                 OutlinedTextField(
                                     value = fieldStates[tag]?.value ?: "",
                                     onValueChange = { fieldStates[tag]?.value = it },
                                     label = { Text(tag) },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).focusRequester(focusRequesters[tag]!!),
+                                    keyboardOptions = KeyboardOptions.Default.copy(
+                                        imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                        keyboardType = KeyboardType.Number
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                        },
+                                        onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                    )
                                 )
                             }
                         }
@@ -169,11 +224,22 @@ fun GeometryMessageScreen(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("x", "y", "z", "w").forEach { axis ->
                                 val tag = if (spec.prefix.isEmpty()) axis else "${spec.prefix}_$axis"
+                                val next = nextTag(tag)
                                 OutlinedTextField(
                                     value = fieldStates[tag]?.value ?: "",
                                     onValueChange = { fieldStates[tag]?.value = it },
                                     label = { Text(tag) },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f).focusRequester(focusRequesters[tag]!!),
+                                    keyboardOptions = KeyboardOptions.Default.copy(
+                                        imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                        keyboardType = KeyboardType.Number
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                        },
+                                        onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                    )
                                 )
                             }
                         }
@@ -189,11 +255,23 @@ fun GeometryMessageScreen(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             (0 until 36).forEach { idx ->
+                                val tag = "covariance$idx"
+                                val next = nextTag(tag)
                                 OutlinedTextField(
-                                    value = fieldStates["covariance$idx"]?.value ?: "",
-                                    onValueChange = { fieldStates["covariance$idx"]?.value = it },
+                                    value = fieldStates[tag]?.value ?: "",
+                                    onValueChange = { fieldStates[tag]?.value = it },
                                     label = { Text("$idx") },
-                                    modifier = Modifier.width(60.dp)
+                                    modifier = Modifier.width(60.dp).focusRequester(focusRequesters[tag]!!),
+                                    keyboardOptions = KeyboardOptions.Default.copy(
+                                        imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                        keyboardType = KeyboardType.Number
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                        },
+                                        onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                    )
                                 )
                             }
                         }
@@ -205,11 +283,22 @@ fun GeometryMessageScreen(
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("x", "y", "z").forEach { axis ->
                                     val tag = "points${idx}_$axis"
+                                    val next = nextTag(tag)
                                     OutlinedTextField(
                                         value = fieldStates[tag]?.value ?: "",
                                         onValueChange = { fieldStates[tag]?.value = it },
                                         label = { Text("$axis$idx") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).focusRequester(focusRequesters[tag]!!),
+                                        keyboardOptions = KeyboardOptions.Default.copy(
+                                            imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                            keyboardType = KeyboardType.Number
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onNext = {
+                                                next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                            },
+                                            onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                        )
                                     )
                                 }
                             }
@@ -223,22 +312,44 @@ fun GeometryMessageScreen(
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("x", "y", "z").forEach { axis ->
                                     val tag = "poses${idx}_position_$axis"
+                                    val next = nextTag(tag)
                                     OutlinedTextField(
                                         value = fieldStates[tag]?.value ?: "",
                                         onValueChange = { fieldStates[tag]?.value = it },
                                         label = { Text("pos $axis") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).focusRequester(focusRequesters[tag]!!),
+                                        keyboardOptions = KeyboardOptions.Default.copy(
+                                            imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                            keyboardType = KeyboardType.Number
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onNext = {
+                                                next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                            },
+                                            onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                        )
                                     )
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("x", "y", "z", "w").forEach { axis ->
                                     val tag = "poses${idx}_orientation_$axis"
+                                    val next = nextTag(tag)
                                     OutlinedTextField(
                                         value = fieldStates[tag]?.value ?: "",
                                         onValueChange = { fieldStates[tag]?.value = it },
                                         label = { Text("ori $axis") },
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(1f).focusRequester(focusRequesters[tag]!!),
+                                        keyboardOptions = KeyboardOptions.Default.copy(
+                                            imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                            keyboardType = KeyboardType.Number
+                                        ),
+                                        keyboardActions = KeyboardActions(
+                                            onNext = {
+                                                next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                            },
+                                            onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                                        )
                                     )
                                 }
                             }
@@ -246,29 +357,66 @@ fun GeometryMessageScreen(
                         Spacer(Modifier.height(8.dp))
                     }
                     is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.FloatField -> {
+                        val tag = spec.tag
+                        val next = nextTag(tag)
                         OutlinedTextField(
-                            value = fieldStates[spec.tag]?.value ?: "",
-                            onValueChange = { fieldStates[spec.tag]?.value = it },
+                            value = fieldStates[tag]?.value ?: "",
+                            onValueChange = { fieldStates[tag]?.value = it },
                             label = { Text(spec.hint) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequesters[tag]!!),
+                            keyboardOptions = KeyboardOptions.Default.copy(
+                                imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                keyboardType = KeyboardType.Number
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                },
+                                onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                            )
                         )
                         Spacer(Modifier.height(8.dp))
                     }
                     is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.IntField -> {
+                        val tag = spec.tag
+                        val next = nextTag(tag)
                         OutlinedTextField(
-                            value = fieldStates[spec.tag]?.value ?: "",
-                            onValueChange = { fieldStates[spec.tag]?.value = it },
+                            value = fieldStates[tag]?.value ?: "",
+                            onValueChange = { fieldStates[tag]?.value = it },
                             label = { Text(spec.hint) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequesters[tag]!!),
+                            keyboardOptions = KeyboardOptions.Default.copy(
+                                imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                keyboardType = KeyboardType.Number
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                },
+                                onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                            )
                         )
                         Spacer(Modifier.height(8.dp))
                     }
                     is com.examples.testros2jsbridge.domain.geometry.GeometryFieldSpec.StringField -> {
+                        val tag = spec.tag
+                        val next = nextTag(tag)
                         OutlinedTextField(
-                            value = fieldStates[spec.tag]?.value ?: "",
-                            onValueChange = { fieldStates[spec.tag]?.value = it },
+                            value = fieldStates[tag]?.value ?: "",
+                            onValueChange = { fieldStates[tag]?.value = it },
                             label = { Text(spec.hint) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().focusRequester(focusRequesters[tag]!!),
+                            keyboardOptions = KeyboardOptions.Default.copy(
+                                imeAction = if (next != null) ImeAction.Next else ImeAction.Done,
+                                keyboardType = KeyboardType.Text,
+                                capitalization = KeyboardCapitalization.Sentences
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    next?.let { focusRequesters[it]?.requestFocus() } ?: focusManager.clearFocus()
+                                },
+                                onDone = { focusManager.clearFocus(); keyboardController?.hide() }
+                            )
                         )
                         Spacer(Modifier.height(8.dp))
                     }
