@@ -47,9 +47,11 @@ class ProtocolViewModel @Inject constructor(
 
     // Select or deselect a protocol by importPath
     fun toggleProtocolSelection(importPath: String) {
-        _selectedProtocols.value = _selectedProtocols.value.toMutableSet().apply {
+        val newSet = _selectedProtocols.value.toMutableSet().apply {
             if (contains(importPath)) remove(importPath) else add(importPath)
         }
+        _selectedProtocols.value = newSet
+        _uiState.value = _uiState.value.copy(selectedProtocols = newSet)
     }
 
     // Import selected protocols as CustomProtocol objects

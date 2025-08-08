@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import android.view.InputDevice
+import kotlinx.coroutines.flow.asStateFlow
 
 @HiltViewModel
 class ControllerViewModel @Inject constructor(
@@ -22,6 +24,36 @@ class ControllerViewModel @Inject constructor(
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
     val controllerRepository: com.examples.testros2jsbridge.domain.repository.ControllerRepository
 ) : ViewModel() {
+
+    private val _detectedControllerButtons = MutableStateFlow<List<String>>(emptyList())
+    val detectedControllerButtons: StateFlow<List<String>> = _detectedControllerButtons.asStateFlow()
+
+    fun refreshControllerButtons() {
+        val buttonNames = mutableSetOf<String>()
+        val keyCodeToName = mapOf(
+            96 to "A", 97 to "B", 99 to "X", 100 to "Y",
+            102 to "L1", 103 to "R1", 104 to "L2", 105 to "R2",
+            108 to "Start", 82 to "Select"
+        )
+        for (deviceId in InputDevice.getDeviceIds()) {
+            val device = InputDevice.getDevice(deviceId) ?: continue
+            val sources = device.sources
+            if ((sources and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) ||
+                (sources and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK)) {
+                for ((keyCode, name) in keyCodeToName) {
+                    if (device.hasKeys(keyCode)[0]) {
+                        buttonNames.add(name)
+                    }
+                }
+            }
+        }
+        _detectedControllerButtons.value = buttonNames.toList().sorted()
+    }
+
+    fun triggerAppAction(action: AppAction) {
+        handleControllerInputUseCase.triggerAppAction(action)
+    }
+
     var showPresetsOverlay: (() -> Unit)? = null
     private val _appActions = MutableStateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>>(emptyList())
     val appActions: StateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>> = _appActions
@@ -39,6 +71,7 @@ class ControllerViewModel @Inject constructor(
             val config = loadControllerConfigUseCase.load()
             _uiState.value = ControllerUiMapper.toUiState(config)
         }
+        refreshControllerButtons()
     }
 
     fun selectPreset(presetName: String) {

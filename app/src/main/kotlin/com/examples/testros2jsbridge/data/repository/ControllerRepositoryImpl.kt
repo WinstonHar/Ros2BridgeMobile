@@ -496,43 +496,31 @@ class ControllerRepositoryImpl @Inject constructor(
             }
         }
         saveButtonAssignments(buttonAssignments)
-        // AppActions import omitted for brevity
-    }
-
-    // --- Helpers ---
-    fun keyCodeToButtonName(keyCode: Int): String? {
-        return when (keyCode) {
-            96 -> "Button A"
-            97 -> "Button B"
-            99 -> "Button X"
-            100 -> "Button Y"
-            19 -> "DPad Up"
-            20 -> "DPad Down"
-            21 -> "DPad Left"
-            22 -> "DPad Right"
-            102 -> "L1"
-            103 -> "R1"
-            104 -> "L2"
-            105 -> "R2"
-            108, 82 -> "Start"
-            109, 4 -> "Select"
-            else -> null
-        }
-    }
-
-    fun getDefaultMessage(action: AppAction): String {
-        return when (action.source) {
-            "Geometry" -> when (action.type) {
-                "geometry_msgs/msg/Twist" -> "{\"linear\":{\"x\":0.0,\"y\":0.0,\"z\":0.0},\"angular\":{\"x\":0.0,\"y\":0.0,\"z\":0.0}}"
-                "geometry_msgs/msg/Vector3" -> "{\"x\":0.0,\"y\":0.0,\"z\":0.0}"
-                else -> "{}"
+        
+        // --- Import AppActions ---
+        val appActionsList = configMap["appActions"] as? List<*> ?: emptyList<Any>()
+        val appActionsJsonArr = JSONArray()
+        for (aa in appActionsList) {
+            if (aa is Map<*, *>) {
+                val displayName = aa["displayName"] as? String ?: ""
+                val topic = aa["topic"] as? String ?: ""
+                val type = aa["type"] as? String ?: ""
+                val source = aa["source"] as? String ?: ""
+                val msg = aa["msg"] as? String ?: ""
+                val id = (aa["id"] as? String) ?: (displayName + "_" + topic)
+                val obj = JSONObject().apply {
+                    put("id", id)
+                    put("displayName", displayName)
+                    put("topic", topic)
+                    put("type", type)
+                    put("source", source)
+                    put("msg", msg)
+                }
+                appActionsJsonArr.put(obj)
             }
-            "Standard Message" -> when (action.type) {
-                "std_msgs/msg/String" -> "{\"data\": \"pressed\"}"
-                "std_msgs/msg/Bool" -> "{\"data\": true}"
-                else -> "{\"data\": 1}"
-            }
-            else -> "{}"
         }
+        // Save to SharedPreferences (imported_app_actions)
+        val importedPrefs = context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
+        importedPrefs.edit().putString("imported_app_actions", appActionsJsonArr.toString()).apply()
     }
 }

@@ -56,8 +56,10 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
     composable(route = Destinations.CONTROLLER_CONFIG_SCREEN) {
         val viewModel: ControllerViewModel = hiltViewModel()
         val uiState = viewModel.uiState.collectAsState()
+        val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
         ControllerConfigScreen(
             controllerButtons = uiState.value.controllerButtons,
+            detectedControllerButtons = detectedControllerButtons.value,
             appActions = uiState.value.appActions,
             presets = uiState.value.presets,
             selectedPreset = uiState.value.selectedPreset?.name,
@@ -78,8 +80,10 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         val viewModel: ControllerViewModel = hiltViewModel()
         val uiState = viewModel.uiState.collectAsState()
         val presetName = backStackEntry.arguments?.getString("presetName")
+        val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
         ControllerConfigScreen(
             controllerButtons = uiState.value.controllerButtons,
+            detectedControllerButtons = detectedControllerButtons.value,
             appActions = uiState.value.appActions,
             presets = uiState.value.presets,
             selectedPreset = presetName ?: uiState.value.selectedPreset?.name,

@@ -42,6 +42,7 @@ import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
 @Composable
 fun ControllerConfigScreen(
     controllerButtons: List<String>,
+    detectedControllerButtons: List<String>,
     appActions: List<AppAction>,
     presets: List<ControllerPreset>,
     selectedPreset: String?,
@@ -56,9 +57,9 @@ fun ControllerConfigScreen(
 ) {
     val scrollState = rememberScrollState()
     val presetObj = presets.find { it.name == selectedPreset }
-    var buttonAssignments by remember(selectedPreset, presets) {
+    var buttonAssignments by remember(selectedPreset, presets, detectedControllerButtons) {
         mutableStateOf(
-            controllerButtons.associateWith { btn ->
+            detectedControllerButtons.associateWith { btn ->
                 presetObj?.buttonAssignments?.get(btn)
             }
         )
@@ -68,8 +69,16 @@ fun ControllerConfigScreen(
     // Joystick mappings are now passed in and persisted via callback
     val mappings = remember(joystickMappings) { joystickMappings.toMutableList() }
 
-    // Simulate controller connection status (replace with real status if available)
-    val isControllerConnected = controllerButtons.isNotEmpty()
+    // Real controller connection status using InputDevice
+    val isControllerConnected = remember {
+        android.view.InputDevice.getDeviceIds().any { deviceId ->
+            android.view.InputDevice.getDevice(deviceId)?.let { device ->
+                val sources = device.sources
+                (sources and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD) ||
+                (sources and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK)
+            } ?: false
+        }
+    }
 
 
     Surface(
@@ -102,14 +111,14 @@ fun ControllerConfigScreen(
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                if (controllerButtons.isEmpty()) {
+                if (detectedControllerButtons.isEmpty()) {
                     Text(
                         text = "No controller buttons detected. Connect a controller.",
                         color = MaterialTheme.colorScheme.error
                     )
                 } else {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        controllerButtons.forEach { btn ->
+                        detectedControllerButtons.forEach { btn ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)

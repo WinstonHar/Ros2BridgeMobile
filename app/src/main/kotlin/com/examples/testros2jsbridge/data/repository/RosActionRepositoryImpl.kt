@@ -19,6 +19,10 @@ class RosActionRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
     override val actions: MutableStateFlow<List<RosAction>>
 ) : RosActionRepository {
+
+    override fun publishRaw(json: String) {
+        rosbridgeClient.send(json)
+    }
     // Coroutine scope for launching jobs
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 

@@ -84,75 +84,74 @@ fun CustomProtocolScreen(
                 Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
             }
+            // Available Messages (.msg)
             item {
                 Text(
                     text = "Available Messages (.msg)",
                     style = MaterialTheme.typography.titleMedium
                 )
-                LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
-                    items(uiState.availableMessages) { file ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = uiState.selectedProtocols.contains(file.importPath),
-                                onCheckedChange = { checked ->
-                                    viewModel.toggleProtocolSelection(file.importPath)
-                                }
-                            )
-                            Text(text = file.name, modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
+            items(uiState.availableMessages, key = { it.importPath }) { file ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = uiState.selectedProtocols.contains(file.importPath),
+                        onCheckedChange = { checked ->
+                            viewModel.toggleProtocolSelection(file.importPath)
+                        }
+                    )
+                    Text(text = file.name, modifier = Modifier.weight(1f))
+                }
+            }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Available Services (.srv)
             item {
                 Text(
                     text = "Available Services (.srv)",
                     style = MaterialTheme.typography.titleMedium
                 )
-                LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
-                    items(uiState.availableServices) { file ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = uiState.selectedProtocols.contains(file.importPath),
-                                onCheckedChange = { checked ->
-                                    viewModel.toggleProtocolSelection(file.importPath)
-                                }
-                            )
-                            Text(text = file.name, modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
+            items(uiState.availableServices, key = { it.importPath }) { file ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = uiState.selectedProtocols.contains(file.importPath),
+                        onCheckedChange = { checked ->
+                            viewModel.toggleProtocolSelection(file.importPath)
+                        }
+                    )
+                    Text(text = file.name, modifier = Modifier.weight(1f))
+                }
+            }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+
+            // Available Actions (.action)
             item {
                 Text(
                     text = "Available Actions (.action)",
                     style = MaterialTheme.typography.titleMedium
                 )
-                LazyColumn(modifier = Modifier.heightIn(max = 120.dp)) {
-                    items(uiState.availableActions) { file ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = uiState.selectedProtocols.contains(file.importPath),
-                                onCheckedChange = { checked ->
-                                    viewModel.toggleProtocolSelection(file.importPath)
-                                }
-                            )
-                            Text(text = file.name, modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
             }
+            items(uiState.availableActions, key = { it.importPath }) { file ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = uiState.selectedProtocols.contains(file.importPath),
+                        onCheckedChange = { checked ->
+                            viewModel.toggleProtocolSelection(file.importPath)
+                        }
+                    )
+                    Text(text = file.name, modifier = Modifier.weight(1f))
+                }
+            }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
             item {
                 // Show dynamic form for selected imported protocol
                 selectedProtocolForConfig?.let { proto ->

@@ -36,4 +36,7 @@ interface RosActionRepository {
 
     suspend fun saveAction(action: RosAction)
     suspend fun getAction(actionId: RosId): RosAction
+
+    // For controller use case: publish a raw message to rosbridge
+    fun publishRaw(json: String)
 }

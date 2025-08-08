@@ -8,7 +8,38 @@ import javax.inject.Inject
  * Handles key and joystick input events.
  */
 
-class HandleControllerInputUseCase @Inject constructor() {
+
+import com.examples.testros2jsbridge.domain.repository.RosActionRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
+class HandleControllerInputUseCase @Inject constructor(
+    private val rosActionRepository: RosActionRepository
+) {
+    private val scope = CoroutineScope(Dispatchers.IO)
+
+    fun triggerAppAction(action: AppAction) {
+        if (action.topic.isBlank() || action.type.isBlank()) return
+        val msgJson = try {
+            Json.parseToJsonElement(action.msg)
+        } catch (e: Exception) {
+            JsonObject(mapOf("data" to JsonPrimitive(action.msg)))
+        }
+        scope.launch {
+            val jsonObject = kotlinx.serialization.json.buildJsonObject {
+                put("op", JsonPrimitive("publish"))
+                put("id", JsonPrimitive("publish_${action.topic.replace("/", "_")}_${System.currentTimeMillis()}"))
+                put("topic", JsonPrimitive(action.topic))
+                put("msg", msgJson)
+                put("latch", JsonPrimitive(false))
+            }
+            rosActionRepository.publishRaw(jsonObject.toString())
+        }
+    }
 
 
     private val keyCodeToButtonMap: Map<Int, String> = mapOf(

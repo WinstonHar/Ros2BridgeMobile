@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -20,6 +21,21 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
+
+// Helper for mapping key codes to button names
+fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
+    android.view.KeyEvent.KEYCODE_BUTTON_A -> "A"
+    android.view.KeyEvent.KEYCODE_BUTTON_B -> "B"
+    android.view.KeyEvent.KEYCODE_BUTTON_X -> "X"
+    android.view.KeyEvent.KEYCODE_BUTTON_Y -> "Y"
+    android.view.KeyEvent.KEYCODE_BUTTON_L1 -> "L1"
+    android.view.KeyEvent.KEYCODE_BUTTON_R1 -> "R1"
+    android.view.KeyEvent.KEYCODE_BUTTON_L2 -> "L2"
+    android.view.KeyEvent.KEYCODE_BUTTON_R2 -> "R2"
+    android.view.KeyEvent.KEYCODE_BUTTON_START -> "Start"
+    android.view.KeyEvent.KEYCODE_BUTTON_SELECT -> "Select"
+    else -> null
+}
 
 @Composable
 fun ControllerOverviewScreen(
@@ -44,7 +60,43 @@ fun ControllerOverviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
+                .pointerInteropFilter { event: android.view.InputEvent ->
+                    when (event) {
+                        is android.view.KeyEvent -> {
+                            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                                val btn = keyCodeToButtonName(event.keyCode)
+                                btn?.let {
+                                    val action = buttonAssignments[it]
+                                    action?.let { viewModel.triggerAppAction(it) }
+                                }
+                            }
+                            true
+                        }
+                        is android.view.MotionEvent -> {
+                            if (event.source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK &&
+                                event.action == android.view.MotionEvent.ACTION_MOVE) {
+                                // TODO: handle joystick axes and trigger mapped actions if needed
+                                true
+                            } else false
+                        }
+                        else -> false
+                    }
+                }
         ) {
+// Helper for mapping key codes to button names
+fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
+    android.view.KeyEvent.KEYCODE_BUTTON_A -> "A"
+    android.view.KeyEvent.KEYCODE_BUTTON_B -> "B"
+    android.view.KeyEvent.KEYCODE_BUTTON_X -> "X"
+    android.view.KeyEvent.KEYCODE_BUTTON_Y -> "Y"
+    android.view.KeyEvent.KEYCODE_BUTTON_L1 -> "L1"
+    android.view.KeyEvent.KEYCODE_BUTTON_R1 -> "R1"
+    android.view.KeyEvent.KEYCODE_BUTTON_L2 -> "L2"
+    android.view.KeyEvent.KEYCODE_BUTTON_R2 -> "R2"
+    android.view.KeyEvent.KEYCODE_BUTTON_START -> "Start"
+    android.view.KeyEvent.KEYCODE_BUTTON_SELECT -> "Select"
+    else -> null
+}
             // Use BoxWithConstraints for future layout logic if needed
             // Background image if provided
             backgroundImageRes?.let {
