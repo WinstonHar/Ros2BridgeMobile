@@ -20,7 +20,13 @@ class ProtocolViewModel @javax.inject.Inject constructor(
 ) : ViewModel() {
     // --- Custom Protocol Compose UI State ---
 
-    data class ProtocolField(val type: String, val name: String, val default: String?)
+    data class ProtocolField(
+        val type: String,
+        val name: String,
+        val default: String?,
+        val section: String = "Goal",
+        val isConstant: Boolean = false
+    )
 
     private val _activeProtocol = MutableStateFlow<CustomProtocol?>(null)
     val activeProtocol: StateFlow<CustomProtocol?> = _activeProtocol.asStateFlow()
@@ -49,18 +55,41 @@ class ProtocolViewModel @javax.inject.Inject constructor(
      */
     fun parseProtocolFieldsFromAssets(context: Context, importPath: String, type: CustomProtocol.Type): List<ProtocolField> {
         val fields = mutableListOf<ProtocolField>()
+        var currentSection = "Goal"
         try {
             context.assets.open(importPath).bufferedReader().useLines { lines ->
                 for (line in lines) {
                     val trimmed = line.trim()
-                    if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
-                    if ((type == CustomProtocol.Type.SRV || type == CustomProtocol.Type.ACTION) && trimmed == "---") continue
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        // Section header detection for .action files
+                        if (type == CustomProtocol.Type.ACTION && trimmed.startsWith("#")) {
+                            val lower = trimmed.lowercase()
+                            if ("goal" in lower) currentSection = "Goal"
+                            else if ("result" in lower) currentSection = "Result"
+                            else if ("feedback" in lower) currentSection = "Feedback"
+                        }
+                        continue
+                    }
+                    if ((type == CustomProtocol.Type.SRV || type == CustomProtocol.Type.ACTION) && trimmed == "---") {
+                        // For .srv and .action, section delimiter
+                        if (type == CustomProtocol.Type.ACTION) {
+                            // Switch section for .action: Goal -> Result -> Feedback
+                            currentSection = when (currentSection) {
+                                "Goal" -> "Result"
+                                "Result" -> "Feedback"
+                                else -> currentSection
+                            }
+                        }
+                        continue
+                    }
                     val parts = trimmed.split(" ", limit = 2)
                     if (parts.size >= 2) {
                         val typePart = parts[0]
-                        val namePart = parts[1].split("=").first().trim()
-                        val defaultPart = parts[1].split("=").getOrNull(1)?.trim()
-                        fields.add(ProtocolField(typePart, namePart, defaultPart))
+                        val nameAndDefault = parts[1].split("=", limit = 2)
+                        val namePart = nameAndDefault[0].trim()
+                        val defaultPart = nameAndDefault.getOrNull(1)?.trim()
+                        val isConstant = parts[1].contains("=")
+                        fields.add(ProtocolField(typePart, namePart, defaultPart, currentSection, isConstant))
                     }
                 }
             }
@@ -214,5 +243,55 @@ class ProtocolViewModel @javax.inject.Inject constructor(
 
     fun dismissErrorDialog() {
         _uiState.value = _uiState.value.copy(showErrorDialog = false, errorMessage = null)
+    }
+
+    // Helper to build message JSON for protocol fields, matching legacy logic and rosbridge envelope
+    fun buildProtocolMsgJson(
+        protocolFields: List<ProtocolField>,
+        protocolFieldValues: Map<String, String>,
+        topicOverride: String? = null
+    ): String {
+        // Clean up field names (remove comments, trim)
+        fun cleanFieldName(name: String): String = name.split("#")[0].trim()
+
+        // Determine protocol type
+        val protocolType = activeProtocol.value?.type
+
+        val msgEntries = protocolFields
+            .filter { field ->
+                // Exclude constants and meta fields
+                if (field.isConstant) return@filter false
+                val fieldName = cleanFieldName(field.name)
+                if (fieldName in setOf("displayName", "topic", "type", "source", "msg")) return@filter false
+
+                when (protocolType) {
+                    CustomProtocol.Type.ACTION -> field.section == "Goal"
+                    CustomProtocol.Type.SRV -> field.section == "Goal" // Only fields before --- (Request)
+                    CustomProtocol.Type.MSG -> fieldName == fieldName.lowercase() // Only lowercase fields
+                    else -> true
+                }
+            }
+            .map { field ->
+                val fieldName = cleanFieldName(field.name)
+                val value = protocolFieldValues[field.name] ?: ""
+                val asLong = value.toLongOrNull()
+                val asDouble = value.toDoubleOrNull()
+                val isBool = value.equals("true", true) || value.equals("false", true)
+                val jsonValue = when {
+                    isBool -> value.toBoolean().toString()
+                    asLong != null && value == asLong.toString() -> asLong.toString()
+                    asDouble != null && value == asDouble.toString() -> asDouble.toString()
+                    else -> "\"" + value.replace("\"", "\\\"") + "\""
+                }
+                "\"$fieldName\": $jsonValue"
+            }
+        val msgJson = "{" + msgEntries.joinToString(", ") + "}"
+        val topic = topicOverride ?: protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "/"
+        val envelope = "{" +
+            "\"op\": \"publish\"," +
+            "\"topic\": \"$topic\"," +
+            "\"msg\": $msgJson" +
+            "}"
+        return envelope
     }
 }

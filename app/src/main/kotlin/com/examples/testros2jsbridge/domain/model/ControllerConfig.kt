@@ -1,4 +1,7 @@
+
 package com.examples.testros2jsbridge.domain.model
+
+import kotlinx.serialization.Serializable
 
 import org.yaml.snakeyaml.Yaml
 import java.io.StringWriter
@@ -110,6 +113,7 @@ data class ControllerPreset(
     val joystickMappings: List<JoystickMapping> = emptyList()
 )
 
+@Serializable
 data class AppAction(
     val id: String, // Unique identifier for persistence
     val displayName: String,

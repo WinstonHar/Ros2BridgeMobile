@@ -12,18 +12,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,9 +39,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -95,6 +99,8 @@ fun CustomProtocolScreen(
         viewModel.loadCustomAppActions(context)
     }
 
+    // For hiding keyboard
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -112,35 +118,112 @@ fun CustomProtocolScreen(
                 Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            // Dropdown for selected protocols
+            // Dropdowns for each protocol type
             item {
-                // Use ExposedDropdownMenuBox for a true dropdown experience
-                val allProtocols = uiState.availableMessages + uiState.availableServices + uiState.availableActions
-                var expanded by remember { mutableStateOf(false) }
-                var dropdownSelected by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+                var expandedMsg by remember { mutableStateOf(false) }
+                var expandedSrv by remember { mutableStateOf(false) }
+                var expandedAct by remember { mutableStateOf(false) }
+                var selectedMsg by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+                var selectedSrv by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+                var selectedAct by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+
+                Text(text = "Select Message Protocol", style = MaterialTheme.typography.titleMedium)
                 ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it }
+                    expanded = expandedMsg,
+                    onExpandedChange = { expandedMsg = it }
                 ) {
                     OutlinedTextField(
-                        value = dropdownSelected?.name ?: "Select Protocol",
+                        value = selectedMsg?.name ?: "Select Message",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Configure Protocol") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        label = { Text("Message Protocols") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedMsg) },
                         modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
                     ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
+                        expanded = expandedMsg,
+                        onDismissRequest = { expandedMsg = false }
                     ) {
-                        allProtocols.forEach { proto ->
+                        uiState.availableMessages.forEach { proto ->
                             DropdownMenuItem(
                                 text = { Text(proto.name) },
                                 onClick = {
-                                    dropdownSelected = proto
-                                    expanded = false
-                                    // Map ProtocolFile to CustomProtocol for loadProtocolFields
+                                    selectedMsg = proto
+                                    selectedSrv = null
+                                    selectedAct = null
+                                    expandedMsg = false
+                                    viewModel.loadProtocolFields(
+                                        context,
+                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(text = "Select Service Protocol", style = MaterialTheme.typography.titleMedium)
+                ExposedDropdownMenuBox(
+                    expanded = expandedSrv,
+                    onExpandedChange = { expandedSrv = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedSrv?.name ?: "Select Service",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Service Protocols") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedSrv) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedSrv,
+                        onDismissRequest = { expandedSrv = false }
+                    ) {
+                        uiState.availableServices.forEach { proto ->
+                            DropdownMenuItem(
+                                text = { Text(proto.name) },
+                                onClick = {
+                                    selectedSrv = proto
+                                    selectedMsg = null
+                                    selectedAct = null
+                                    expandedSrv = false
+                                    viewModel.loadProtocolFields(
+                                        context,
+                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(text = "Select Action Protocol", style = MaterialTheme.typography.titleMedium)
+                ExposedDropdownMenuBox(
+                    expanded = expandedAct,
+                    onExpandedChange = { expandedAct = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedAct?.name ?: "Select Action",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Action Protocols") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedAct) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedAct,
+                        onDismissRequest = { expandedAct = false }
+                    ) {
+                        uiState.availableActions.forEach { proto ->
+                            DropdownMenuItem(
+                                text = { Text(proto.name) },
+                                onClick = {
+                                    selectedAct = proto
+                                    selectedMsg = null
+                                    selectedSrv = null
+                                    expandedAct = false
                                     viewModel.loadProtocolFields(
                                         context,
                                         CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
@@ -156,20 +239,80 @@ fun CustomProtocolScreen(
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Configure Fields for ${activeProtocol!!.name}", style = MaterialTheme.typography.titleMedium)
-                }
-                items(protocolFields) { field: ProtocolViewModel.ProtocolField ->
-                    OutlinedTextField(
-                        value = protocolFieldValues[field.name] ?: "",
-                        onValueChange = { viewModel.updateProtocolFieldValue(field.name, it) },
-                        label = { Text(field.name + " (${field.type})") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                item { Spacer(modifier = Modifier.height(8.dp)) }
-                item {
+
+                    // Editable: only Goal fields that are not constants; Non-editable: constants or non-Goal fields
+                    val editableFields = remember(protocolFields) { protocolFields.filter { it.section == "Goal" && !it.isConstant } }
+                    val fixedFields = remember(protocolFields) { protocolFields.filter { it.isConstant || it.section != "Goal" } }
+
+                    // IME navigation for editable fields only
+                    val focusRequesters = remember(editableFields.size + 1) { List(editableFields.size + 1) { FocusRequester() } }
+
+                    Column {
+                        // Always show topic field at the top
+                        OutlinedTextField(
+                            value = protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "",
+                            onValueChange = { viewModel.updateProtocolFieldValue("topic", it) },
+                            label = { Text("topic (string)") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequesters[0]),
+                            keyboardOptions = KeyboardOptions.Default.copy(
+                                imeAction = if (editableFields.isNotEmpty()) ImeAction.Next else ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = {
+                                    if (editableFields.isNotEmpty()) {
+                                        focusRequesters[1].requestFocus()
+                                    }
+                                },
+                                onDone = { keyboardController?.hide() }
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Render editable fields (Goal section, not constants)
+                        editableFields.forEachIndexed { idx, field ->
+                            OutlinedTextField(
+                                value = protocolFieldValues[field.name] ?: "",
+                                onValueChange = { viewModel.updateProtocolFieldValue(field.name, it) },
+                                label = { Text(field.name + " (" + field.type + ")") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequesters[idx + 1]),
+                                keyboardOptions = KeyboardOptions.Default.copy(
+                                    imeAction = if (idx < editableFields.lastIndex) ImeAction.Next else ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = {
+                                        if (idx < editableFields.lastIndex) {
+                                            focusRequesters[idx + 2].requestFocus()
+                                        }
+                                    },
+                                    onDone = { keyboardController?.hide() }
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        // Render fixed fields (constants or non-Goal sections, always non-editable)
+                        fixedFields.forEach { field ->
+                            OutlinedTextField(
+                                value = protocolFieldValues[field.name] ?: "",
+                                onValueChange = {},
+                                label = { Text(field.name + " (" + field.type + ")" + if (field.isConstant) " [CONST]" else " [${field.section}]" ) },
+                                modifier = Modifier.fillMaxWidth(),
+                                readOnly = true,
+                                enabled = false
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = {
                         // Save as AppAction
                         val id = java.util.UUID.randomUUID().toString()
+                        // Build msg JSON from all non-constant, non-meta fields
+                        val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
@@ -177,122 +320,88 @@ fun CustomProtocolScreen(
                                 displayName = protocolFieldValues["displayName"] ?: activeProtocol!!.name,
                                 topic = protocolFieldValues["topic"] ?: "",
                                 type = protocolFieldValues["type"] ?: activeProtocol!!.type.name,
-                                source = protocolFieldValues["source"] ?: "",
-                                msg = protocolFieldValues["msg"] ?: ""
+                                source = "Protocol",
+                                msg = msgJson
                             )
                         )
+                        keyboardController?.hide()
                     }) {
                         Text("Save as App Action")
                     }
                 }
             }
-            // Available Messages (.msg)
-            item {
-                Text(
-                    text = "Available Messages (.msg)",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            items(uiState.availableMessages, key = { it.importPath }) { file ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = uiState.selectedProtocols.contains(file.importPath),
-                        onCheckedChange = { checked ->
-                            viewModel.toggleProtocolSelection(file.importPath)
-                        }
-                    )
-                    Text(text = file.name, modifier = Modifier.weight(1f))
-                }
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-
-            // Available Services (.srv)
-            item {
-                Text(
-                    text = "Available Services (.srv)",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            items(uiState.availableServices, key = { it.importPath }) { file ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = uiState.selectedProtocols.contains(file.importPath),
-                        onCheckedChange = { checked ->
-                            viewModel.toggleProtocolSelection(file.importPath)
-                        }
-                    )
-                    Text(text = file.name, modifier = Modifier.weight(1f))
-                }
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-
-            // Available Actions (.action)
-            item {
-                Text(
-                    text = "Available Actions (.action)",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            items(uiState.availableActions, key = { it.importPath }) { file ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = uiState.selectedProtocols.contains(file.importPath),
-                        onCheckedChange = { checked ->
-                            viewModel.toggleProtocolSelection(file.importPath)
-                        }
-                    )
-                    Text(text = file.name, modifier = Modifier.weight(1f))
-                }
-            }
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            // ...existing code...
             // Removed selectedProtocolForConfig block; handled above with activeProtocol
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
             item {
-                // App Action Editor
+                // App Action Editor with IME navigation (Next/Done)
                 Text(
                     text = if (editingAction == null) "Create Custom App Action" else "Edit Custom App Action",
                     style = MaterialTheme.typography.titleMedium
                 )
+                // IME navigation for the 5 fields
+                val appActionFocusRequesters = remember { List(5) { FocusRequester() } }
                 OutlinedTextField(
                     value = actionDisplayName,
                     onValueChange = { actionDisplayName = it },
                     label = { Text("Display Name") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(appActionFocusRequesters[0]),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { appActionFocusRequesters[1].requestFocus() }
+                    )
                 )
                 OutlinedTextField(
                     value = actionTopic,
                     onValueChange = { actionTopic = it },
                     label = { Text("Topic") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(appActionFocusRequesters[1]),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { appActionFocusRequesters[2].requestFocus() }
+                    )
                 )
                 OutlinedTextField(
                     value = actionType,
                     onValueChange = { actionType = it },
                     label = { Text("Type") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(appActionFocusRequesters[2]),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { appActionFocusRequesters[3].requestFocus() }
+                    )
                 )
                 OutlinedTextField(
                     value = actionSource,
                     onValueChange = { actionSource = it },
                     label = { Text("Source") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(appActionFocusRequesters[3]),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { appActionFocusRequesters[4].requestFocus() }
+                    )
                 )
                 OutlinedTextField(
                     value = actionMsg,
                     onValueChange = { actionMsg = it },
                     label = { Text("Message (JSON)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(appActionFocusRequesters[4]),
+                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = { keyboardController?.hide() }
+                    )
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (editingAction != null) {
@@ -303,6 +412,8 @@ fun CustomProtocolScreen(
                     }
                     Button(onClick = {
                         val id = editingAction?.id ?: java.util.UUID.randomUUID().toString()
+                        // Build msg JSON from all non-constant, non-meta fields for edit mode
+                        val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
@@ -311,7 +422,7 @@ fun CustomProtocolScreen(
                                 topic = actionTopic.text,
                                 type = actionType.text,
                                 source = actionSource.text,
-                                msg = actionMsg.text
+                                msg = msgJson
                             )
                         )
                         viewModel.setEditingAppAction(null)
@@ -348,6 +459,10 @@ fun CustomProtocolScreen(
                                     )
                                     Text(
                                         text = "Source: ${action.source}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                    Text(
+                                        text = "Msg: ${action.msg}",
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
