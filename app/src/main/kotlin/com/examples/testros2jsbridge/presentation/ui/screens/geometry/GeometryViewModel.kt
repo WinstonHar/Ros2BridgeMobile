@@ -21,7 +21,8 @@ class GeometryViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         GeometryUiState(
-            fieldValues = emptyMap() // Add fieldValues to state
+            fieldValues = emptyMap(),
+            typeInput = com.examples.testros2jsbridge.domain.geometry.geometryTypes.firstOrNull() ?: ""
         )
     )
     val uiState: StateFlow<GeometryUiState> = _uiState
@@ -81,8 +82,17 @@ class GeometryViewModel @Inject constructor(
     // saveMessage now delegates to GeometryMessageBuilder in the domain layer.
     fun saveMessage() {
         Logger.d("GeometryViewModel", "Saving geometry message")
+        Logger.d("GeometryViewModel", "typeInput: ${_uiState.value.typeInput} fieldValues: ${_uiState.value.fieldValues}")
         val typeInput = _uiState.value.typeInput
-        val rosType = if (typeInput.isNotBlank()) "geometry_msgs/msg/$typeInput" else "geometry_msgs/msg/Unknown"
+        if (typeInput.isNullOrBlank()) {
+            _uiState.value = _uiState.value.copy(
+                showErrorDialog = true,
+                errorMessage = "You must select a geometry message type before saving."
+            )
+            Logger.d("GeometryViewModel", "Error: No type selected.")
+            return
+        }
+        val rosType = "geometry_msgs/msg/$typeInput"
         val msgJson = GeometryMessageBuilder.build(typeInput, _uiState.value.fieldValues)
         val newMessage = RosMessage(
             topic = RosId(_uiState.value.topicInput),
