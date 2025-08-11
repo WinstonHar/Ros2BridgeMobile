@@ -48,7 +48,7 @@ fun ControllerConfigScreen(
     selectedPreset: String?,
     joystickMappings: List<JoystickMapping>,
     onPresetSelected: (String) -> Unit,
-    onAddPreset: () -> Unit,
+    onAddPreset: (String) -> Unit,
     onRemovePreset: () -> Unit,
     onSavePreset: (String) -> Unit,
     onControllerButtonAssign: (String, AppAction?) -> Unit,
@@ -140,6 +140,29 @@ fun ControllerConfigScreen(
                     }
                 }
 
+                // --- Add Preset Section ---
+                var newPresetName by remember { mutableStateOf("") }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = newPresetName,
+                        onValueChange = { newPresetName = it },
+                        label = { Text("New Preset Name") },
+                        modifier = Modifier.weight(2f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (newPresetName.isNotBlank() && presets.none { it.name == newPresetName }) {
+                                onAddPreset(newPresetName)
+                                newPresetName = ""
+                            }
+                        },
+                        enabled = newPresetName.isNotBlank() && presets.none { it.name == newPresetName },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Add Preset")
+                    }
+                }
                 Spacer(modifier = Modifier.height(24.dp))
                 HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
                 Spacer(modifier = Modifier.height(16.dp))

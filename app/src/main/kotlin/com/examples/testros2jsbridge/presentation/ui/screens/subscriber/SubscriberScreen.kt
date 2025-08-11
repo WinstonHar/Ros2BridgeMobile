@@ -32,7 +32,8 @@ import com.examples.testros2jsbridge.presentation.ui.components.CollapsibleMessa
 @Composable
 fun SubscriberScreen(
     viewModel: SubscriberViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onRestoreTab: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val subscribers = uiState.subscribers
@@ -44,86 +45,107 @@ fun SubscriberScreen(
         contentColor = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.fillMaxSize()
     ) {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
                 .nestedScroll(rememberNestedScrollInteropConnection())
         ) {
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Subscribers", style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = onBack) { Text("Back") }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(onClick = { viewModel.showAddSubscriberDialog(true) }) {
-                    Text("Add Subscriber")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "Subscribers", style = MaterialTheme.typography.titleLarge)
+                Button(onClick = {
+                    onRestoreTab?.invoke()
+                    onBack()
+                }) { Text("Back") }
             }
-            items(subscribers) { subscriber ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    elevation = CardDefaults.cardElevation(2.dp)
-                ) {
-                    Row(
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { viewModel.showAddSubscriberDialog(true) }) {
+                Text("Add Subscriber")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            // TopicListScreen is now inline and aligned with the rest of the screen
+            TopicListScreen(
+                viewModel = viewModel,
+                onTopicSelected = { topic: String, type: String ->
+                    viewModel.updateTopicInput(topic)
+                    viewModel.updateTypeInput(type)
+                    viewModel.showAddSubscriberDialog(true)
+                },
+                onSubscribe = { topic: String, type: String ->
+                    viewModel.updateTopicInput(topic)
+                    viewModel.updateTypeInput(type)
+                    viewModel.subscribeToTopic()
+                }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(subscribers) { subscriber ->
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(vertical = 4.dp),
+                        elevation = CardDefaults.cardElevation(2.dp)
                     ) {
-                        Column {
-                            subscriber.label?.let {
-                                Text(
-                                    text = it,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
-                            Text(
-                                text = "${subscriber.topic.value} (${subscriber.type})",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "Last: ${subscriber.lastMessage ?: "-"}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Row {
-                                Button(onClick = { viewModel.unsubscribeFromTopic(subscriber) }) {
-                                    Text("Unsubscribe")
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                subscriber.label?.let {
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
                                 }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(onClick = { viewModel.selectSubscriber(subscriber) }) {
-                                    Text("Select")
+                                Text(
+                                    text = "${subscriber.topic.value} (${subscriber.type})",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    text = "Last: ${subscriber.lastMessage ?: "-"}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Row {
+                                    Button(onClick = { viewModel.unsubscribeFromTopic(subscriber) }) {
+                                        Text("Unsubscribe")
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(onClick = { viewModel.selectSubscriber(subscriber) }) {
+                                        Text("Select")
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    CollapsibleMessageHistoryList(messageHistory = messageHistory)
+                }
             }
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                CollapsibleMessageHistoryList(messageHistory = messageHistory)
+
+            if (uiState.showAddSubscriberDialog) {
+                AddSubscriberDialog(viewModel = viewModel)
+            }
+            if (uiState.showErrorDialog) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.dismissErrorDialog() },
+                    confirmButton = {
+                        Button(onClick = { viewModel.dismissErrorDialog() }) { Text("OK") }
+                    },
+                    title = { Text("Error") },
+                    text = { Text(uiState.errorMessage ?: "Unknown error") }
+                )
             }
         }
 
-        if (uiState.showAddSubscriberDialog) {
-            AddSubscriberDialog(viewModel = viewModel)
-        }
-        if (uiState.showErrorDialog) {
-            AlertDialog(
-                onDismissRequest = { viewModel.dismissErrorDialog() },
-                confirmButton = {
-                    Button(onClick = { viewModel.dismissErrorDialog() }) { Text("OK") }
-                },
-                title = { Text("Error") },
-                text = { Text(uiState.errorMessage ?: "Unknown error") }
-            )
-        }
     }
 
 }

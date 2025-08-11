@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.examples.testros2jsbridge.core.util.Logger
 
 @HiltViewModel
 class GeometryViewModel @Inject constructor(
@@ -79,13 +80,13 @@ class GeometryViewModel @Inject constructor(
 
     // saveMessage now delegates to GeometryMessageBuilder in the domain layer.
     fun saveMessage() {
-        val msgJson = GeometryMessageBuilder.build(
-            _uiState.value.typeInput,
-            _uiState.value.fieldValues
-        )
+        Logger.d("GeometryViewModel", "Saving geometry message")
+        val typeInput = _uiState.value.typeInput
+        val rosType = if (typeInput.isNotBlank()) "geometry_msgs/msg/$typeInput" else "geometry_msgs/msg/Unknown"
+        val msgJson = GeometryMessageBuilder.build(typeInput, _uiState.value.fieldValues)
         val newMessage = RosMessage(
             topic = RosId(_uiState.value.topicInput),
-            type = _uiState.value.typeInput,
+            type = rosType,
             content = msgJson,
             label = _uiState.value.nameInput.ifBlank { null },
             id = null,
@@ -101,6 +102,7 @@ class GeometryViewModel @Inject constructor(
         // Persist the new message
         viewModelScope.launch {
             rosMessageRepository.saveMessage(newMessage.toDto())
+            Logger.d("GeometryViewModel", "Geometry message saved: $newMessage")
         }
     }
 

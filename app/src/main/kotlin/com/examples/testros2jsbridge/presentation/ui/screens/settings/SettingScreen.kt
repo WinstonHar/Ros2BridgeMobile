@@ -40,7 +40,13 @@ fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), onBack: () -> 
                 .padding(16.dp)
         ) {
             item {
-                Text(text = "App Settings", style = MaterialTheme.typography.titleLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                ) {
+                    Text(text = "App Settings", style = MaterialTheme.typography.titleLarge)
+                    Button(onClick = onBack) { Text("Back") }
+                }
                 Spacer(modifier = Modifier.height(16.dp))
                 // Theme selection
                 Text(text = "Theme", style = MaterialTheme.typography.titleMedium)

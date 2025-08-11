@@ -19,5 +19,6 @@ data class ControllerUiState(
     val errorMessage: String? = null,
     val showPresetDialog: Boolean = false,
     val presetNameInput: String = "",
-    val abxyAssignments: Map<String, String> = mapOf("A" to "", "B" to "", "X" to "", "Y" to "")
+    val abxyAssignments: Map<String, String> = mapOf("A" to "", "B" to "", "X" to "", "Y" to ""),
+    val controllerConfigs: List<ControllerConfig> = emptyList()
 )

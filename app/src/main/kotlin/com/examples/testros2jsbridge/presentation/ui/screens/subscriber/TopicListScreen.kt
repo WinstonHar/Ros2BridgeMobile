@@ -24,20 +24,18 @@ fun TopicListScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
-        Text(text = "Available Topics", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { viewModel.fetchAvailableTopics() }) {
-            Text("Refresh Topics")
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        if (availableTopics.isEmpty()) {
-            Text("No topics found.", style = MaterialTheme.typography.bodyMedium)
-        } else {
-            availableTopics.forEach { (topic, type) ->
+            Text(text = "Available Topics", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { viewModel.fetchAvailableTopics() }) {
+                Text("Refresh Topics")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            if (availableTopics.isEmpty()) {
+                Text("No topics found.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                availableTopics.forEach { (topic, type) ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()

@@ -122,4 +122,12 @@ class PublisherViewModel @Inject constructor(
     fun dismissErrorDialog() {
         _uiState.value = _uiState.value.copy(showErrorDialog = false, errorMessage = null)
     }
+
+    fun clearPublisherInputFields() {
+        _uiState.value = _uiState.value.copy(
+            topicInput = "",
+            typeInput = "",
+            messageContentInput = ""
+        )
+    }
 }

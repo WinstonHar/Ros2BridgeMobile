@@ -18,6 +18,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import android.view.InputDevice
 import kotlinx.coroutines.flow.asStateFlow
+import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.domain.model.ControllerConfig
 
 @HiltViewModel
 class ControllerViewModel @Inject constructor(
@@ -78,9 +80,19 @@ class ControllerViewModel @Inject constructor(
 
         // Collect all saved geometry messages and expose as AppActions
         viewModelScope.launch {
+            Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
             rosMessageRepository.messages.collect { messageList ->
+                Logger.d("ControllerViewModel", "Messages collected: $messageList")
                 val geometryActions = messageList.mapNotNull { it.toAppAction() }
                 _appActions.value = geometryActions
+                _uiState.value = _uiState.value.copy(appActions = geometryActions)
+                Logger.d("ControllerViewModel", "AppActions updated: $geometryActions")
+            }
+        }
+
+        viewModelScope.launch {
+            _appActions.collect { actions ->
+                _uiState.value = _uiState.value.copy(appActions = actions)
             }
         }
     }
@@ -103,9 +115,9 @@ class ControllerViewModel @Inject constructor(
         _selectedPreset.value = preset
     }
 
-    fun addPreset() {
+    fun addPreset(name: String) {
         val newPreset = ControllerPreset(
-            name = "New Preset",
+            name = name,
             topic = null,
             buttonAssignments = mapOf(
                 "A" to AppAction(
@@ -142,9 +154,9 @@ class ControllerViewModel @Inject constructor(
                 )
             )
         )
-        val updated = _presets.value + newPreset
-        _presets.value = updated
-        saveConfigWithPresets(updated)
+        val updatedPresets = _presets.value + newPreset
+        _presets.value = updatedPresets
+        saveConfigWithPresets(updatedPresets)
     }
 
     fun removePreset() {
@@ -221,11 +233,37 @@ class ControllerViewModel @Inject constructor(
     }
 
     private fun saveConfigWithAssignments(assignments: Map<String, AppAction>) {
+        val prevAppActions = _uiState.value.appActions
         val uiState = _uiState.value.copy(buttonAssignments = assignments)
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
             saveControllerConfigUseCase.save(config)
-            _uiState.value = ControllerUiMapper.toUiState(config)
+            val newUiState = ControllerUiMapper.toUiState(config).copy(appActions = prevAppActions)
+            _uiState.value = newUiState
         }
+    }
+
+    fun selectControllerConfig(name: String) {
+        val config = _uiState.value.controllerConfigs.find { it.name == name }
+        _uiState.value = _uiState.value.copy(selectedPreset = config?.toPreset())
+    }
+
+    private fun ControllerConfig.toPreset(): ControllerPreset {
+        return ControllerPreset(
+            name = this.name,
+            buttonAssignments = this.buttonAssignments,
+            joystickMappings = this.joystickMappings
+        )
+    }
+
+    fun addControllerConfig(name: String) {
+        val newConfig = ControllerConfig(name = name)
+        val updatedConfigs = _uiState.value.controllerConfigs + newConfig
+        _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs)
+    }
+
+    fun removeControllerConfig(name: String) {
+        val updatedConfigs = _uiState.value.controllerConfigs.filter { it.name != name }
+        _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs)
     }
 }

@@ -3,29 +3,27 @@ package com.examples.testros2jsbridge.presentation.ui.navigation
 import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
-import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.presentation.ui.MainActivity
 import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerConfigScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerOverviewScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerScreen
+import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryMessageScreen
+import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProtocolScreen
+import com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.CreatePublisherScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherListScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherScreen
-import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingScreen
-import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberScreen
-import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.TopicListScreen
-import androidx.navigation.NavHostController
-import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
-import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryViewModel
-import com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberViewModel
-import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionViewModel
+import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.TopicListScreen
 
 @Suppress("unused")
 object Destinations {
@@ -45,12 +43,16 @@ object Destinations {
     const val TOPIC_LIST_SCREEN = "topic_list_screen"
 }
 
-fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
+fun NavGraphBuilder.setupNavigation(
+    navController: NavHostController,
+    onRestoreTab: (() -> Unit)? = null
+) {
+    fun defaultOnBack() { BackNavigationHandler.handleBack(navController) }
     composable(route = Destinations.MAIN_ACTIVITY) { MainActivity() }
     composable(route = Destinations.CONNECTION_SCREEN) {
         ConnectionScreen(
             viewModel = hiltViewModel(),
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.CONTROLLER_CONFIG_SCREEN) {
@@ -65,12 +67,14 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
             selectedPreset = uiState.value.selectedPreset?.name,
             joystickMappings = uiState.value.config.joystickMappings,
             onPresetSelected = viewModel::selectPreset,
-            onAddPreset = viewModel::addPreset,
+            onAddPreset = { presetName: String ->
+                viewModel.addPreset(presetName)
+            },
             onRemovePreset = viewModel::removePreset,
             onSavePreset = viewModel::savePreset,
             onControllerButtonAssign = viewModel::assignButton,
             onJoystickMappingsChanged = viewModel::updateJoystickMappings,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(
@@ -89,12 +93,14 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
             selectedPreset = presetName ?: uiState.value.selectedPreset?.name,
             joystickMappings = uiState.value.config.joystickMappings,
             onPresetSelected = viewModel::selectPreset,
-            onAddPreset = viewModel::addPreset,
+            onAddPreset = { name: String ->
+                viewModel.addPreset(name)
+            },
             onRemovePreset = viewModel::removePreset,
             onSavePreset = viewModel::savePreset,
             onControllerButtonAssign = viewModel::assignButton,
             onJoystickMappingsChanged = viewModel::updateJoystickMappings,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
@@ -111,18 +117,18 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         ControllerScreen(
             viewModel = viewModel,
             navController = navController,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.GEOMETRY_MESSAGE_SCREEN) {
         val viewModel: GeometryViewModel = hiltViewModel()
-        GeometryMessageScreen(viewModel = viewModel)
+        GeometryMessageScreen(viewModel = viewModel, onBack = { BackNavigationHandler.handleBack(navController) })
     }
     composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
         val viewModel: ProtocolViewModel = hiltViewModel()
         CustomProtocolScreen(
             viewModel = viewModel,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.CREATE_PUBLISHER_SCREEN) {
@@ -130,7 +136,7 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         CreatePublisherScreen(
             viewModel = viewModel,
             onPublisherCreated = { navController.navigate(Destinations.PUBLISHER_LIST_SCREEN) },
-            onCancel = { navController.popBackStack() }
+            onCancel = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.PUBLISHER_LIST_SCREEN) {
@@ -146,21 +152,22 @@ fun NavGraphBuilder.setupNavigation(navController: NavHostController) {
         val viewModel: PublisherViewModel = hiltViewModel()
         PublisherScreen(
             viewModel = viewModel,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.SETTINGS_SCREEN) {
         val viewModel: SettingsViewModel = hiltViewModel()
         SettingScreen(
             viewModel = viewModel,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.SUBSCRIBER_SCREEN) {
         val viewModel: SubscriberViewModel = hiltViewModel()
         SubscriberScreen(
             viewModel = viewModel,
-            onBack = { navController.popBackStack() }
+            onBack = { BackNavigationHandler.handleBack(navController) },
+            onRestoreTab = onRestoreTab
         )
     }
     composable(route = Destinations.TOPIC_LIST_SCREEN) {

@@ -1,4 +1,3 @@
-
 package com.examples.testros2jsbridge.domain.model
 
 import kotlinx.serialization.Serializable
@@ -26,7 +25,8 @@ data class ControllerConfig(
         )
     ),
     val buttonAssignments: Map<String, AppAction> = emptyMap(),
-    val joystickPublishRate: Int = 5
+    val joystickPublishRate: Int = 5,
+    val name: String = "Unnamed Config" // Unique identifier for each configuration
     // Add other controller-specific settings as needed
 ) {
     companion object
@@ -57,42 +57,44 @@ fun ControllerConfig.toMap(): Map<String, Any?> {
         "joystickMappings" to joystickMappings,
         "controllerPresets" to controllerPresets,
         "buttonAssignments" to buttonAssignments,
-        "joystickPublishRate" to joystickPublishRate
+        "joystickPublishRate" to joystickPublishRate,
+        "name" to name
     )
 }
 
 fun ControllerConfig.Companion.fromMap(map: Map<String, Any?>): ControllerConfig {
-    return ControllerConfig(
-        addressingMode = map["addressingMode"] as? RosId ?: RosId("DIRECT"),
-        sensitivity = (map["sensitivity"] as? Number)?.toFloat() ?: 1.0f,
-        buttonPresets = map["buttonPresets"] as? Map<String, String> ?: emptyMap(),
-        invertYAxis = map["invertYAxis"] as? Boolean ?: false,
-        deadZone = (map["deadZone"] as? Number)?.toFloat() ?: 0.05f,
-        customProfileName = map["customProfileName"] as? String,
-        joystickMappings = (map["joystickMappings"] as? List<Map<String, Any?>>)?.map { jm ->
-            JoystickMapping(
-                displayName = jm["displayName"] as? String ?: "",
-                topic = jm["topic"] as? RosId,
-                type = jm["type"] as? String ?: ""
-            )
-        } ?: emptyList(),
-        controllerPresets = (map["controllerPresets"] as? List<Map<String, Any?>>)?.map { cp ->
-            ControllerPreset(
-                name = cp["name"] as? String ?: "",
-                buttonAssignments = cp["buttonAssignments"] as? Map<String, AppAction> ?: emptyMap(),
-                joystickMappings = (cp["joystickMappings"] as? List<Map<String, Any?>>)?.map { jm ->
-                    JoystickMapping(
-                        displayName = jm["displayName"] as? String ?: "",
-                        topic = jm["topic"] as? RosId,
-                        type = jm["type"] as? String ?: ""
-                    )
-                } ?: emptyList()
-            )
-        } ?: emptyList(),
-        buttonAssignments = map["buttonAssignments"] as? Map<String, AppAction> ?: emptyMap(),
-        joystickPublishRate = (map["joystickPublishRate"] as? Number)?.toInt() ?: 5
-    )
-}
+        return ControllerConfig(
+            addressingMode = map["addressingMode"] as? RosId ?: RosId("DIRECT"),
+            sensitivity = (map["sensitivity"] as? Number)?.toFloat() ?: 1.0f,
+            buttonPresets = (map["buttonPresets"] as? Map<*, *>)?.filterKeys { it is String }?.mapKeys { it.key as String }?.filterValues { it is String }?.mapValues { it.value as String } ?: emptyMap(),
+            invertYAxis = map["invertYAxis"] as? Boolean ?: false,
+            deadZone = (map["deadZone"] as? Number)?.toFloat() ?: 0.05f,
+            customProfileName = map["customProfileName"] as? String,
+            joystickMappings = (map["joystickMappings"] as? List<*>)?.filterIsInstance<Map<String, Any?>>()?.map { jm ->
+                JoystickMapping(
+                    displayName = jm["displayName"] as? String ?: "",
+                    topic = jm["topic"] as? RosId,
+                    type = jm["type"] as? String ?: ""
+                )
+            } ?: emptyList(),
+            controllerPresets = (map["controllerPresets"] as? List<*>)?.filterIsInstance<Map<String, Any?>>()?.map { cp ->
+                ControllerPreset(
+                    name = cp["name"] as? String ?: "",
+                    buttonAssignments = (cp["buttonAssignments"] as? Map<*, *>)?.filterKeys { it is String }?.mapKeys { it.key as String }?.filterValues { it is AppAction }?.mapValues { it.value as AppAction } ?: emptyMap(),
+                    joystickMappings = (cp["joystickMappings"] as? List<*>)?.filterIsInstance<Map<String, Any?>>()?.map { jm ->
+                        JoystickMapping(
+                            displayName = jm["displayName"] as? String ?: "",
+                            topic = jm["topic"] as? RosId,
+                            type = jm["type"] as? String ?: ""
+                        )
+                    } ?: emptyList()
+                )
+            } ?: emptyList(),
+            buttonAssignments = (map["buttonAssignments"] as? Map<*, *>)?.filterKeys { it is String }?.mapKeys { it.key as String }?.filterValues { it is AppAction }?.mapValues { it.value as AppAction } ?: emptyMap(),
+            joystickPublishRate = (map["joystickPublishRate"] as? Number)?.toInt() ?: 5,
+            name = map["name"] as? String ?: "Unnamed Config"
+        )
+    }
 
 // These should be in their own files, but for reference:
 data class JoystickMapping(

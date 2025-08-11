@@ -7,22 +7,12 @@ object ControllerUiMapper {
 
 
     fun toUiState(config: ControllerConfig): ControllerUiState {
-        val presets = if (config.controllerPresets.isEmpty()) {
-            listOf(
-                ControllerPreset(
-                    name = "Default",
-                    buttonAssignments = emptyMap(),
-                    joystickMappings = emptyList()
-                )
-            )
-        } else {
-            config.controllerPresets
-        }
+        val abxyPresets = config.controllerPresets.filter { it.name != "Default" }
         return ControllerUiState(
             config = config,
             controllerButtons = config.buttonPresets.keys.toList(),
             appActions = config.buttonAssignments.values.toList(),
-            presets = presets,
+            presets = abxyPresets, // Only ABXY presets
             buttonAssignments = config.buttonAssignments
         )
     }

@@ -115,7 +115,13 @@ fun CustomProtocolScreen(
             verticalArrangement = Arrangement.Top
         ) {
             item {
-                Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
+                    Button(onClick = onBack) { Text("Back") }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
             // Dropdowns for each protocol type

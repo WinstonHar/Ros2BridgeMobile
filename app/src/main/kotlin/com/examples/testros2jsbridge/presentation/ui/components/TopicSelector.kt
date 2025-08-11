@@ -1,10 +1,12 @@
 package com.examples.testros2jsbridge.presentation.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -16,38 +18,54 @@ fun TopicSelector(
     label: String = "Select Topic"
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var currentTopic by remember { mutableStateOf(selectedTopic) }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = label, style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-            OutlinedTextField(
-                value = currentTopic?.displayName ?: "",
-                onValueChange = {},
-                label = { Text(label) },
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth(),
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                }
-            )
-            ExposedDropdownMenu(
+    Logger.d("TopicSelector","TopicSelector - Topics: ${topics.map { it.displayName }}")
+
+    Box(modifier = Modifier.padding(16.dp)) {
+        Column {
+            Text(text = label, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            ExposedDropdownMenuBox(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onExpandedChange = {
+                    expanded = !expanded
+                    Logger.d("TopicSelector", "Dropdown expanded state toggled to: $expanded")
+                }
             ) {
-                topics.forEach { topic ->
-                    DropdownMenuItem(
-                        text = { Text(topic.displayName) },
-                        onClick = {
-                            currentTopic = topic
-                            onTopicSelected(topic)
-                            expanded = false
-                        }
-                    )
+                OutlinedTextField(
+                    value = selectedTopic?.displayName ?: "",
+                    onValueChange = {},
+                    label = { Text(label) },
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                        .clickable {
+                            expanded = !expanded
+                            Logger.d("TopicSelector", "Dropdown clicked, expanded state toggled to: $expanded")
+                        },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    }
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = {
+                        expanded = false
+                        Logger.d("TopicSelector", "Dropdown dismissed")
+                    }
+                ) {
+                    Logger.d("TopicSelector", "Rendering dropdown items: ${topics.map { it.displayName }}")
+                    topics.forEach { topic ->
+                        DropdownMenuItem(
+                            text = { Text(topic.displayName) },
+                            onClick = {
+                                Logger.d("TopicSelector", "Selected topic: ${topic.displayName}")
+                                onTopicSelected(topic)
+                                expanded = false
+                            }
+                        )
+                    }
                 }
             }
         }
