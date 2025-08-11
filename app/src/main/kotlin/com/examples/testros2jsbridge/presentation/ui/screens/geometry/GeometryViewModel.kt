@@ -28,7 +28,7 @@ class GeometryViewModel @Inject constructor(
     val uiState: StateFlow<GeometryUiState> = _uiState
 
     init {
-        // On ViewModel init, observe all saved geometry messages from repository for persistence
+    (rosMessageRepository as? com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl)?.initialize(viewModelScope)
         viewModelScope.launch {
             rosMessageRepository.messages.collect { messageDtos ->
                 val messages = messageDtos.map { dto ->
@@ -102,8 +102,8 @@ class GeometryViewModel @Inject constructor(
             id = null,
             timestamp = System.currentTimeMillis(),
             sender = null,
-            isPublished = true,
-            op = "publish",
+            isPublished = false,
+            op = "CANCLED",
             latch = null,
             queue_size = null
         )
@@ -117,7 +117,26 @@ class GeometryViewModel @Inject constructor(
     }
 
     fun publishMessage() {
-        val msg = _uiState.value.selectedMessage ?: return
+        val msg = _uiState.value.selectedMessage ?: run {
+            // If nothing is selected, publish the current edit
+            val typeInput = _uiState.value.typeInput
+            if (typeInput.isNullOrBlank()) return
+            val rosType = "geometry_msgs/msg/$typeInput"
+            val msgJson = GeometryMessageBuilder.build(typeInput, _uiState.value.fieldValues)
+            RosMessage(
+                topic = RosId(_uiState.value.topicInput),
+                type = rosType,
+                content = msgJson,
+                label = _uiState.value.nameInput.ifBlank { null },
+                id = null,
+                timestamp = System.currentTimeMillis(),
+                sender = null,
+                isPublished = true,
+                op = "publish",
+                latch = null,
+                queue_size = null
+            )
+        }
         rosMessageRepository.publishMessage(msg)
     }
 

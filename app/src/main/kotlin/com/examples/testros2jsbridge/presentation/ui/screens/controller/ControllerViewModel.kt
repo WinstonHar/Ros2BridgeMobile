@@ -10,6 +10,7 @@ import com.examples.testros2jsbridge.domain.usecase.controller.HandleControllerI
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.SaveControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
+import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ class ControllerViewModel @Inject constructor(
     private val loadControllerConfigUseCase: LoadControllerConfigUseCase,
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
     val controllerRepository: com.examples.testros2jsbridge.domain.repository.ControllerRepository,
-    private val rosMessageRepository: RosMessageRepository
+    private val rosMessageRepository: RosMessageRepository,
+    private val protocolRepository: ProtocolRepository
 ) : ViewModel() {
 
     private val _detectedControllerButtons = MutableStateFlow<List<String>>(emptyList())
@@ -62,6 +64,10 @@ class ControllerViewModel @Inject constructor(
     var showPresetsOverlay: (() -> Unit)? = null
     private val _appActions = MutableStateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>>(emptyList())
     val appActions: StateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>> = _appActions
+
+    // Store geometry and custom actions separately for merging
+    private var geometryActions: List<AppAction> = emptyList()
+    private var customActions: List<AppAction> = emptyList()
     private val _selectedPreset = MutableStateFlow<ControllerPreset?>(null)
     val selectedPreset: StateFlow<ControllerPreset?> = _selectedPreset
     private val _presets = MutableStateFlow<List<ControllerPreset>>(emptyList())
@@ -81,22 +87,37 @@ class ControllerViewModel @Inject constructor(
         // Ensure repository loads messages with lifecycle-aware scope
         (rosMessageRepository as? com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl)?.initialize(viewModelScope)
 
+        // Collect geometry actions
         viewModelScope.launch {
             Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
             rosMessageRepository.messages.collect { messageList ->
                 Logger.d("ControllerViewModel", "Messages collected: $messageList")
-                val geometryActions = messageList.mapNotNull { it.toAppAction() }
-                _appActions.value = geometryActions
-                _uiState.value = _uiState.value.copy(appActions = geometryActions)
-                Logger.d("ControllerViewModel", "AppActions updated: $geometryActions")
+                geometryActions = messageList.mapNotNull { it.toAppAction() }
+                mergeAndEmitAppActions()
             }
         }
+
+        // Collect custom protocol actions (requires context, so must be triggered from UI)
+        // Optionally, you can expose a public function to load custom actions from UI with context
 
         viewModelScope.launch {
             _appActions.collect { actions ->
                 _uiState.value = _uiState.value.copy(appActions = actions)
             }
         }
+    }
+
+    // Call this from UI (e.g., ControllerScreen) with context to load custom actions
+    fun loadCustomAppActions(context: android.content.Context) {
+        viewModelScope.launch {
+            customActions = protocolRepository.getCustomAppActions(context)
+            mergeAndEmitAppActions()
+        }
+    }
+
+    private fun mergeAndEmitAppActions() {
+        val merged = (geometryActions + customActions).distinctBy { it.id }
+        _appActions.value = merged
     }
 
     // Extension function to map RosMessageDto to AppAction

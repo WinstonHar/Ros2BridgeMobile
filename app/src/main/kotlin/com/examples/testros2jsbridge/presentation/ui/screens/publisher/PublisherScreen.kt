@@ -21,6 +21,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun PublisherScreen(
     viewModel: PublisherViewModel = hiltViewModel(),
+    rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -55,7 +56,7 @@ fun PublisherScreen(
                 PublisherListScreen(
                     viewModel = viewModel,
                     onPublisherSelected = { publisher -> viewModel.selectPublisher(publisher) },
-                    onEditPublisher = { publisher -> viewModel.selectPublisher(publisher) },
+                    onEditPublisher = { publisher -> viewModel.updatePublisher(publisher) },
                     onDeletePublisher = { publisher -> viewModel.deletePublisher(publisher) }
                 )
             }
@@ -73,7 +74,7 @@ fun PublisherScreen(
                             Text("Last Published: $it", style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        androidx.compose.material3.Button(onClick = { viewModel.publishMessage() }, enabled = pubUi.isEnabled) {
+                        androidx.compose.material3.Button(onClick = { viewModel.publishMessage(rosBridgeViewModel) }, enabled = pubUi.isEnabled) {
                             Text("Publish Message")
                         }
                     }

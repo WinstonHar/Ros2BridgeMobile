@@ -48,8 +48,14 @@ fun ControllerScreen(
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val appActions by viewModel.appActions.collectAsState()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Ensure custom protocol actions are loaded and merged
+    LaunchedEffect(context) {
+        viewModel.loadCustomAppActions(context)
+    }
 
     // SAF launchers for export/import
     val exportLauncher = rememberLauncherForActivityResult(
@@ -275,7 +281,6 @@ fun ControllerScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 // App Actions
-                val appActions = uiState.appActions
                 var selectedAction by remember { mutableStateOf<AppAction?>(null) }
                 Logger.d("ControllerScreen", "Rendering TopicSelector with appActions: ${appActions.map { it.displayName }}")
                 Surface(

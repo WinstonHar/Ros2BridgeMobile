@@ -4,9 +4,11 @@ import android.app.Application
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
 import com.examples.testros2jsbridge.core.util.Logger
-import com.examples.testros2jsbridge.domain.model.Publisher
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.domain.model.RosId
+import com.examples.testros2jsbridge.domain.model.Publisher
 import com.examples.testros2jsbridge.presentation.state.PublisherUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,15 +19,16 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PublisherViewModel @Inject constructor(
-    private val publisherRepository: com.examples.testros2jsbridge.domain.repository.PublisherRepository
+    private val rosMessageRepository: com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PublisherUiState())
     val uiState: StateFlow<PublisherUiState> = _uiState
 
     init {
         viewModelScope.launch {
-            publisherRepository.publishers.collect { publishers ->
-                _uiState.value = _uiState.value.copy(publishers = publishers)
+            rosMessageRepository.messages.collect { messages ->
+                // Only show messages with a label (i.e., user-saved publishers or geometry messages)
+                _uiState.value = _uiState.value.copy(publishers = messages.map { it.toPublisher() })
             }
         }
     }
@@ -64,51 +67,49 @@ class PublisherViewModel @Inject constructor(
         val topic = _uiState.value.topicInput
         val type = _uiState.value.typeInput
         val content = _uiState.value.messageContentInput
-        val publisher = Publisher(
+        val rosMsg = RosMessageDto(
+            op = "publish",
             topic = RosId(topic),
-            messageType = type,
-            message = content,
+            type = type,
+            content = content,
             label = topic,
-            isEnabled = true,
-            lastPublishedTimestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis()
         )
         viewModelScope.launch {
-            publisherRepository.savePublisher(publisher)
+            rosMessageRepository.saveMessage(rosMsg)
             _uiState.value = _uiState.value.copy(isSaving = true)
             _uiState.value = _uiState.value.copy(isSaving = false)
         }
     }
 
     fun createPublisher() {
-        val topic = _uiState.value.topicInput
-        val type = _uiState.value.typeInput
-        val content = _uiState.value.messageContentInput
-        val publisher = Publisher(
-            topic = RosId(topic),
-            messageType = type,
-            message = content,
-            label = topic,
-            isEnabled = true,
-            lastPublishedTimestamp = System.currentTimeMillis()
-        )
+        savePublisher()
+    }
+
+    fun deletePublisher(publisher: com.examples.testros2jsbridge.domain.model.Publisher) {
         viewModelScope.launch {
-            publisherRepository.createPublisher(publisher)
+            val msg = rosMessageRepository.messages.value.find {
+                // Prefer unique ID if available
+                (publisher.id != null && it.id == publisher.id.value) ||
+                // Fallback: match all key fields
+                (it.topic.value == publisher.topic.value &&
+                 it.type == publisher.messageType &&
+                 it.content == publisher.message &&
+                 it.label == publisher.label)
+            }
+            if (msg != null) rosMessageRepository.deleteMessage(msg)
         }
     }
 
-    fun deletePublisher(publisher: Publisher) {
-        viewModelScope.launch {
-            publisherRepository.deletePublisher(publisher.topic)
-        }
-    }
-
-    fun publishMessage() {
+    fun publishMessage(rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel) {
         val publisher = _uiState.value.selectedPublisher ?: return
-        viewModelScope.launch {
-            val updatedPublisher = publisher.copy(lastPublishedTimestamp = System.currentTimeMillis())
-            publisherRepository.savePublisher(updatedPublisher)
-            appendToMessageHistory("Published to ${publisher.topic.value}: ${publisher.message}")
-        }
+        // Delegate to RosBridgeViewModel for actual network publish
+        rosBridgeViewModel.publishMessage(
+            topic = publisher.topic.value,
+            type = publisher.messageType,
+            rawJson = publisher.message
+        )
+        appendToMessageHistory("Published to ${publisher.topic.value}: ${publisher.message}")
     }
 
     fun showErrorDialog(message: String) {
@@ -137,7 +138,11 @@ class PublisherViewModel @Inject constructor(
                     }
                     "{\"data\": $boolValue}"
                 }
-                "Byte", "Char", "Int8", "UInt8" -> {
+                "Char" -> {
+                    val charValue = userInput.firstOrNull()?.toString() ?: ""
+                    "{\"data\": \"$charValue\"}"
+                }
+                "Byte", "Int8", "UInt8" -> {
                     val num = userInput.toIntOrNull() ?: 0
                     "{\"data\": $num}"
                 }
@@ -179,28 +184,50 @@ class PublisherViewModel @Inject constructor(
         val type = _uiState.value.typeInput
         val userInput = _uiState.value.messageContentInput
         val jsonMsg = buildStdMsgJson(type, userInput)
-        val newId = UUID.randomUUID().toString()
-        val publisher = com.examples.testros2jsbridge.domain.model.Publisher(
-            id = com.examples.testros2jsbridge.domain.model.RosId(newId),
-            topic = com.examples.testros2jsbridge.domain.model.RosId(topic),
-            messageType = "std_msgs/msg/$type",
-            message = jsonMsg,
+        val rosMsg = RosMessageDto(
+            op = "publish",
+            topic = RosId(topic),
+            type = "std_msgs/msg/$type",
+            content = jsonMsg,
             label = topic,
-            isEnabled = true,
-            lastPublishedTimestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis()
         )
         viewModelScope.launch {
-            val exists = _uiState.value.publishers.any { it.id?.value == newId }
-            if (exists) {
-                Logger.e("PublisherViewModel", "Duplicate publisher ID generated: $newId")
-                try {
-                    val app = publisherRepository as? Application
-                    Toast.makeText(app, "Duplicate publisher ID generated. Not saving.", Toast.LENGTH_LONG).show()
-                } catch (_: Exception) {}
-                return@launch
+            rosMessageRepository.saveMessage(rosMsg)
+            _uiState.value = _uiState.value.copy(selectedPublisher = rosMsg.toPublisher())
+        }
+    }
+
+    // Helper to map RosMessageDto to Publisher
+    private fun RosMessageDto.toPublisher(): com.examples.testros2jsbridge.domain.model.Publisher {
+        return com.examples.testros2jsbridge.domain.model.Publisher(
+            id = this.id?.let { RosId(it) },
+            topic = this.topic,
+            messageType = this.type ?: "",
+            message = this.content ?: "",
+            label = this.label,
+            isEnabled = true,
+            lastPublishedTimestamp = this.timestamp
+        )
+    }
+
+    fun updatePublisher(updated: Publisher) {
+        viewModelScope.launch {
+            // Always use the original id for lookup, even if topic/label changed
+            val orig = rosMessageRepository.messages.value.find {
+                it.id != null && it.id == updated.id?.value
             }
-            publisherRepository.createPublisher(publisher)
-            _uiState.value = _uiState.value.copy(selectedPublisher = publisher)
+            if (orig != null) {
+                // Overwrite with updated fields
+                val newMsg = orig.copy(
+                    topic = updated.topic,
+                    type = updated.messageType,
+                    content = updated.message,
+                    label = updated.label,
+                    timestamp = System.currentTimeMillis()
+                )
+                rosMessageRepository.saveMessage(newMsg)
+            }
         }
     }
 }

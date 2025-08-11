@@ -58,8 +58,23 @@ class RosMessageRepositoryImpl @Inject constructor(
 
 
     override suspend fun saveMessage(message: RosMessageDto) {
-        // Save to Room
-        geometryMessageDao.insert(message.toEntity())
+        // Try to find existing entity by uuid (id)
+        val all = geometryMessageDao.getAll()
+        val existing = all.find { it.uuid == (message.id ?: "") }
+        if (existing != null) {
+            // Update existing: keep Room id, update fields
+            val updatedEntity = existing.copy(
+                label = message.label,
+                topic = message.topic.value,
+                type = message.type ?: "",
+                content = message.content,
+                timestamp = message.timestamp
+            )
+            geometryMessageDao.insert(updatedEntity)
+        } else {
+            // Insert new
+            geometryMessageDao.insert(message.toEntity())
+        }
         // Update in-memory list
         val updated = geometryMessageDao.getAll().map { it.toDto() }
         _messages.value = updated

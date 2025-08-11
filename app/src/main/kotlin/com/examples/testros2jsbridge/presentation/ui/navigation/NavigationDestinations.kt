@@ -124,8 +124,10 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(route = Destinations.PUBLISHER_SCREEN) {
         val viewModel: PublisherViewModel = hiltViewModel()
+        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
         PublisherScreen(
             viewModel = viewModel,
+            rosBridgeViewModel = rosBridgeViewModel,
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }

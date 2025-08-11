@@ -62,10 +62,7 @@ object DatabaseModule {
             .build()
     }
 
-    @Provides
-    fun providePublisherDao(database: RosDatabase): PublisherDao {
-        return database.publisherDao()
-    }
+    // PublisherDao binding removed
 
     @Provides
     fun provideSubscriberDao(database: RosDatabase): SubscriberDao {

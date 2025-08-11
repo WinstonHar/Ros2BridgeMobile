@@ -5,9 +5,6 @@ import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.repository.RosConnectionRepository
 import com.examples.testros2jsbridge.domain.usecase.connection.ConnectToRosUseCase
 import com.examples.testros2jsbridge.domain.usecase.connection.DisconnectFromRosUseCase
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * ConnectionManager manages the WebSocket connection to rosbridge, including connect/disconnect, message sending, and listener notification.
@@ -16,9 +13,19 @@ import kotlinx.coroutines.launch
 class ConnectionManager(
     private val connectionRepository: RosConnectionRepository,
     private val connectToRosUseCase: ConnectToRosUseCase,
-    private val disconnectFromRosUseCase: DisconnectFromRosUseCase
+    private val disconnectFromRosUseCase: DisconnectFromRosUseCase,
+    private val rosbridgeClient: com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 ) {
     private val listeners = mutableListOf<Listener>()
+
+    // Setup WebSocket event forwarding
+    private val wsListener = com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener(
+        onOpen = { listeners.forEach { it.onConnected() } },
+        onMessage = { msg -> listeners.forEach { it.onMessage(msg) } },
+        onFailure = { t -> listeners.forEach { it.onError(t.message ?: "Unknown error") } },
+        onClosing = { listeners.forEach { it.onDisconnected() } },
+        onClosed = { listeners.forEach { it.onDisconnected() } }
+    )
 
     interface Listener {
         fun onConnected()
@@ -36,26 +43,31 @@ class ConnectionManager(
     }
 
     fun connect(ip: String, port: Int) {
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                connectToRosUseCase.connect(ip, port)
-                listeners.forEach { it.onConnected() }
-            } catch (e: Exception) {
-                Logger.e("ConnectionManager", "Connection failed: ${e.message}")
-                notifyError(e.message ?: "Unknown error")
-            }
+        // Build the ws/wss URL
+        val protocol = "ws" // TODO: Make configurable if needed
+        val url = "$protocol://$ip:$port"
+        try {
+            // Set the URL on the RosbridgeClient if needed (or recreate)
+            val clientField = rosbridgeClient.javaClass.getDeclaredField("url")
+            clientField.isAccessible = true
+            clientField.set(rosbridgeClient, url)
+            // Set the listener if needed
+            val listenerField = rosbridgeClient.javaClass.getDeclaredField("listener")
+            listenerField.isAccessible = true
+            listenerField.set(rosbridgeClient, wsListener)
+            rosbridgeClient.connect()
+        } catch (e: Exception) {
+            Logger.e("ConnectionManager", "Connection failed: ${e.message}")
+            notifyError(e.message ?: "Unknown error")
         }
     }
 
     fun disconnect(connectionId: String) {
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                disconnectFromRosUseCase.disconnect(connectionId)
-                listeners.forEach { it.onDisconnected() }
-            } catch (e: Exception) {
-                Logger.e("ConnectionManager", "Disconnection failed: ${e.message}")
-                notifyError(e.message ?: "Unknown error")
-            }
+        try {
+            rosbridgeClient.disconnect()
+        } catch (e: Exception) {
+            Logger.e("ConnectionManager", "Disconnection failed: ${e.message}")
+            notifyError(e.message ?: "Unknown error")
         }
     }
 

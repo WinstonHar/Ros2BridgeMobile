@@ -24,9 +24,15 @@ object NetworkModule {
     fun provideConnectionManager(
         connectionRepository: com.examples.testros2jsbridge.domain.repository.RosConnectionRepository,
         connectToRosUseCase: com.examples.testros2jsbridge.domain.usecase.connection.ConnectToRosUseCase,
-        disconnectFromRosUseCase: com.examples.testros2jsbridge.domain.usecase.connection.DisconnectFromRosUseCase
+        disconnectFromRosUseCase: com.examples.testros2jsbridge.domain.usecase.connection.DisconnectFromRosUseCase,
+        rosbridgeClient: RosbridgeClient
     ): com.examples.testros2jsbridge.core.network.ConnectionManager =
-        com.examples.testros2jsbridge.core.network.ConnectionManager(connectionRepository, connectToRosUseCase, disconnectFromRosUseCase)
+        com.examples.testros2jsbridge.core.network.ConnectionManager(
+            connectionRepository,
+            connectToRosUseCase,
+            disconnectFromRosUseCase,
+            rosbridgeClient
+        )
 
 
     @Provides

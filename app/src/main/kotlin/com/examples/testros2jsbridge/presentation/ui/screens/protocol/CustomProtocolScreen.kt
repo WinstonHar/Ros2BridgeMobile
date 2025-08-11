@@ -407,7 +407,16 @@ fun CustomProtocolScreen(
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(
                         onDone = { keyboardController?.hide() }
-                    )
+                    ),
+                    singleLine = false,
+                    maxLines = 8,
+                    // Disable fullscreen extract UI for landscape
+                    visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+                    interactionSource = remember {
+                        val source = androidx.compose.foundation.interaction.MutableInteractionSource()
+                        // Set IME_FLAG_NO_EXTRACT_UI via AndroidView if needed
+                        source
+                    }
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (editingAction != null) {

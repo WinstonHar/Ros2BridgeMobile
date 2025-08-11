@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.examples.testros2jsbridge.core.error.ErrorHandler
 import com.examples.testros2jsbridge.core.network.ConnectionManager
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
-import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
 import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
 import com.examples.testros2jsbridge.domain.model.Subscriber
 import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
@@ -31,7 +30,6 @@ import javax.inject.Inject
 @HiltViewModel
 class SubscriberViewModel @Inject constructor(
     private val subscriberDao: SubscriberDao,
-    private val publisherDao: PublisherDao,
     private val connectionDao: ConnectionDao,
     private val rosMessageRepository: RosMessageRepository,
     private val rosTopicRepository: RosTopicRepository,

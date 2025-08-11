@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 2,
-    "identityHash": "92988ffa67c865c4af6f660b97998c7e",
+    "version": 4,
+    "identityHash": "076c4ea544f7ef02c36346e85b8974ab",
     "entities": [
       {
         "tableName": "configuration",
@@ -270,12 +270,18 @@
       },
       {
         "tableName": "geometry_messages",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `label` TEXT, `topic` TEXT NOT NULL, `type` TEXT NOT NULL, `content` TEXT, `timestamp` INTEGER)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uuid` TEXT NOT NULL, `label` TEXT, `topic` TEXT NOT NULL, `type` TEXT NOT NULL, `content` TEXT, `timestamp` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
             "columnName": "id",
             "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uuid",
+            "columnName": "uuid",
+            "affinity": "TEXT",
             "notNull": true
           },
           {
@@ -322,7 +328,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '92988ffa67c865c4af6f660b97998c7e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '076c4ea544f7ef02c36346e85b8974ab')"
     ]
   }
 }

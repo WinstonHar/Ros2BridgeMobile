@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "geometry_messages")
 data class GeometryMessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val uuid: String, // Unique string ID for matching edits
     val label: String?,
     val topic: String,
     val type: String,
