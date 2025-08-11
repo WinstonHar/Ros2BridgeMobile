@@ -15,7 +15,8 @@ fun RosConnectionCard(
     onIpAddressChange: (String) -> Unit,
     onPortChange: (String) -> Unit,
     onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onClear: () -> Unit
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
         Text(text = "ROS2 Connection", style = MaterialTheme.typography.titleLarge)
@@ -49,6 +50,13 @@ fun RosConnectionCard(
                 enabled = isConnected
             ) {
                 Text("Disconnect")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onClear,
+                enabled = !isConnected && (ipAddress.isNotBlank() || port.isNotBlank())
+            ) {
+                Text("Clear")
             }
         }
         Spacer(modifier = Modifier.height(16.dp))

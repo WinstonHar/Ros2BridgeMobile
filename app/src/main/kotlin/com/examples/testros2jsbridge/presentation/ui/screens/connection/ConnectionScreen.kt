@@ -44,7 +44,8 @@ fun ConnectionScreen(
                     onIpAddressChange = viewModel::onIpAddressChange,
                     onPortChange = viewModel::onPortChange,
                     onConnect = { viewModel.connect(uiState.ipInput, uiState.portInput) },
-                    onDisconnect = { viewModel.disconnect() }
+                    onDisconnect = { viewModel.disconnect() },
+                    onClear = { viewModel.clearIpPort() }
                 )
                 if (!uiState.errorMessage.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))

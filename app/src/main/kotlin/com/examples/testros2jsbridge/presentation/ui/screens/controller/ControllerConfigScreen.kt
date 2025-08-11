@@ -44,8 +44,7 @@ fun ControllerConfigScreen(
     val selectedPreset = uiState.selectedPreset?.name
     val joystickMappings = uiState.config.joystickMappings
     val scrollState = rememberScrollState()
-    val presetObj = presets.find { it.name == selectedPreset }
-    val buttonAssignments = presetObj?.buttonAssignments ?: emptyMap()
+    val buttonAssignments by viewModel.buttonAssignments.collectAsState()
     var presetDropdownExpanded by remember { mutableStateOf(false) }
 
     // Joystick mappings are now passed in and persisted via callback
