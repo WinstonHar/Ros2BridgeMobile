@@ -65,7 +65,6 @@ class ControllerViewModel @Inject constructor(
     }
 
     fun triggerAppAction(action: AppAction) {
-        // Intercept cycle preset actions
         when (action.id) {
             "__cycle_preset_forward__" -> cyclePresetForward()
             "__cycle_preset_backward__" -> cyclePresetBackward()
@@ -77,7 +76,6 @@ class ControllerViewModel @Inject constructor(
     private val _appActions = MutableStateFlow<List<AppAction>>(emptyList())
     val appActions: StateFlow<List<AppAction>> = _appActions
 
-    // Special AppActions for cycling presets
     private val cyclePresetForwardAction = AppAction(
         id = "__cycle_preset_forward__",
         displayName = "Cycle Preset Forward",
@@ -95,7 +93,6 @@ class ControllerViewModel @Inject constructor(
         msg = "Cycle to previous preset"
     )
 
-    // Store geometry and custom actions separately for merging
     private var geometryActions: List<AppAction> = emptyList()
     private var customActions: List<AppAction> = emptyList()
     private val _selectedPreset = MutableStateFlow<ControllerPreset?>(null)
@@ -109,15 +106,24 @@ class ControllerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val repoImpl = controllerRepository as? ControllerRepositoryImpl
+            val loadedPresets = repoImpl?.loadControllerPresets() ?: emptyList()
+            _presets.value = loadedPresets
+            if (loadedPresets.isNotEmpty()) {
+                _selectedPreset.value = loadedPresets.first()
+            }
+            val loadedConfigs = repoImpl?.loadControllerConfigs() ?: emptyList()
+            _uiState.value = _uiState.value.copy(controllerConfigs = loadedConfigs)
             val config = loadControllerConfigUseCase.load()
-            _uiState.value = ControllerUiMapper.toUiState(config)
+            _uiState.value = ControllerUiMapper.toUiState(config).copy(
+                controllerConfigs = loadedConfigs,
+                appActions = _appActions.value
+            )
         }
         refreshControllerButtons()
 
-        // Ensure repository loads messages with lifecycle-aware scope
         (rosMessageRepository as? RosMessageRepositoryImpl)?.initialize(viewModelScope)
 
-        // Collect geometry actions
         viewModelScope.launch {
             Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
             rosMessageRepository.messages.collect { messageList ->
@@ -127,9 +133,6 @@ class ControllerViewModel @Inject constructor(
             }
         }
 
-        // Collect custom protocol actions (requires context, so must be triggered from UI)
-        // Optionally, you can expose a public function to load custom actions from UI with context
-
         viewModelScope.launch {
             _appActions.collect { actions ->
                 _uiState.value = _uiState.value.copy(appActions = actions)
@@ -137,7 +140,6 @@ class ControllerViewModel @Inject constructor(
         }
     }
 
-    // Call this from UI (e.g., ControllerScreen) with context to load custom actions
     fun loadCustomAppActions(context: Context) {
         viewModelScope.launch {
             customActions = protocolRepository.getCustomAppActions(context)
@@ -150,9 +152,7 @@ class ControllerViewModel @Inject constructor(
         _appActions.value = merged
     }
 
-    // Extension function to map RosMessageDto to AppAction
     private fun RosMessageDto.toAppAction(): AppAction? {
-        // Use label or topic as displayName, and content as msg
         return AppAction(
             id = this.id ?: (this.label ?: this.topic.value),
             displayName = this.label ?: this.topic.value,
@@ -166,22 +166,23 @@ class ControllerViewModel @Inject constructor(
     fun selectPreset(presetName: String) {
         val preset = _presets.value.find { it.name == presetName }
         _selectedPreset.value = preset
+        if (presetName == "New Preset" || preset == null) {
+            _buttonAssignments.value = emptyMap()
+            _uiState.value = _uiState.value.copy(buttonAssignments = emptyMap())
+        } else {
+            _buttonAssignments.value = preset.buttonAssignments
+            _uiState.value = _uiState.value.copy(buttonAssignments = preset.buttonAssignments)
+        }
     }
 
     fun addPreset(name: String, context: Context) {
         val newPreset = ControllerPreset(
             name = name,
             topic = null,
-            buttonAssignments = mapOf(
-                "A" to AppAction("A", "", "", "", "", ""),
-                "B" to AppAction("B", "", "", "", "", ""),
-                "X" to AppAction("X", "", "", "", "", ""),
-                "Y" to AppAction("Y", "", "", "", "", "")
-            )
+            buttonAssignments = _buttonAssignments.value
         )
         val updatedPresets = _presets.value + newPreset
         _presets.value = updatedPresets
-        // Persist presets
         (controllerRepository as? ControllerRepositoryImpl)?.saveControllerPresets(updatedPresets)
         saveConfigWithPresets(updatedPresets)
     }
@@ -190,15 +191,14 @@ class ControllerViewModel @Inject constructor(
         val selected = _selectedPreset.value ?: return
         val updated = _presets.value.filter { it.name != selected.name }
         _presets.value = updated
-        // Persist presets
         (controllerRepository as? ControllerRepositoryImpl)?.saveControllerPresets(updated)
         saveConfigWithPresets(updated)
-        _selectedPreset.value = null
+        selectPreset("New Preset")
     }
 
     fun savePreset(name: String) {
         val selected = _selectedPreset.value ?: return
-        val updatedPreset = selected.copy(name = name)
+        val updatedPreset = selected.copy(name = name, buttonAssignments = _buttonAssignments.value)
         val updated = _presets.value.map { if (it.name == selected.name) updatedPreset else it }
         _presets.value = updated
         saveConfigWithPresets(updated)
@@ -213,13 +213,11 @@ class ControllerViewModel @Inject constructor(
             updated.remove(button)
         }
         _buttonAssignments.value = updated
-        // Persist assignments
         (controllerRepository as? ControllerRepositoryImpl)?.saveButtonAssignments(updated)
         saveConfigWithAssignments(updated)
     }
 
     fun assignAbxyButton(btn: String, actionName: String, context: android.content.Context) {
-        // Find the AppAction by displayName and assign it to the button
         val action = _appActions.value.find { it.displayName == actionName }
         assignButton(
             btn, action,
@@ -232,18 +230,14 @@ class ControllerViewModel @Inject constructor(
     }
 
     fun exportConfig(outputStream: OutputStream) {
-        // Export the full config using repository logic
         (controllerRepository as? ControllerRepositoryImpl)?.exportConfigToStream(outputStream)
     }
 
     fun importConfig(inputStream: InputStream) {
-        // Import config using repository logic
         (controllerRepository as? ControllerRepositoryImpl)?.importConfigFromStream(inputStream)
-        // After import, reload config
         viewModelScope.launch {
             val config = loadControllerConfigUseCase.load()
-            // Update all state flows as needed
-            _uiState.value = ControllerUiMapper.toUiState(config)
+            _uiState.value = ControllerUiMapper.toUiState(config).copy(appActions = _appActions.value)
             _presets.value = config.controllerPresets
             _buttonAssignments.value = config.buttonAssignments
             _selectedPreset.value = config.controllerPresets.firstOrNull()
@@ -255,7 +249,7 @@ class ControllerViewModel @Inject constructor(
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
             saveControllerConfigUseCase.save(config)
-            _uiState.value = ControllerUiMapper.toUiState(config)
+            _uiState.value = ControllerUiMapper.toUiState(config).copy(appActions = _appActions.value)
         }
     }
 
@@ -264,18 +258,16 @@ class ControllerViewModel @Inject constructor(
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
             saveControllerConfigUseCase.save(config)
-            _uiState.value = ControllerUiMapper.toUiState(config)
+            _uiState.value = ControllerUiMapper.toUiState(config).copy(appActions = _appActions.value)
         }
     }
 
     private fun saveConfigWithAssignments(assignments: Map<String, AppAction>) {
-        val prevAppActions = _uiState.value.appActions
         val uiState = _uiState.value.copy(buttonAssignments = assignments)
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
             saveControllerConfigUseCase.save(config)
-            val newUiState = ControllerUiMapper.toUiState(config).copy(appActions = prevAppActions)
-            _uiState.value = newUiState
+            _uiState.value = ControllerUiMapper.toUiState(config).copy(appActions = _appActions.value)
         }
     }
 
@@ -292,15 +284,17 @@ class ControllerViewModel @Inject constructor(
         )
     }
 
-    fun addControllerConfig(name: String) {
+    fun addControllerConfig(name: String, context: Context) {
         val newConfig = ControllerConfig(name = name)
         val updatedConfigs = _uiState.value.controllerConfigs + newConfig
         _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs)
+        (controllerRepository as? ControllerRepositoryImpl)?.saveControllerConfigs(updatedConfigs)
     }
 
-    fun removeControllerConfig(name: String) {
+    fun removeControllerConfig(name: String, context: Context) {
         val updatedConfigs = _uiState.value.controllerConfigs.filter { it.name != name }
         _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs)
+        (controllerRepository as? ControllerRepositoryImpl)?.saveControllerConfigs(updatedConfigs)
     }
 
     fun cyclePresetForward() {

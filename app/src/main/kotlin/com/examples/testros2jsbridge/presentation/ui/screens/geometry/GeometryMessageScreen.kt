@@ -52,6 +52,7 @@ import com.examples.testros2jsbridge.presentation.mapper.MessageUiMapper
 @Composable
 fun GeometryMessageScreen(
     viewModel: GeometryViewModel = hiltViewModel(),
+    rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -519,7 +520,7 @@ fun GeometryMessageScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { viewModel.publishMessage() },
+                        onClick = { viewModel.publishMessage(rosBridgeViewModel) },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Publish Message")

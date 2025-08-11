@@ -97,12 +97,20 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(route = Destinations.GEOMETRY_MESSAGE_SCREEN) {
         val viewModel: GeometryViewModel = hiltViewModel()
-        GeometryMessageScreen(viewModel = viewModel, onBack = { BackNavigationHandler.handleBack(navController) })
+        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
+        GeometryMessageScreen(
+            viewModel = viewModel,
+            rosBridgeViewModel = rosBridgeViewModel,
+            onBack = { BackNavigationHandler.handleBack(navController) }
+        )
     }
     composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
-        val viewModel: ProtocolViewModel = hiltViewModel()
+        val protocolViewModel: ProtocolViewModel = hiltViewModel()
+        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
+        // Set the reference for protocolViewModel
+        protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
         CustomProtocolScreen(
-            viewModel = viewModel,
+            viewModel = protocolViewModel,
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }

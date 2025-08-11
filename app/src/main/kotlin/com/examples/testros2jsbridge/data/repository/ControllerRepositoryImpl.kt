@@ -20,6 +20,7 @@ import java.io.OutputStreamWriter
 import javax.inject.Inject
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.model.RosId
+import kotlin.apply
 
 class ControllerRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -522,5 +523,42 @@ class ControllerRepositoryImpl @Inject constructor(
         // Save to SharedPreferences (imported_app_actions)
         val importedPrefs = context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
         importedPrefs.edit().putString("imported_app_actions", appActionsJsonArr.toString()).apply()
+    }
+
+    // --- Controller Configs ---
+    private val PREFS_CONTROLLER_CONFIGS = "controller_configs"
+
+    fun saveControllerConfigs(configs: List<ControllerConfig>) {
+        val prefs = context.getSharedPreferences(PREFS_CONTROLLER_CONFIGS, Context.MODE_PRIVATE)
+        val jsonArray = JSONArray()
+        configs.forEach { config ->
+            val obj = JSONObject().apply {
+                put("name", config.name)
+                // Add more fields as needed for your config
+            }
+            jsonArray.put(obj)
+        }
+        prefs.edit().putString("configs", jsonArray.toString()).apply()
+    }
+
+    fun loadControllerConfigs(): MutableList<ControllerConfig> {
+        val prefs = context.getSharedPreferences(PREFS_CONTROLLER_CONFIGS, Context.MODE_PRIVATE)
+        val jsonString = prefs.getString("configs", null)
+        val list = mutableListOf<ControllerConfig>()
+        if (!jsonString.isNullOrEmpty()) {
+            try {
+                val jsonArray = JSONArray(jsonString)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    list.add(
+                        ControllerConfig(
+                            name = obj.optString("name", "Unnamed Config")
+                            // Add more fields as needed
+                        )
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+        return list
     }
 }

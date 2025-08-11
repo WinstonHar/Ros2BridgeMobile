@@ -186,7 +186,7 @@ fun ControllerScreen(
                     ) {
                         Button(
                             onClick = {
-                                viewModel.addControllerConfig(newConfigName)
+                                viewModel.addControllerConfig(newConfigName, context = context)
                                 selectedConfigName = newConfigName
                                 newConfigName = ""
                             },
@@ -210,7 +210,7 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            viewModel.removeControllerConfig(selectedConfigName)
+                            viewModel.removeControllerConfig(selectedConfigName, context = context)
                             // Reset selection if the removed config was selected
                             selectedConfigName = "New Config"
                         },
@@ -368,13 +368,11 @@ fun ControllerScreen(
                 val isNewPreset = selectedPresetName == "New Preset"
                 var presetName by remember(selectedPresetName, uiState.presets) {
                     mutableStateOf(
-                        if (isNewPreset) "" else uiState.presets.find { it.name == selectedPresetName }?.name ?: ""
+                        if (selectedPresetName == "New Preset") "" else selectedPresetName
                     )
                 }
                 var presetNameError by remember { mutableStateOf(false) }
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val isUpdating = remember { mutableStateOf(false) }
-
                     Box(
                         Modifier
                             .weight(1f)
@@ -411,7 +409,7 @@ fun ControllerScreen(
                         onClick = { viewModel.removePreset(
                             context = context
                         ) },
-                        enabled = !isNewPreset && !isUpdating.value,
+                        enabled = !isNewPreset,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Remove")
@@ -419,14 +417,12 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            isUpdating.value = true
                             viewModel.savePreset(selectedPresetName)
-                            isUpdating.value = false
                         },
-                        enabled = !isNewPreset && !isUpdating.value,
+                        enabled = !isNewPreset,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(if (isUpdating.value) "Updating..." else "Update")
+                        Text("Update")
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))

@@ -2,8 +2,8 @@ package com.examples.testros2jsbridge.core.ros
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -16,11 +16,14 @@ import javax.inject.Inject
  * Central ViewModel for all ROS2/rosbridge communication (messages, services, actions).
  * Ported from legacy RosViewModel for exact compatibility.
  */
- @HiltViewModel
+@HiltViewModel
 class RosBridgeViewModel @Inject constructor(
     private val rosbridgeClient: RosbridgeClient
 ) : ViewModel() {
-    // --- Helper Data Classes for Rosbridge Operations ---
+    private val advertisedTopics: MutableSet<Pair<String, String>> = mutableSetOf()
+    private val advertisedServices: MutableSet<Pair<String, String>> = mutableSetOf()
+    private val advertisedActions: MutableSet<Pair<String, String>> = mutableSetOf()
+
     @Serializable
     data class RosBridgeTopic(val op: String, val id: String? = null, val topic: String, val type: String? = null)
 
@@ -96,6 +99,23 @@ class RosBridgeViewModel @Inject constructor(
                 Logger.w("RosBridgeViewModel", "Cannot publish: Not connected.")
                 return@launch
             }
+            // Advertise if not already advertised
+            val key = topic to type
+            if (!advertisedTopics.contains(key)) {
+                try {
+                    val advertiseMsg = RosBridgeAdvertise(
+                        op = "advertise",
+                        topic = topic,
+                        type = type
+                    )
+                    val advertiseJson = Json.encodeToString(RosBridgeAdvertise.serializer(), advertiseMsg)
+                    rosbridgeClient.send(advertiseJson)
+                    Logger.d("RosBridgeViewModel", "Advertised: topic=$topic, type=$type")
+                    advertisedTopics.add(key)
+                } catch (e: Exception) {
+                    Logger.e("RosBridgeViewModel", "Error advertising topic before publish", e)
+                }
+            }
             try {
                 val msg = buildJsonObject {
                     put("op", JsonPrimitive("publish"))
@@ -108,6 +128,62 @@ class RosBridgeViewModel @Inject constructor(
                 Logger.e("RosBridgeViewModel", "Error publishing message", e)
             }
         }
+    }
+
+    // --- Service Advertisement ---
+    fun advertiseService(serviceName: String, serviceType: String) {
+        val key = serviceName to serviceType
+        if (advertisedServices.contains(key)) return
+        viewModelScope.launch {
+            try {
+                val msg = buildJsonObject {
+                    put("op", JsonPrimitive("advertise_service"))
+                    put("id", JsonPrimitive("advertise_service_${System.currentTimeMillis()}"))
+                    put("service", JsonPrimitive(serviceName))
+                    put("type", JsonPrimitive(serviceType))
+                }
+                rosbridgeClient.send(msg.toString())
+                Logger.d("RosBridgeViewModel", "Advertised service: $serviceName, type=$serviceType")
+                advertisedServices.add(key)
+            } catch (e: Exception) {
+                Logger.e("RosBridgeViewModel", "Error advertising service", e)
+            }
+        }
+    }
+
+    // --- Action Advertisement ---
+    fun advertiseAction(actionName: String, actionType: String) {
+        val key = actionName to actionType
+        if (advertisedActions.contains(key)) return
+        val names = getActionNames(actionName, actionType) ?: return
+        // Advertise feedback, status, cancel topics
+        listOf(
+            names.feedbackTopic to names.feedbackType,
+            names.statusTopic to "action_msgs/msg/GoalStatusArray",
+            names.cancelTopic to "action_msgs/msg/GoalInfo"
+        ).forEach { (topic, type) ->
+            if (!advertisedTopics.contains(topic to type)) {
+                viewModelScope.launch {
+                    try {
+                        val advertiseMsg = RosBridgeAdvertise(
+                            op = "advertise",
+                            topic = topic,
+                            type = type
+                        )
+                        val advertiseJson = Json.encodeToString(RosBridgeAdvertise.serializer(), advertiseMsg)
+                        rosbridgeClient.send(advertiseJson)
+                        Logger.d("RosBridgeViewModel", "Advertised action topic: $topic, type=$type")
+                        advertisedTopics.add(topic to type)
+                    } catch (e: Exception) {
+                        Logger.e("RosBridgeViewModel", "Error advertising action topic", e)
+                    }
+                }
+            }
+        }
+        // Advertise send_goal and get_result services
+        advertiseService(names.sendGoalService, names.sendGoalType)
+        advertiseService(names.getResultService, names.getResultType)
+        advertisedActions.add(key)
     }
 
     // --- Service Call (with queuing) ---
@@ -253,6 +329,27 @@ class RosBridgeViewModel @Inject constructor(
             webSocketField.get(rosbridgeClient) != null
         } catch (e: Exception) {
             false
+        }
+    }
+
+    // --- Topic Advertisement (for use by other ViewModels) ---
+    fun advertiseTopic(topic: String, type: String) {
+        val key = topic to type
+        if (advertisedTopics.contains(key)) return
+        viewModelScope.launch {
+            try {
+                val advertiseMsg = RosBridgeAdvertise(
+                    op = "advertise",
+                    topic = topic,
+                    type = type
+                )
+                val advertiseJson = Json.encodeToString(RosBridgeAdvertise.serializer(), advertiseMsg)
+                rosbridgeClient.send(advertiseJson)
+                Logger.d("RosBridgeViewModel", "Advertised: topic=$topic, type=$type")
+                advertisedTopics.add(key)
+            } catch (e: Exception) {
+                Logger.e("RosBridgeViewModel", "Error advertising topic", e)
+            }
         }
     }
 }

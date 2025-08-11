@@ -103,6 +103,8 @@ class PublisherViewModel @Inject constructor(
 
     fun publishMessage(rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel) {
         val publisher = _uiState.value.selectedPublisher ?: return
+        // ADVERTISE before publish
+        rosBridgeViewModel.advertiseTopic(publisher.topic.value, publisher.messageType)
         // Delegate to RosBridgeViewModel for actual network publish
         rosBridgeViewModel.publishMessage(
             topic = publisher.topic.value,
@@ -139,8 +141,8 @@ class PublisherViewModel @Inject constructor(
                     "{\"data\": $boolValue}"
                 }
                 "Char" -> {
-                    val charValue = userInput.firstOrNull()?.toString() ?: ""
-                    "{\"data\": \"$charValue\"}"
+                    val charValue = userInput.firstOrNull()?.code ?: 0
+                    "{\"data\": $charValue}"
                 }
                 "Byte", "Int8", "UInt8" -> {
                     val num = userInput.toIntOrNull() ?: 0

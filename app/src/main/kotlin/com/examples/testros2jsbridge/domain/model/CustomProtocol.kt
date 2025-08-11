@@ -8,3 +8,10 @@ data class CustomProtocol(
     enum class Type { MSG, SRV, ACTION }
 }
 
+val CustomProtocol.typeString: String
+    get() = when (type) {
+        CustomProtocol.Type.MSG -> "ryan_msgs/msg/$name"
+        CustomProtocol.Type.SRV -> "ryan_msgs/srv/$name"
+        CustomProtocol.Type.ACTION -> "ryan_msgs/action/$name"
+    }
+

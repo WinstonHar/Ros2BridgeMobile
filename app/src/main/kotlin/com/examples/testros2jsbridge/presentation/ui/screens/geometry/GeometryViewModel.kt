@@ -116,7 +116,7 @@ class GeometryViewModel @Inject constructor(
         }
     }
 
-    fun publishMessage() {
+    fun publishMessage(rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel) {
         val msg = _uiState.value.selectedMessage ?: run {
             // If nothing is selected, publish the current edit
             val typeInput = _uiState.value.typeInput
@@ -137,6 +137,8 @@ class GeometryViewModel @Inject constructor(
                 queue_size = null
             )
         }
+        // ADVERTISE before publish
+        rosBridgeViewModel.advertiseTopic(msg.topic.value, msg.type)
         rosMessageRepository.publishMessage(msg)
     }
 

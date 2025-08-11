@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
+import com.examples.testros2jsbridge.domain.model.typeString
 import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,8 @@ import kotlinx.serialization.json.jsonObject
 class ProtocolViewModel @javax.inject.Inject constructor(
     private val protocolRepository: ProtocolRepository
 ) : ViewModel() {
+    // Reference to RosBridgeViewModel for advertisement (set externally if needed)
+    var rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel? = null
     // --- Custom Protocol Compose UI State ---
 
     data class ProtocolField(
@@ -256,6 +259,15 @@ class ProtocolViewModel @javax.inject.Inject constructor(
 
         // Determine protocol type
         val protocolType = activeProtocol.value?.type
+        val resolvedTopic = topicOverride ?: protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "/"
+        val resolvedTypeString = activeProtocol.value?.typeString ?: ""
+        // ADVERTISE before sending
+        when (protocolType) {
+            CustomProtocol.Type.MSG -> rosBridgeViewModel?.advertiseTopic(resolvedTopic, resolvedTypeString)
+            CustomProtocol.Type.SRV -> rosBridgeViewModel?.advertiseService(resolvedTopic, resolvedTypeString)
+            CustomProtocol.Type.ACTION -> rosBridgeViewModel?.advertiseAction(resolvedTopic, resolvedTypeString)
+            else -> {}
+        }
 
         val msgEntries = protocolFields
             .filter { field ->
@@ -286,10 +298,9 @@ class ProtocolViewModel @javax.inject.Inject constructor(
                 "\"$fieldName\": $jsonValue"
             }
         val msgJson = "{" + msgEntries.joinToString(", ") + "}"
-        val topic = topicOverride ?: protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "/"
         val envelope = "{" +
             "\"op\": \"publish\"," +
-            "\"topic\": \"$topic\"," +
+            "\"topic\": \"$resolvedTopic\"," +
             "\"msg\": $msgJson" +
             "}"
         return envelope
