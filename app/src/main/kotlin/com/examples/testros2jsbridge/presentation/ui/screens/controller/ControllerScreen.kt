@@ -245,31 +245,26 @@ fun ControllerScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 // App Actions
                 val appActions = uiState.appActions
-                val selectedAction = appActions.find { it.id == selectedButton }
-                Logger.d("ControllerScreen", "Rendering TopicSelector with appActions: $appActions")
+                var selectedAction by remember { mutableStateOf<AppAction?>(null) }
+                Logger.d("ControllerScreen", "Rendering TopicSelector with appActions: ${appActions.map { it.displayName }}")
                 Surface(
                     color = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    var lastViewedAction by remember { mutableStateOf<AppAction?>(null) }
                     Column {
                         TopicSelector(
                             topics = appActions,
-                            selectedTopic = lastViewedAction, // Show last selected action in field
+                            selectedTopic = selectedAction,
                             onTopicSelected = { action: AppAction? ->
                                 Logger.d("ControllerScreen", "Selected App Action: $action")
-                                if (action != null) {
-                                    lastViewedAction = action
-                                    selectedButton = action.id
-                                    viewModel.assignButton(action.id, action)
-                                    selectedButton = null // Reset so dropdown always shows all actions
-                                }
+                                selectedAction = action
+                                action?.let { viewModel.assignButton(it.id, it) }
                             },
                             label = "Select Action"
                         )
-                        // Show info for last selected action
-                        lastViewedAction?.let { action ->
+                        // Show info for selected action
+                        selectedAction?.let { action ->
                             Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
                                 Text(text = "Selected App Action Details", style = MaterialTheme.typography.titleMedium)
                                 Spacer(modifier = Modifier.height(8.dp))

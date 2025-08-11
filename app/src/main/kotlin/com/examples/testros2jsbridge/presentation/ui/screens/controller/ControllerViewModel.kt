@@ -78,7 +78,9 @@ class ControllerViewModel @Inject constructor(
         }
         refreshControllerButtons()
 
-        // Collect all saved geometry messages and expose as AppActions
+        // Ensure repository loads messages with lifecycle-aware scope
+        (rosMessageRepository as? com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl)?.initialize(viewModelScope)
+
         viewModelScope.launch {
             Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
             rosMessageRepository.messages.collect { messageList ->

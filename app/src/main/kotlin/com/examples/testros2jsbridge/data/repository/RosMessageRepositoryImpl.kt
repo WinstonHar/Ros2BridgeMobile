@@ -25,9 +25,9 @@ class RosMessageRepositoryImpl @Inject constructor(
     private val _messages: MutableStateFlow<List<RosMessageDto>> = MutableStateFlow<List<RosMessageDto>>(emptyList())
     override val messages: MutableStateFlow<List<RosMessageDto>> get() = _messages
 
-    init {
-        // Load all geometry messages from Room on repository init
-        kotlinx.coroutines.GlobalScope.launch {
+    // Use a lifecycle-aware scope for loading messages from Room
+    fun initialize(scope: kotlinx.coroutines.CoroutineScope) {
+        scope.launch {
             val entities = geometryMessageDao.getAll()
             _messages.value = entities.map { it.toDto() }
         }
