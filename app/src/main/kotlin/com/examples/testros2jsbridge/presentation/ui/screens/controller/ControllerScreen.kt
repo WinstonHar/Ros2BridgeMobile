@@ -2,6 +2,7 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,9 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
-import com.examples.testros2jsbridge.domain.model.AppAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -160,35 +162,64 @@ fun ControllerScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Text entry for new config name (disabled if a named config is selected)
+                var configNameError by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = newConfigName,
                     onValueChange = { if (selectedConfigName == "New Config") newConfigName = it },
                     label = { Text("New Config Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = selectedConfigName == "New Config"
+                    enabled = selectedConfigName == "New Config",
+                    isError = configNameError
                 )
+                if (configNameError) {
+                    LaunchedEffect(configNameError) {
+                        kotlinx.coroutines.delay(500)
+                        configNameError = false
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Add, Remove, Configure buttons
                 Row(modifier = Modifier.fillMaxWidth()) {
                     val isNewConfig = selectedConfigName == "New Config"
 
-                    Button(
-                        onClick = {
-                            if (isNewConfig && newConfigName.isNotBlank()) {
+                    // Add button with error flash on disabled click, matches Remove/Configure style
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Button(
+                            onClick = {
                                 viewModel.addControllerConfig(newConfigName)
                                 selectedConfigName = newConfigName
                                 newConfigName = ""
-                            }
-                        },
-                        enabled = isNewConfig && newConfigName.isNotBlank(),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Add")
+                            },
+                            enabled = isNewConfig && newConfigName.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                        ) {
+                            Text("Add")
+                        }
+                        if (!(isNewConfig && newConfigName.isNotBlank())) {
+                            androidx.compose.foundation.layout.Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .clickable(
+                                        enabled = true,
+                                        onClick = { configNameError = true }
+                                    )
+                            ) {}
+                        }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { viewModel.removeControllerConfig(selectedConfigName) },
+                        onClick = {
+                            viewModel.removeControllerConfig(selectedConfigName)
+                            // Reset selection if the removed config was selected
+                            selectedConfigName = "New Config"
+                        },
                         enabled = !isNewConfig,
                         modifier = Modifier.weight(1f)
                     ) {
@@ -338,21 +369,37 @@ fun ControllerScreen(
                         if (isNewPreset) "" else uiState.presets.find { it.name == selectedPresetName }?.name ?: ""
                     )
                 }
-                // Add, Remove, Update buttons for presets
+                var presetNameError by remember { mutableStateOf(false) }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     val isUpdating = remember { mutableStateOf(false) }
 
-                    Button(
-                        onClick = {
-                            if (isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName }) {
+                    androidx.compose.foundation.layout.Box(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .height(40.dp)
+                    ) {
+                        Button(
+                            onClick = {
                                 viewModel.addPreset(presetName)
                                 selectedPresetName = presetName
-                            }
-                        },
-                        enabled = isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Add")
+                            },
+                            enabled = isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName },
+                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                        ) {
+                            Text("Add")
+                        }
+                        if (!(isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName })) {
+                            androidx.compose.foundation.layout.Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                                    .clickable(
+                                        enabled = true,
+                                        onClick = { presetNameError = true }
+                                    )
+                            ) {}
+                        }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -383,8 +430,15 @@ fun ControllerScreen(
                     },
                     label = { Text("Preset Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = isNewPreset
+                    enabled = isNewPreset,
+                    isError = presetNameError
                 )
+                if (presetNameError) {
+                    LaunchedEffect(presetNameError) {
+                        kotlinx.coroutines.delay(500)
+                        presetNameError = false
+                    }
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // ABXY Dropdowns

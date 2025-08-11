@@ -116,8 +116,6 @@ class GeometryViewModel @Inject constructor(
         }
     }
 
-    // buildMessage function removed; logic is now in domain.geometry.GeometryMessageBuilder
-
     fun publishMessage() {
         val msg = _uiState.value.selectedMessage ?: return
         rosMessageRepository.publishMessage(msg)

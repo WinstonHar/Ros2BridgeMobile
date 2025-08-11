@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
@@ -24,46 +23,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.unit.dp
-import com.examples.testros2jsbridge.domain.model.AppAction
-import com.examples.testros2jsbridge.domain.model.ControllerPreset
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
 
 @Composable
 fun ControllerConfigScreen(
-    controllerButtons: List<String>,
-    detectedControllerButtons: List<String>,
-    appActions: List<AppAction>,
-    presets: List<ControllerPreset>,
-    selectedPreset: String?,
-    joystickMappings: List<JoystickMapping>,
-    onPresetSelected: (String) -> Unit,
-    onAddPreset: (String) -> Unit,
-    onRemovePreset: () -> Unit,
-    onSavePreset: (String) -> Unit,
-    onControllerButtonAssign: (String, AppAction?) -> Unit,
-    onJoystickMappingsChanged: (List<JoystickMapping>) -> Unit,
+    viewModel: ControllerViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val detectedControllerButtons by viewModel.detectedControllerButtons.collectAsState()
+    val appActions by viewModel.appActions.collectAsState()
+    val presets by viewModel.presets.collectAsState()
+    val selectedPreset = uiState.selectedPreset?.name
+    val joystickMappings = uiState.config.joystickMappings
     val scrollState = rememberScrollState()
     val presetObj = presets.find { it.name == selectedPreset }
-    var buttonAssignments by remember(selectedPreset, presets, detectedControllerButtons) {
-        mutableStateOf(
-            detectedControllerButtons.associateWith { btn ->
-                presetObj?.buttonAssignments?.get(btn)
-            }
-        )
-    }
+    val buttonAssignments = presetObj?.buttonAssignments ?: emptyMap()
     var presetDropdownExpanded by remember { mutableStateOf(false) }
 
     // Joystick mappings are now passed in and persisted via callback
@@ -129,9 +110,7 @@ fun ControllerConfigScreen(
                                     topics = appActions,
                                     selectedTopic = buttonAssignments[btn],
                                     onTopicSelected = { action ->
-                                        buttonAssignments = buttonAssignments.toMutableMap()
-                                            .apply { put(btn, action) }
-                                        onControllerButtonAssign(btn, action)
+                                        viewModel.assignButton(btn, action)
                                     },
                                     label = "Assign Action"
                                 )
@@ -153,7 +132,7 @@ fun ControllerConfigScreen(
                     Button(
                         onClick = {
                             if (newPresetName.isNotBlank() && presets.none { it.name == newPresetName }) {
-                                onAddPreset(newPresetName)
+                                viewModel.addPreset(newPresetName)
                                 newPresetName = ""
                             }
                         },
@@ -182,7 +161,7 @@ fun ControllerConfigScreen(
                                     onValueChange = { v: String ->
                                         val updated = mappings.toMutableList()
                                             .apply { set(idx, mapping.copy(displayName = v)) }
-                                        onJoystickMappingsChanged(updated)
+                                        viewModel.updateJoystickMappings(updated)
                                     },
                                     label = { Text("Display Name") },
                                     modifier = Modifier.weight(1f)
@@ -190,7 +169,7 @@ fun ControllerConfigScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 IconButton(onClick = {
                                     val updated = mappings.toMutableList().apply { removeAt(idx) }
-                                    onJoystickMappingsChanged(updated)
+                                    viewModel.updateJoystickMappings(updated)
                                 }) {
                                     Icon(
                                         Icons.Default.Delete,
@@ -213,7 +192,7 @@ fun ControllerConfigScreen(
                                                 )
                                             )
                                         }
-                                        onJoystickMappingsChanged(updated)
+                                        viewModel.updateJoystickMappings(updated)
                                     },
                                     label = { Text("Topic") },
                                     modifier = Modifier.weight(1f)
@@ -224,7 +203,7 @@ fun ControllerConfigScreen(
                                     onValueChange = { v: String ->
                                         val updated = mappings.toMutableList()
                                             .apply { set(idx, mapping.copy(type = v)) }
-                                        onJoystickMappingsChanged(updated)
+                                        viewModel.updateJoystickMappings(updated)
                                     },
                                     label = { Text("Type") },
                                     modifier = Modifier.weight(1f)
@@ -238,7 +217,7 @@ fun ControllerConfigScreen(
                                         v.toIntOrNull()?.let {
                                             val updated = mappings.toMutableList()
                                                 .apply { set(idx, mapping.copy(axisX = it)) }
-                                            onJoystickMappingsChanged(updated)
+                                            viewModel.updateJoystickMappings(updated)
                                         }
                                     },
                                     label = { Text("Axis X") },
@@ -251,7 +230,7 @@ fun ControllerConfigScreen(
                                         v.toIntOrNull()?.let {
                                             val updated = mappings.toMutableList()
                                                 .apply { set(idx, mapping.copy(axisY = it)) }
-                                            onJoystickMappingsChanged(updated)
+                                            viewModel.updateJoystickMappings(updated)
                                         }
                                     },
                                     label = { Text("Axis Y") },
@@ -266,7 +245,7 @@ fun ControllerConfigScreen(
                                         v.toFloatOrNull()?.let {
                                             val updated = mappings.toMutableList()
                                                 .apply { set(idx, mapping.copy(max = it)) }
-                                            onJoystickMappingsChanged(updated)
+                                            viewModel.updateJoystickMappings(updated)
                                         }
                                     },
                                     label = { Text("Max") },
@@ -279,7 +258,7 @@ fun ControllerConfigScreen(
                                         v.toFloatOrNull()?.let {
                                             val updated = mappings.toMutableList()
                                                 .apply { set(idx, mapping.copy(step = it)) }
-                                            onJoystickMappingsChanged(updated)
+                                            viewModel.updateJoystickMappings(updated)
                                         }
                                     },
                                     label = { Text("Step") },
@@ -292,7 +271,7 @@ fun ControllerConfigScreen(
                                         v.toFloatOrNull()?.let {
                                             val updated = mappings.toMutableList()
                                                 .apply { set(idx, mapping.copy(deadzone = it)) }
-                                            onJoystickMappingsChanged(updated)
+                                            viewModel.updateJoystickMappings(updated)
                                         }
                                     },
                                     label = { Text("Deadzone") },
@@ -318,7 +297,7 @@ fun ControllerConfigScreen(
                             )
                         )
                     }
-                    onJoystickMappingsChanged(updated)
+                    viewModel.updateJoystickMappings(updated)
                 }) {
                     Text("Add Joystick Mapping")
                 }

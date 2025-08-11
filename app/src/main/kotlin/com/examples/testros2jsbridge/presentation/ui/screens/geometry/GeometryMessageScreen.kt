@@ -146,7 +146,6 @@ fun GeometryMessageScreen(
                     fieldTags.associateWith { FocusRequester() }
                 }
 
-                Text(text = "Geometry Messages", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
                 // FocusRequesters for Name, Topic, and first dynamic field
                 val nameFocusRequester = remember { FocusRequester() }

@@ -60,20 +60,7 @@ fun NavGraphBuilder.setupNavigation(
         val uiState = viewModel.uiState.collectAsState()
         val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
         ControllerConfigScreen(
-            controllerButtons = uiState.value.controllerButtons,
-            detectedControllerButtons = detectedControllerButtons.value,
-            appActions = uiState.value.appActions,
-            presets = uiState.value.presets,
-            selectedPreset = uiState.value.selectedPreset?.name,
-            joystickMappings = uiState.value.config.joystickMappings,
-            onPresetSelected = viewModel::selectPreset,
-            onAddPreset = { presetName: String ->
-                viewModel.addPreset(presetName)
-            },
-            onRemovePreset = viewModel::removePreset,
-            onSavePreset = viewModel::savePreset,
-            onControllerButtonAssign = viewModel::assignButton,
-            onJoystickMappingsChanged = viewModel::updateJoystickMappings,
+            viewModel = viewModel,
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
@@ -86,20 +73,7 @@ fun NavGraphBuilder.setupNavigation(
         val presetName = backStackEntry.arguments?.getString("presetName")
         val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
         ControllerConfigScreen(
-            controllerButtons = uiState.value.controllerButtons,
-            detectedControllerButtons = detectedControllerButtons.value,
-            appActions = uiState.value.appActions,
-            presets = uiState.value.presets,
-            selectedPreset = presetName ?: uiState.value.selectedPreset?.name,
-            joystickMappings = uiState.value.config.joystickMappings,
-            onPresetSelected = viewModel::selectPreset,
-            onAddPreset = { name: String ->
-                viewModel.addPreset(name)
-            },
-            onRemovePreset = viewModel::removePreset,
-            onSavePreset = viewModel::savePreset,
-            onControllerButtonAssign = viewModel::assignButton,
-            onJoystickMappingsChanged = viewModel::updateJoystickMappings,
+            viewModel = viewModel,
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
