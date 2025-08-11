@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -16,11 +20,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.Publisher
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreatePublisherScreen(
     viewModel: PublisherViewModel  = hiltViewModel(),
@@ -43,7 +50,7 @@ fun CreatePublisherScreen(
     }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text(text = "Create Publisher", style = MaterialTheme.typography.titleLarge)
+        Text(text = "Create Standard App Action", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
             value = uiState.topicInput,
@@ -52,24 +59,50 @@ fun CreatePublisherScreen(
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = uiState.typeInput,
-            onValueChange = { viewModel.updateTypeInput(it) },
-            label = { Text("Message Type") },
-            modifier = Modifier.fillMaxWidth()
+        val messageTypes = listOf(
+            "Bool", "Byte", "Char", "ColorRGBA", "Empty", "Float32", "Float64", "Header",
+            "Int16", "Int32", "Int64", "Int8", "String", "UInt16", "UInt32", "UInt64", "UInt8"
         )
+        val expanded = remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = expanded.value,
+            onExpandedChange = { expanded.value = !expanded.value }
+        ) {
+            OutlinedTextField(
+                value = uiState.typeInput,
+                onValueChange = { }, // No manual editing
+                readOnly = true,
+                label = { Text("Message Type") },
+                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) }
+            )
+            ExposedDropdownMenu(
+                expanded = expanded.value,
+                onDismissRequest = { expanded.value = false }
+            ) {
+                messageTypes.forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type) },
+                        onClick = {
+                            viewModel.updateTypeInput(type)
+                            expanded.value = false
+                        }
+                    )
+                }
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = uiState.messageContentInput,
             onValueChange = { viewModel.updateMessageContentInput(it) },
-            label = { Text("Message Content (JSON)") },
+            label = { Text("Message Content") },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(modifier = Modifier.height(16.dp))
         Row {
             Button(
                 onClick = {
-                    viewModel.createPublisher()
+                    viewModel.createStandardPublisher()
                     uiState.selectedPublisher?.let { onPublisherCreated(it) }
                 },
                 enabled = !uiState.isSaving

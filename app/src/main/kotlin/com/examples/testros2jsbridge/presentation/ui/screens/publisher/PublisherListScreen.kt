@@ -3,11 +3,13 @@ package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -35,13 +37,18 @@ fun PublisherListScreen(
     val uiState by viewModel.uiState.collectAsState()
     val publishers = uiState.publishers.map { PublisherUiMapper.toUiModel(it) }
 
-    Column(modifier = Modifier.padding(16.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
         Text(text = "Publishers", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
         if (publishers.isEmpty()) {
             Text("No publishers found.")
         } else {
             publishers.forEach { pubUi ->
+                val messageJson = uiState.publishers.find { it.id?.value == pubUi.id }?.message ?: ""
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -49,12 +56,15 @@ fun PublisherListScreen(
                         .clickable { uiState.publishers.find { it.id?.value == pubUi.id }?.let(onPublisherSelected) }
                 ) {
                     Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(pubUi.label, style = MaterialTheme.typography.titleMedium)
                             Text("Enabled: ${pubUi.isEnabled}", style = MaterialTheme.typography.bodySmall)
                             pubUi.lastPublished?.let {
                                 Text("Last Published: $it", style = MaterialTheme.typography.bodySmall)
                             }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("Message JSON:", style = MaterialTheme.typography.bodySmall)
+                            Text(messageJson, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
                         }
                         Row {
                             IconButton(onClick = {

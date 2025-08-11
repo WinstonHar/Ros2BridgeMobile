@@ -7,11 +7,18 @@ import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.repository.PublisherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PublisherRepositoryImpl @Inject constructor(
     private val publisherDao: PublisherDao
 ) : PublisherRepository {
+    init {
+        // Load publishers from DB on startup
+        kotlinx.coroutines.GlobalScope.launch {
+            refreshPublishers()
+        }
+    }
     private val _publishers = MutableStateFlow<List<Publisher>>(emptyList())
     override val publishers: StateFlow<List<Publisher>> get() = _publishers
 

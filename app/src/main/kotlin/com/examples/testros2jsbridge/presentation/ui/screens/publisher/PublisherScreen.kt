@@ -1,6 +1,6 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,10 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.examples.testros2jsbridge.domain.model.Publisher
-import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherListScreen
-import com.examples.testros2jsbridge.presentation.ui.screens.publisher.CreatePublisherScreen
-import androidx.compose.foundation.layout.Arrangement
 
 @Composable
 fun PublisherScreen(
@@ -35,57 +31,63 @@ fun PublisherScreen(
         contentColor = MaterialTheme.colorScheme.onBackground,
         modifier = Modifier.fillMaxSize()
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(text = "Publisher", style = MaterialTheme.typography.titleLarge)
-                androidx.compose.material3.Button(
-                    onClick = onBack
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Back")
+                    Text(text = "Publisher", style = MaterialTheme.typography.titleLarge)
+                    androidx.compose.material3.Button(
+                        onClick = onBack
+                    ) {
+                        Text("Back")
+                    }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            // Publisher List at the top (no extra padding)
-            PublisherListScreen(
-                viewModel = viewModel,
-                onPublisherSelected = { publisher -> viewModel.selectPublisher(publisher) },
-                onEditPublisher = { publisher -> viewModel.selectPublisher(publisher) },
-                onDeletePublisher = { publisher -> viewModel.deletePublisher(publisher) }
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            // Publisher details and publish button (old logic) with padding
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                Text(text = "Publisher Details", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(16.dp))
-                if (pubUi == null) {
-                    Text("No publisher selected.")
-                } else {
-                    Text("Label: ${pubUi.label}", style = MaterialTheme.typography.titleMedium)
-                    Text("Enabled: ${pubUi.isEnabled}", style = MaterialTheme.typography.bodySmall)
-                    pubUi.lastPublished?.let {
-                        Text("Last Published: $it", style = MaterialTheme.typography.bodySmall)
-                    }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
+            item {
+                PublisherListScreen(
+                    viewModel = viewModel,
+                    onPublisherSelected = { publisher -> viewModel.selectPublisher(publisher) },
+                    onEditPublisher = { publisher -> viewModel.selectPublisher(publisher) },
+                    onDeletePublisher = { publisher -> viewModel.deletePublisher(publisher) }
+                )
+            }
+            item { Spacer(modifier = Modifier.height(24.dp)) }
+            item {
+                Column {
+                    Text(text = "Publisher Details", style = MaterialTheme.typography.titleLarge)
                     Spacer(modifier = Modifier.height(16.dp))
-                    androidx.compose.material3.Button(onClick = { viewModel.publishMessage() }, enabled = pubUi.isEnabled) {
-                        Text("Publish Message")
+                    if (pubUi == null) {
+                        Text("No publisher selected.")
+                    } else {
+                        Text("Label: ${pubUi.label}", style = MaterialTheme.typography.titleMedium)
+                        Text("Enabled: ${pubUi.isEnabled}", style = MaterialTheme.typography.bodySmall)
+                        pubUi.lastPublished?.let {
+                            Text("Last Published: $it", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        androidx.compose.material3.Button(onClick = { viewModel.publishMessage() }, enabled = pubUi.isEnabled) {
+                            Text("Publish Message")
+                        }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
-            // Create Publisher at the bottom (no extra padding)
-            CreatePublisherScreen(
-                viewModel = viewModel,
-                onPublisherCreated = { viewModel.selectPublisher(it) },
-                onCancel = { viewModel.clearPublisherInputFields() }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            item { Spacer(modifier = Modifier.height(32.dp)) }
+            item {
+                CreatePublisherScreen(
+                    viewModel = viewModel,
+                    onPublisherCreated = { viewModel.selectPublisher(it) },
+                    onCancel = { viewModel.clearPublisherInputFields() }
+                )
+            }
+            item { Spacer(modifier = Modifier.height(8.dp)) }
         }
     }
 }
