@@ -3,6 +3,8 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -39,6 +41,7 @@ import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,27 +94,12 @@ fun ControllerScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Controllers", style = MaterialTheme.typography.titleLarge)
                     Button(onClick = onBack) { Text("Back") }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                // List of available controllers (presets)
-                uiState.presets.forEach { preset ->
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(text = preset.name, modifier = Modifier.weight(1f))
-                        Button(onClick = {
-                            // Navigate to ControllerConfigScreen, passing preset name as argument
-                            navController.navigate("controller_config_screen/${preset.name}")
-                        }) {
-                            Text("Configure")
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                // Controller Config Management
                 Text(
                     text = "Controller Configurations",
                     style = MaterialTheme.typography.titleMedium
@@ -179,7 +167,7 @@ fun ControllerScreen(
                 )
                 if (configNameError) {
                     LaunchedEffect(configNameError) {
-                        kotlinx.coroutines.delay(500)
+                        delay(500)
                         configNameError = false
                     }
                 }
@@ -190,7 +178,7 @@ fun ControllerScreen(
                     val isNewConfig = selectedConfigName == "New Config"
 
                     // Add button with error flash on disabled click, matches Remove/Configure style
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
@@ -208,7 +196,7 @@ fun ControllerScreen(
                             Text("Add")
                         }
                         if (!(isNewConfig && newConfigName.isNotBlank())) {
-                            androidx.compose.foundation.layout.Box(
+                            Box(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(40.dp)
@@ -252,7 +240,10 @@ fun ControllerScreen(
                         ControllerButton(
                             label = { Text(btn) },
                             assignedAction = assigned,
-                            onPress = { viewModel.assignButton(btn, assigned) },
+                            onPress = { viewModel.assignButton(
+                                btn, assigned,
+                                context = context
+                            ) },
                             onRelease = onBack,
                             modifier = Modifier,
                             labelText = btn
@@ -271,7 +262,10 @@ fun ControllerScreen(
                         ControllerButton(
                             label = { Text(btn) },
                             assignedAction = assigned,
-                            onPress = { viewModel.assignButton(btn, assigned) },
+                            onPress = { viewModel.assignButton(
+                                btn, assigned,
+                                context = context
+                            ) },
                             onRelease = onBack,
                             modifier = Modifier,
                             labelText = btn
@@ -295,7 +289,10 @@ fun ControllerScreen(
                             onTopicSelected = { action: AppAction? ->
                                 Logger.d("ControllerScreen", "Selected App Action: $action")
                                 selectedAction = action
-                                action?.let { viewModel.assignButton(it.id, it) }
+                                action?.let { viewModel.assignButton(
+                                    it.id, it,
+                                    context = context
+                                ) }
                             },
                             label = "Select Action"
                         )
@@ -378,7 +375,7 @@ fun ControllerScreen(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     val isUpdating = remember { mutableStateOf(false) }
 
-                    androidx.compose.foundation.layout.Box(
+                    Box(
                         Modifier
                             .weight(1f)
                             .fillMaxWidth()
@@ -386,7 +383,10 @@ fun ControllerScreen(
                     ) {
                         Button(
                             onClick = {
-                                viewModel.addPreset(presetName)
+                                viewModel.addPreset(
+                                    presetName,
+                                    context = context
+                                )
                                 selectedPresetName = presetName
                             },
                             enabled = isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName },
@@ -395,7 +395,7 @@ fun ControllerScreen(
                             Text("Add")
                         }
                         if (!(isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName })) {
-                            androidx.compose.foundation.layout.Box(
+                            Box(
                                 Modifier
                                     .fillMaxWidth()
                                     .height(40.dp)
@@ -408,7 +408,9 @@ fun ControllerScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { viewModel.removePreset() },
+                        onClick = { viewModel.removePreset(
+                            context = context
+                        ) },
                         enabled = !isNewPreset && !isUpdating.value,
                         modifier = Modifier.weight(1f)
                     ) {
@@ -440,7 +442,7 @@ fun ControllerScreen(
                 )
                 if (presetNameError) {
                     LaunchedEffect(presetNameError) {
-                        kotlinx.coroutines.delay(500)
+                        delay(500)
                         presetNameError = false
                     }
                 }
@@ -454,7 +456,7 @@ fun ControllerScreen(
                             topics = uiState.appActions,
                             selectedTopic = uiState.buttonAssignments[btn],
                             onTopicSelected = { action ->
-                                viewModel.assignAbxyButton(btn, action?.displayName ?: "")
+                                viewModel.assignAbxyButton(btn, action?.displayName ?: "", context = context)
                             },
                             label = "$btn Button Action"
                         )

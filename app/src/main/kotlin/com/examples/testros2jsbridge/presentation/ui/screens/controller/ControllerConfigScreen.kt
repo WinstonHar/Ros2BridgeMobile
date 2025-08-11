@@ -39,6 +39,7 @@ fun ControllerConfigScreen(
     val uiState by viewModel.uiState.collectAsState()
     val detectedControllerButtons by viewModel.detectedControllerButtons.collectAsState()
     val appActions by viewModel.appActions.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val presets by viewModel.presets.collectAsState()
     val selectedPreset = uiState.selectedPreset?.name
     val joystickMappings = uiState.config.joystickMappings
@@ -110,7 +111,7 @@ fun ControllerConfigScreen(
                                     topics = appActions,
                                     selectedTopic = buttonAssignments[btn],
                                     onTopicSelected = { action ->
-                                        viewModel.assignButton(btn, action)
+                                        viewModel.assignButton(btn, action, context = context)
                                     },
                                     label = "Assign Action"
                                 )
@@ -132,7 +133,7 @@ fun ControllerConfigScreen(
                     Button(
                         onClick = {
                             if (newPresetName.isNotBlank() && presets.none { it.name == newPresetName }) {
-                                viewModel.addPreset(newPresetName)
+                                viewModel.addPreset(newPresetName, context = context)
                                 newPresetName = ""
                             }
                         },

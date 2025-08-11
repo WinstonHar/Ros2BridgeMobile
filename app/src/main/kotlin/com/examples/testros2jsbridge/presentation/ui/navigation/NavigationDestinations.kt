@@ -79,10 +79,11 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
         val viewModel: ControllerViewModel = hiltViewModel()
+        val context = androidx.compose.ui.platform.LocalContext.current
         ControllerOverviewScreen(
             viewModel = viewModel,
             backgroundImageRes = null,
-            onAbxyButtonClick = { btn -> viewModel.assignAbxyButton(btn, "") },
+            onAbxyButtonClick = { btn -> viewModel.assignAbxyButton(btn, "", context = context) },
             onPresetSwap = { preset -> viewModel.selectPreset(preset.name) }
         )
     }

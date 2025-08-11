@@ -1,5 +1,6 @@
 package com.examples.testros2jsbridge.presentation.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -32,8 +33,9 @@ fun TopicSelector(
                     Logger.d("TopicSelector", "Dropdown expanded state toggled to: $expanded")
                 }
             ) {
+                val selectedId = selectedTopic?.id
                 OutlinedTextField(
-                    value = selectedTopic?.displayName ?: "",
+                    value = topics.find { it.id == selectedId }?.displayName ?: "",
                     onValueChange = {},
                     label = { Text(label) },
                     readOnly = true,
@@ -57,13 +59,16 @@ fun TopicSelector(
                 ) {
                     Logger.d("TopicSelector", "Rendering dropdown items: ${topics.map { it.displayName }}")
                     topics.forEach { topic ->
+                        val isSelected = topic.id == selectedId
                         DropdownMenuItem(
                             text = { Text(topic.displayName) },
                             onClick = {
                                 Logger.d("TopicSelector", "Selected topic: ${topic.displayName}")
                                 onTopicSelected(topic)
                                 expanded = false
-                            }
+                            },
+                            // Highlight selected item
+                            modifier = if (isSelected) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)) else Modifier
                         )
                     }
                 }

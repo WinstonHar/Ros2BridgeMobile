@@ -1,5 +1,6 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.controller
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.examples.testros2jsbridge.domain.model.AppAction
@@ -20,14 +21,20 @@ import javax.inject.Inject
 import android.view.InputDevice
 import kotlinx.coroutines.flow.asStateFlow
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl
+import com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
+import com.examples.testros2jsbridge.domain.model.JoystickMapping
+import com.examples.testros2jsbridge.domain.repository.ControllerRepository
+import java.io.InputStream
+import java.io.OutputStream
 
 @HiltViewModel
 class ControllerViewModel @Inject constructor(
     private val handleControllerInputUseCase: HandleControllerInputUseCase,
     private val loadControllerConfigUseCase: LoadControllerConfigUseCase,
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
-    val controllerRepository: com.examples.testros2jsbridge.domain.repository.ControllerRepository,
+    val controllerRepository: ControllerRepository,
     private val rosMessageRepository: RosMessageRepository,
     private val protocolRepository: ProtocolRepository
 ) : ViewModel() {
@@ -58,12 +65,35 @@ class ControllerViewModel @Inject constructor(
     }
 
     fun triggerAppAction(action: AppAction) {
-        handleControllerInputUseCase.triggerAppAction(action)
+        // Intercept cycle preset actions
+        when (action.id) {
+            "__cycle_preset_forward__" -> cyclePresetForward()
+            "__cycle_preset_backward__" -> cyclePresetBackward()
+            else -> handleControllerInputUseCase.triggerAppAction(action)
+        }
     }
 
     var showPresetsOverlay: (() -> Unit)? = null
-    private val _appActions = MutableStateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>>(emptyList())
-    val appActions: StateFlow<List<com.examples.testros2jsbridge.domain.model.AppAction>> = _appActions
+    private val _appActions = MutableStateFlow<List<AppAction>>(emptyList())
+    val appActions: StateFlow<List<AppAction>> = _appActions
+
+    // Special AppActions for cycling presets
+    private val cyclePresetForwardAction = AppAction(
+        id = "__cycle_preset_forward__",
+        displayName = "Cycle Preset Forward",
+        topic = "Controller",
+        type = "internal",
+        source = "internal",
+        msg = "Cycle to next preset"
+    )
+    private val cyclePresetBackwardAction = AppAction(
+        id = "__cycle_preset_backward__",
+        displayName = "Cycle Preset Backward",
+        topic = "Controller",
+        type = "internal",
+        source = "internal",
+        msg = "Cycle to previous preset"
+    )
 
     // Store geometry and custom actions separately for merging
     private var geometryActions: List<AppAction> = emptyList()
@@ -72,8 +102,8 @@ class ControllerViewModel @Inject constructor(
     val selectedPreset: StateFlow<ControllerPreset?> = _selectedPreset
     private val _presets = MutableStateFlow<List<ControllerPreset>>(emptyList())
     val presets: StateFlow<List<ControllerPreset>> = _presets
-    private val _buttonAssignments = MutableStateFlow<Map<String, com.examples.testros2jsbridge.domain.model.AppAction>>(emptyMap())
-    val buttonAssignments: StateFlow<Map<String, com.examples.testros2jsbridge.domain.model.AppAction>> = _buttonAssignments
+    private val _buttonAssignments = MutableStateFlow<Map<String, AppAction>>(emptyMap())
+    val buttonAssignments: StateFlow<Map<String, AppAction>> = _buttonAssignments
     private val _uiState = MutableStateFlow(ControllerUiState())
     val uiState: StateFlow<ControllerUiState> = _uiState
 
@@ -85,7 +115,7 @@ class ControllerViewModel @Inject constructor(
         refreshControllerButtons()
 
         // Ensure repository loads messages with lifecycle-aware scope
-        (rosMessageRepository as? com.examples.testros2jsbridge.data.repository.RosMessageRepositoryImpl)?.initialize(viewModelScope)
+        (rosMessageRepository as? RosMessageRepositoryImpl)?.initialize(viewModelScope)
 
         // Collect geometry actions
         viewModelScope.launch {
@@ -108,7 +138,7 @@ class ControllerViewModel @Inject constructor(
     }
 
     // Call this from UI (e.g., ControllerScreen) with context to load custom actions
-    fun loadCustomAppActions(context: android.content.Context) {
+    fun loadCustomAppActions(context: Context) {
         viewModelScope.launch {
             customActions = protocolRepository.getCustomAppActions(context)
             mergeAndEmitAppActions()
@@ -116,14 +146,14 @@ class ControllerViewModel @Inject constructor(
     }
 
     private fun mergeAndEmitAppActions() {
-        val merged = (geometryActions + customActions).distinctBy { it.id }
+        val merged = (geometryActions + customActions + listOf(cyclePresetForwardAction, cyclePresetBackwardAction)).distinctBy { it.id }
         _appActions.value = merged
     }
 
     // Extension function to map RosMessageDto to AppAction
-    private fun RosMessageDto.toAppAction(): com.examples.testros2jsbridge.domain.model.AppAction? {
+    private fun RosMessageDto.toAppAction(): AppAction? {
         // Use label or topic as displayName, and content as msg
-        return com.examples.testros2jsbridge.domain.model.AppAction(
+        return AppAction(
             id = this.id ?: (this.label ?: this.topic.value),
             displayName = this.label ?: this.topic.value,
             topic = this.topic.value,
@@ -138,54 +168,30 @@ class ControllerViewModel @Inject constructor(
         _selectedPreset.value = preset
     }
 
-    fun addPreset(name: String) {
+    fun addPreset(name: String, context: Context) {
         val newPreset = ControllerPreset(
             name = name,
             topic = null,
             buttonAssignments = mapOf(
-                "A" to AppAction(
-                    id = "A",
-                    displayName = "",
-                    topic = "",
-                    type = "",
-                    source = "",
-                    msg = ""
-                ),
-                "B" to AppAction(
-                    id = "B",
-                    displayName = "",
-                    topic = "",
-                    type = "",
-                    source = "",
-                    msg = ""
-                ),
-                "X" to AppAction(
-                    id = "X",
-                    displayName = "",
-                    topic = "",
-                    type = "",
-                    source = "",
-                    msg = ""
-                ),
-                "Y" to AppAction(
-                    id = "Y",
-                    displayName = "",
-                    topic = "",
-                    type = "",
-                    source = "",
-                    msg = ""
-                )
+                "A" to AppAction("A", "", "", "", "", ""),
+                "B" to AppAction("B", "", "", "", "", ""),
+                "X" to AppAction("X", "", "", "", "", ""),
+                "Y" to AppAction("Y", "", "", "", "", "")
             )
         )
         val updatedPresets = _presets.value + newPreset
         _presets.value = updatedPresets
+        // Persist presets
+        (controllerRepository as? ControllerRepositoryImpl)?.saveControllerPresets(updatedPresets)
         saveConfigWithPresets(updatedPresets)
     }
 
-    fun removePreset() {
+    fun removePreset(context: Context) {
         val selected = _selectedPreset.value ?: return
         val updated = _presets.value.filter { it.name != selected.name }
         _presets.value = updated
+        // Persist presets
+        (controllerRepository as? ControllerRepositoryImpl)?.saveControllerPresets(updated)
         saveConfigWithPresets(updated)
         _selectedPreset.value = null
     }
@@ -199,7 +205,7 @@ class ControllerViewModel @Inject constructor(
         _selectedPreset.value = updatedPreset
     }
 
-    fun assignButton(button: String, action: com.examples.testros2jsbridge.domain.model.AppAction?) {
+    fun assignButton(button: String, action: AppAction?, context: Context) {
         val updated = _buttonAssignments.value.toMutableMap()
         if (action != null) {
             updated[button] = action
@@ -207,25 +213,32 @@ class ControllerViewModel @Inject constructor(
             updated.remove(button)
         }
         _buttonAssignments.value = updated
+        // Persist assignments
+        (controllerRepository as? ControllerRepositoryImpl)?.saveButtonAssignments(updated)
         saveConfigWithAssignments(updated)
     }
 
-    fun assignAbxyButton(btn: String, actionName: String) {
-        // Removed: abxy logic is obsolete. Use buttonAssignments instead.
+    fun assignAbxyButton(btn: String, actionName: String, context: android.content.Context) {
+        // Find the AppAction by displayName and assign it to the button
+        val action = _appActions.value.find { it.displayName == actionName }
+        assignButton(
+            btn, action,
+            context = context
+        )
     }
 
     fun handleKeyEvent(keyCode: Int): AppAction? {
         return handleControllerInputUseCase.handleKeyEvent(keyCode, _buttonAssignments.value)
     }
 
-    fun exportConfig(outputStream: java.io.OutputStream) {
+    fun exportConfig(outputStream: OutputStream) {
         // Export the full config using repository logic
-        (controllerRepository as? com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl)?.exportConfigToStream(outputStream)
+        (controllerRepository as? ControllerRepositoryImpl)?.exportConfigToStream(outputStream)
     }
 
-    fun importConfig(inputStream: java.io.InputStream) {
+    fun importConfig(inputStream: InputStream) {
         // Import config using repository logic
-        (controllerRepository as? com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl)?.importConfigFromStream(inputStream)
+        (controllerRepository as? ControllerRepositoryImpl)?.importConfigFromStream(inputStream)
         // After import, reload config
         viewModelScope.launch {
             val config = loadControllerConfigUseCase.load()
@@ -237,7 +250,7 @@ class ControllerViewModel @Inject constructor(
         }
     }
 
-    fun updateJoystickMappings(newMappings: List<com.examples.testros2jsbridge.domain.model.JoystickMapping>) {
+    fun updateJoystickMappings(newMappings: List<JoystickMapping>) {
         val uiState = _uiState.value.copy(config = _uiState.value.config.copy(joystickMappings = newMappings))
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
@@ -288,5 +301,23 @@ class ControllerViewModel @Inject constructor(
     fun removeControllerConfig(name: String) {
         val updatedConfigs = _uiState.value.controllerConfigs.filter { it.name != name }
         _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs)
+    }
+
+    fun cyclePresetForward() {
+        val current = _selectedPreset.value
+        val list = _presets.value
+        if (list.isEmpty()) return
+        val idx = list.indexOfFirst { it.name == current?.name }
+        val nextIdx = if (idx == -1 || idx == list.lastIndex) 0 else idx + 1
+        _selectedPreset.value = list[nextIdx]
+    }
+
+    fun cyclePresetBackward() {
+        val current = _selectedPreset.value
+        val list = _presets.value
+        if (list.isEmpty()) return
+        val idx = list.indexOfFirst { it.name == current?.name }
+        val prevIdx = if (idx <= 0) list.lastIndex else idx - 1
+        _selectedPreset.value = list[prevIdx]
     }
 }
