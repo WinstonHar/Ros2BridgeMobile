@@ -21,6 +21,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,8 +31,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -41,7 +42,9 @@ import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
+import com.examples.testros2jsbridge.util.sanitizeConfigName
 import kotlinx.coroutines.delay
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,7 +56,6 @@ fun ControllerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val appActions by viewModel.appActions.collectAsState()
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
     // Ensure custom protocol actions are loaded and merged
     LaunchedEffect(context) {
@@ -110,6 +112,7 @@ fun ControllerScreen(
                 var configExpanded by remember { mutableStateOf(false) }
                 var selectedConfigName by remember { mutableStateOf("New Config") }
                 var newConfigName by remember { mutableStateOf("") }
+                var pendingConfigName by remember { mutableStateOf<String?>(null) }
 
                 ExposedDropdownMenuBox(
                     expanded = configExpanded,
@@ -147,6 +150,7 @@ fun ControllerScreen(
                             text = { Text("New Config") },
                             onClick = {
                                 selectedConfigName = "New Config"
+                                newConfigName = "" // Reset newConfigName to allow user input
                                 configExpanded = false
                                 viewModel.selectControllerConfig("New Config")
                             }
@@ -154,8 +158,6 @@ fun ControllerScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Text entry for new config name (disabled if a named config is selected)
                 var configNameError by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = newConfigName,
@@ -186,8 +188,14 @@ fun ControllerScreen(
                     ) {
                         Button(
                             onClick = {
-                                viewModel.addControllerConfig(newConfigName, context = context)
-                                selectedConfigName = newConfigName
+                                val sanitizedName = sanitizeConfigName(newConfigName)
+                                Logger.d(
+                                    "ControllerScreen",
+                                    "Adding new config with name: $sanitizedName"
+                                )
+                                viewModel.addControllerConfig(sanitizedName, context = context)
+                                pendingConfigName = sanitizedName
+                                selectedConfigName = sanitizedName
                                 newConfigName = ""
                             },
                             enabled = isNewConfig && newConfigName.isNotBlank(),
@@ -210,7 +218,8 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            viewModel.removeControllerConfig(selectedConfigName, context = context)
+                            val sanitizedName = sanitizeConfigName(selectedConfigName)
+                            viewModel.removeControllerConfig(sanitizedName, context = context)
                             // Reset selection if the removed config was selected
                             selectedConfigName = "New Config"
                         },
@@ -222,7 +231,13 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            navController.navigate("controller_config_screen/$selectedConfigName")
+                            val sanitizedName = sanitizeConfigName(selectedConfigName)
+                            viewModel.selectControllerConfig(sanitizedName)
+                            Logger.d(
+                                "ControllerScreen",
+                                "Leaving ControllerScreen, selected config: $sanitizedName"
+                            )
+                            navController.navigate("controller_config_screen/$sanitizedName")
                         },
                         enabled = !isNewConfig,
                         modifier = Modifier.weight(1f)
@@ -231,41 +246,53 @@ fun ControllerScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                // Controller Buttons
                 Text(text = "Controller Buttons", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Always show all controller buttons, not just assigned ones
                     uiState.controllerButtons.forEach { btn ->
                         val assigned = uiState.buttonAssignments[btn]
-                        ControllerButton(
-                            label = { Text(btn) },
-                            assignedAction = assigned,
-                            onPress = { viewModel.assignButton(
-                                btn, assigned,
-                                context = context
-                            ) },
-                            onRelease = onBack,
-                            modifier = Modifier,
-                            labelText = btn
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedButton(
+                                onClick = {},
+                                enabled = false,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = btn,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = assigned?.displayName ?: "(Unassigned)",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(2f)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 // App Actions
                 Text(text = "Available App Actions", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                var selectedButton by remember { mutableStateOf<String?>(null) }
                 Row(modifier = Modifier.fillMaxWidth()) {
                     uiState.controllerButtons.forEach { btn ->
                         val assigned = uiState.buttonAssignments[btn]
                         ControllerButton(
                             label = { Text(btn) },
                             assignedAction = assigned,
-                            onPress = { viewModel.assignButton(
-                                btn, assigned,
-                                context = context
-                            ) },
+                            onPress = {
+                                viewModel.assignButton(
+                                    btn, assigned,
+                                    context = context
+                                )
+                            },
                             onRelease = onBack,
                             modifier = Modifier,
                             labelText = btn
@@ -276,7 +303,10 @@ fun ControllerScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 // App Actions
                 var selectedAction by remember { mutableStateOf<AppAction?>(null) }
-                Logger.d("ControllerScreen", "Rendering TopicSelector with appActions: ${appActions.map { it.displayName }}")
+                Logger.d(
+                    "ControllerScreen",
+                    "Rendering TopicSelector with appActions: ${appActions.map { it.displayName }}"
+                )
                 Surface(
                     color = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.onBackground,
@@ -289,21 +319,35 @@ fun ControllerScreen(
                             onTopicSelected = { action: AppAction? ->
                                 Logger.d("ControllerScreen", "Selected App Action: $action")
                                 selectedAction = action
-                                action?.let { viewModel.assignButton(
-                                    it.id, it,
-                                    context = context
-                                ) }
+                                action?.let {
+                                    viewModel.assignButton(
+                                        it.id, it,
+                                        context = context
+                                    )
+                                }
                             },
                             label = "Select Action"
                         )
                         // Show info for selected action
                         selectedAction?.let { action ->
                             Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                                Text(text = "Selected App Action Details", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = "Selected App Action Details",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(text = "Topic: ${action.topic}", style = MaterialTheme.typography.bodyMedium)
-                                Text(text = "Type: ${action.type}", style = MaterialTheme.typography.bodyMedium)
-                                Text(text = "Contents: ${action.msg}", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = "Topic: ${action.topic}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "Type: ${action.type}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "Contents: ${action.msg}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                         }
                     }
@@ -316,7 +360,6 @@ fun ControllerScreen(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Dropdown for selecting presets
                 var expanded by remember { mutableStateOf(false) }
                 var selectedPresetName by remember { mutableStateOf("New Preset") }
 
@@ -364,7 +407,6 @@ fun ControllerScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Preset Name Field (move above Row for scope)
                 val isNewPreset = selectedPresetName == "New Preset"
                 var presetName by remember(selectedPresetName, uiState.presets) {
                     mutableStateOf(
@@ -381,10 +423,6 @@ fun ControllerScreen(
                     ) {
                         Button(
                             onClick = {
-                                viewModel.addPreset(
-                                    presetName,
-                                    context = context
-                                )
                                 selectedPresetName = presetName
                             },
                             enabled = isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName },
@@ -406,9 +444,11 @@ fun ControllerScreen(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { viewModel.removePreset(
-                            context = context
-                        ) },
+                        onClick = {
+                            viewModel.removePreset(
+                                context = context
+                            )
+                        },
                         enabled = !isNewPreset,
                         modifier = Modifier.weight(1f)
                     ) {
@@ -423,6 +463,17 @@ fun ControllerScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Update")
+                    }
+                }
+
+                LaunchedEffect(uiState.controllerConfigs, pendingConfigName) {
+                    pendingConfigName?.let { name ->
+                        if (uiState.controllerConfigs.any {
+                                sanitizeConfigName(it.name) == name
+                            }) {
+                            navController.navigate("controller_config_screen/$name")
+                            pendingConfigName = null
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -492,3 +543,5 @@ fun ControllerScreen(
         }
     }
 }
+
+

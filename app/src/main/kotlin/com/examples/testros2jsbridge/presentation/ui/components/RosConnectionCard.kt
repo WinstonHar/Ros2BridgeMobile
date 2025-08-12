@@ -46,17 +46,17 @@ fun RosConnectionCard(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Button(
-                onClick = onDisconnect,
-                enabled = isConnected
-            ) {
-                Text("Disconnect")
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Button(
                 onClick = onClear,
                 enabled = !isConnected && (ipAddress.isNotBlank() || port.isNotBlank())
             ) {
                 Text("Clear")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onDisconnect,
+                enabled = isConnected
+            ) {
+                Text("Disconnect")
             }
         }
         Spacer(modifier = Modifier.height(16.dp))

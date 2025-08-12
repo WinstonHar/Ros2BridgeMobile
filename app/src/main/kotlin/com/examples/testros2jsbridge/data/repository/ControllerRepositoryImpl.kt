@@ -41,7 +41,15 @@ class ControllerRepositoryImpl @Inject constructor(
 
     override suspend fun saveController(controller: ControllerConfig) {
         _controller.value = controller
-        // Persist as needed
+        // Load all configs, update or add this one, then save the full list
+        val configs = loadControllerConfigs().toMutableList()
+        val idx = configs.indexOfFirst { it.name == controller.name }
+        if (idx >= 0) {
+            configs[idx] = controller
+        } else {
+            configs.add(controller)
+        }
+        saveControllerConfigs(configs)
     }
 
     override suspend fun getController(): ControllerConfig {
@@ -534,7 +542,90 @@ class ControllerRepositoryImpl @Inject constructor(
         configs.forEach { config ->
             val obj = JSONObject().apply {
                 put("name", config.name)
-                // Add more fields as needed for your config
+                put("addressingMode", config.addressingMode.value)
+                put("sensitivity", config.sensitivity)
+                put("invertYAxis", config.invertYAxis)
+                put("deadZone", config.deadZone)
+                put("customProfileName", config.customProfileName)
+                put("joystickPublishRate", config.joystickPublishRate)
+
+                // Serialize buttonAssignments
+                val assignmentsObj = JSONObject()
+                config.buttonAssignments.forEach { (btn, action) ->
+                    val actionObj = JSONObject().apply {
+                        put("id", action.id)
+                        put("displayName", action.displayName)
+                        put("topic", action.topic)
+                        put("type", action.type)
+                        put("source", action.source)
+                        put("msg", action.msg)
+                    }
+                    assignmentsObj.put(btn, actionObj)
+                }
+                put("buttonAssignments", assignmentsObj)
+
+                // Serialize joystickMappings
+                val mappingsArr = org.json.JSONArray()
+                config.joystickMappings.forEach { mapping ->
+                    val mappingObj = JSONObject().apply {
+                        put("displayName", mapping.displayName)
+                        put("topic", mapping.topic?.value)
+                        put("type", mapping.type)
+                        put("axisX", mapping.axisX)
+                        put("axisY", mapping.axisY)
+                        put("max", mapping.max)
+                        put("step", mapping.step)
+                        put("deadzone", mapping.deadzone)
+                    }
+                    mappingsArr.put(mappingObj)
+                }
+                put("joystickMappings", mappingsArr)
+
+                // Serialize controllerPresets
+                val presetsArr = org.json.JSONArray()
+                config.controllerPresets.forEach { preset ->
+                    val presetObj = JSONObject().apply {
+                        put("name", preset.name)
+                        put("topic", preset.topic?.value)
+                        // Preset buttonAssignments
+                        val presetAssignmentsObj = JSONObject()
+                        preset.buttonAssignments.forEach { (btn, action) ->
+                            val actionObj = JSONObject().apply {
+                                put("id", action.id)
+                                put("displayName", action.displayName)
+                                put("topic", action.topic)
+                                put("type", action.type)
+                                put("source", action.source)
+                                put("msg", action.msg)
+                            }
+                            presetAssignmentsObj.put(btn, actionObj)
+                        }
+                        put("buttonAssignments", presetAssignmentsObj)
+                        // Preset joystickMappings
+                        val presetMappingsArr = org.json.JSONArray()
+                        preset.joystickMappings.forEach { mapping ->
+                            val mappingObj = JSONObject().apply {
+                                put("displayName", mapping.displayName)
+                                put("topic", mapping.topic?.value)
+                                put("type", mapping.type)
+                                put("axisX", mapping.axisX)
+                                put("axisY", mapping.axisY)
+                                put("max", mapping.max)
+                                put("step", mapping.step)
+                                put("deadzone", mapping.deadzone)
+                            }
+                            presetMappingsArr.put(mappingObj)
+                        }
+                        put("joystickMappings", presetMappingsArr)
+                    }
+                    presetsArr.put(presetObj)
+                }
+                put("controllerPresets", presetsArr)
+
+                // buttonPresets (simple string map)
+                val buttonPresetsObj = JSONObject()
+                config.buttonPresets.forEach { (k, v) -> buttonPresetsObj.put(k, v) }
+                put("buttonPresets", buttonPresetsObj)
             }
             jsonArray.put(obj)
         }
@@ -542,21 +633,127 @@ class ControllerRepositoryImpl @Inject constructor(
     }
 
     fun loadControllerConfigs(): MutableList<ControllerConfig> {
+        android.util.Log.d("ControllerRepositoryImpl", "Loading controller configs from SharedPreferences")
+        val debugList = mutableListOf<String>()
         val prefs = context.getSharedPreferences(PREFS_CONTROLLER_CONFIGS, Context.MODE_PRIVATE)
         val jsonString = prefs.getString("configs", null)
+        android.util.Log.d("ControllerRepositoryImpl", "Raw JSON from SharedPreferences: $jsonString")
         val list = mutableListOf<ControllerConfig>()
         if (!jsonString.isNullOrEmpty()) {
             try {
                 val jsonArray = JSONArray(jsonString)
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
-                    list.add(
-                        ControllerConfig(
-                            name = obj.optString("name", "Unnamed Config")
-                            // Add more fields as needed
-                        )
+                    // Deserialize buttonAssignments
+                    val assignmentsMap = mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
+                    obj.optJSONObject("buttonAssignments")?.let { assignmentsObj ->
+                        val keys = assignmentsObj.keys()
+                        while (keys.hasNext()) {
+                            val btn = keys.next()
+                            val actionObj = assignmentsObj.getJSONObject(btn)
+                            val action = com.examples.testros2jsbridge.domain.model.AppAction(
+                                id = actionObj.optString("id"),
+                                displayName = actionObj.optString("displayName"),
+                                topic = actionObj.optString("topic"),
+                                type = actionObj.optString("type"),
+                                source = actionObj.optString("source"),
+                                msg = actionObj.optString("msg")
+                            )
+                            assignmentsMap[btn] = action
+                        }
+                    }
+                    // Deserialize joystickMappings
+                    val mappingsList = mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
+                    obj.optJSONArray("joystickMappings")?.let { mappingsArr ->
+                        for (j in 0 until mappingsArr.length()) {
+                            val mappingObj = mappingsArr.getJSONObject(j)
+                            val mapping = com.examples.testros2jsbridge.domain.model.JoystickMapping(
+                                displayName = mappingObj.optString("displayName"),
+                                topic = mappingObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
+                                type = mappingObj.optString("type"),
+                                axisX = mappingObj.optInt("axisX", 0),
+                                axisY = mappingObj.optInt("axisY", 1),
+                                max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble("max").toFloat() else null,
+                                step = if (mappingObj.has("step") && !mappingObj.isNull("step")) mappingObj.optDouble("step").toFloat() else null,
+                                deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull("deadzone")) mappingObj.optDouble("deadzone").toFloat() else null
+                            )
+                            mappingsList.add(mapping)
+                        }
+                    }
+                    // Deserialize controllerPresets
+                    val presetsList = mutableListOf<com.examples.testros2jsbridge.domain.model.ControllerPreset>()
+                    obj.optJSONArray("controllerPresets")?.let { presetsArr ->
+                        for (j in 0 until presetsArr.length()) {
+                            val presetObj = presetsArr.getJSONObject(j)
+                            val presetAssignmentsMap = mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
+                            presetObj.optJSONObject("buttonAssignments")?.let { presetAssignmentsObj ->
+                                val keys = presetAssignmentsObj.keys()
+                                while (keys.hasNext()) {
+                                    val btn = keys.next()
+                                    val actionObj = presetAssignmentsObj.getJSONObject(btn)
+                                    val action = com.examples.testros2jsbridge.domain.model.AppAction(
+                                        id = actionObj.optString("id"),
+                                        displayName = actionObj.optString("displayName"),
+                                        topic = actionObj.optString("topic"),
+                                        type = actionObj.optString("type"),
+                                        source = actionObj.optString("source"),
+                                        msg = actionObj.optString("msg")
+                                    )
+                                    presetAssignmentsMap[btn] = action
+                                }
+                            }
+                            val presetMappingsList = mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
+                            presetObj.optJSONArray("joystickMappings")?.let { presetMappingsArr ->
+                                for (k in 0 until presetMappingsArr.length()) {
+                                    val mappingObj = presetMappingsArr.getJSONObject(k)
+                                    val mapping = com.examples.testros2jsbridge.domain.model.JoystickMapping(
+                                        displayName = mappingObj.optString("displayName"),
+                                        topic = mappingObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
+                                        type = mappingObj.optString("type"),
+                                        axisX = mappingObj.optInt("axisX", 0),
+                                        axisY = mappingObj.optInt("axisY", 1),
+                                        max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble("max").toFloat() else null,
+                                        step = if (mappingObj.has("step") && !mappingObj.isNull("step")) mappingObj.optDouble("step").toFloat() else null,
+                                        deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull("deadzone")) mappingObj.optDouble("deadzone").toFloat() else null
+                                    )
+                                    presetMappingsList.add(mapping)
+                                }
+                            }
+                            val preset = com.examples.testros2jsbridge.domain.model.ControllerPreset(
+                                name = presetObj.optString("name", "Preset"),
+                                topic = presetObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
+                                buttonAssignments = presetAssignmentsMap,
+                                joystickMappings = presetMappingsList
+                            )
+                            presetsList.add(preset)
+                        }
+                    }
+                    // buttonPresets
+                    val buttonPresetsMap = mutableMapOf<String, String>()
+                    obj.optJSONObject("buttonPresets")?.let { buttonPresetsObj ->
+                        val keys = buttonPresetsObj.keys()
+                        while (keys.hasNext()) {
+                            val k = keys.next()
+                            buttonPresetsMap[k] = buttonPresetsObj.optString(k)
+                        }
+                    }
+                    val loadedConfig = ControllerConfig(
+                        name = obj.optString("name", "Unnamed Config"),
+                        addressingMode = obj.optString("addressingMode", "DIRECT").let { com.examples.testros2jsbridge.domain.model.RosId(it) },
+                        sensitivity = obj.optDouble("sensitivity", 1.0).toFloat(),
+                        buttonPresets = buttonPresetsMap,
+                        invertYAxis = obj.optBoolean("invertYAxis", false),
+                        deadZone = obj.optDouble("deadZone", 0.05).toFloat(),
+                        customProfileName = if (obj.has("customProfileName") && !obj.isNull("customProfileName")) obj.optString("customProfileName") else null,
+                        joystickMappings = mappingsList,
+                        controllerPresets = presetsList,
+                        buttonAssignments = assignmentsMap,
+                        joystickPublishRate = obj.optInt("joystickPublishRate", 5)
                     )
+                    debugList.add("Loaded config: ${loadedConfig.name}, assignments: ${loadedConfig.buttonAssignments}, mappings: ${loadedConfig.joystickMappings}")
+                    list.add(loadedConfig)
                 }
+                android.util.Log.d("ControllerRepositoryImpl", debugList.joinToString("\n"))
             } catch (_: Exception) {}
         }
         return list

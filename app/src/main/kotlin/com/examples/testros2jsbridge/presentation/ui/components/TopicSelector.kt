@@ -20,7 +20,6 @@ fun TopicSelector(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    Logger.d("TopicSelector","TopicSelector - Topics: ${topics.map { it.displayName }}")
 
     Box(modifier = Modifier.padding(16.dp)) {
         Column {
@@ -30,7 +29,6 @@ fun TopicSelector(
                 expanded = expanded,
                 onExpandedChange = {
                     expanded = !expanded
-                    Logger.d("TopicSelector", "Dropdown expanded state toggled to: $expanded")
                 }
             ) {
                 val selectedId = selectedTopic?.id
@@ -44,7 +42,6 @@ fun TopicSelector(
                         .menuAnchor()
                         .clickable {
                             expanded = !expanded
-                            Logger.d("TopicSelector", "Dropdown clicked, expanded state toggled to: $expanded")
                         },
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
@@ -54,16 +51,13 @@ fun TopicSelector(
                     expanded = expanded,
                     onDismissRequest = {
                         expanded = false
-                        Logger.d("TopicSelector", "Dropdown dismissed")
                     }
                 ) {
-                    Logger.d("TopicSelector", "Rendering dropdown items: ${topics.map { it.displayName }}")
                     topics.forEach { topic ->
                         val isSelected = topic.id == selectedId
                         DropdownMenuItem(
                             text = { Text(topic.displayName) },
                             onClick = {
-                                Logger.d("TopicSelector", "Selected topic: ${topic.displayName}")
                                 onTopicSelected(topic)
                                 expanded = false
                             },

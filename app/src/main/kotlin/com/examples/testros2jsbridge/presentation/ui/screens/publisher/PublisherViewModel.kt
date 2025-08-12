@@ -1,20 +1,15 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 
-import android.app.Application
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
-import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
-import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.Publisher
+import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.presentation.state.PublisherUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -27,7 +22,6 @@ class PublisherViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             rosMessageRepository.messages.collect { messages ->
-                // Only show messages with a label (i.e., user-saved publishers or geometry messages)
                 _uiState.value = _uiState.value.copy(publishers = messages.map { it.toPublisher() })
             }
         }

@@ -47,7 +47,7 @@ fun ControllerOverviewScreen(
     val selectedPreset: ControllerPreset? by viewModel.selectedPreset.collectAsState()
     val presets: List<ControllerPreset> by viewModel.presets.collectAsState()
     val buttonAssignments: Map<String, AppAction> by viewModel.buttonAssignments.collectAsState()
-    var showPresetsOverlay by remember { mutableStateOf(false) }
+    val showPresetsOverlay by viewModel.showPresetsOverlay.collectAsState()
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -268,9 +268,8 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
                             Button(
                                 onClick = {
                                     onPresetSwap(preset)
-                                    // Hide overlay after swap
                                     overlayHideJob.value?.cancel()
-                                    showPresetsOverlay = false
+                                    viewModel.hidePresetsOverlay()
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (isSelected) Color(0xFF606DB4) else MaterialTheme.colorScheme.surfaceVariant,
@@ -286,26 +285,13 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
             }
         }
         // Show overlay when preset swap is triggered
-        LaunchedEffect(selectedPreset) {
-            // Only show overlay if swap was triggered
+    //
+        LaunchedEffect(showPresetsOverlay) {
             if (showPresetsOverlay) {
                 overlayHideJob.value?.cancel()
                 overlayHideJob.value = coroutineScope.launch {
                     delay(1500)
-                    showPresetsOverlay = false
-                }
-            }
-        }
-        // External trigger to show overlay
-        LaunchedEffect(Unit) {
-            // Provide a way to trigger overlay externally, e.g. via a callback or event
-            // For now, expose a function to show overlay
-            viewModel.showPresetsOverlay = {
-                showPresetsOverlay = true
-                overlayHideJob.value?.cancel()
-                overlayHideJob.value = coroutineScope.launch {
-                    delay(1500)
-                    showPresetsOverlay = false
+                    viewModel.hidePresetsOverlay()
                 }
             }
         }

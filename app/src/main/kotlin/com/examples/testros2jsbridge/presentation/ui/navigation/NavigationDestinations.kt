@@ -55,26 +55,16 @@ fun NavGraphBuilder.setupNavigation(
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
-    composable(route = Destinations.CONTROLLER_CONFIG_SCREEN) {
-        val viewModel: ControllerViewModel = hiltViewModel()
-        val uiState = viewModel.uiState.collectAsState()
-        val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
-        ControllerConfigScreen(
-            viewModel = viewModel,
-            onBack = { BackNavigationHandler.handleBack(navController) }
-        )
-    }
     composable(
-        route = "${Destinations.CONTROLLER_CONFIG_SCREEN}/{presetName}",
-        arguments = listOf(androidx.navigation.navArgument("presetName") { type = androidx.navigation.NavType.StringType })
+        route = "${Destinations.CONTROLLER_CONFIG_SCREEN}/{configName}",
+        arguments = listOf(androidx.navigation.navArgument("configName") { type = androidx.navigation.NavType.StringType })
     ) { backStackEntry ->
         val viewModel: ControllerViewModel = hiltViewModel()
-        val uiState = viewModel.uiState.collectAsState()
-        val presetName = backStackEntry.arguments?.getString("presetName")
-        val detectedControllerButtons = viewModel.detectedControllerButtons.collectAsState()
+        val configName = backStackEntry.arguments?.getString("configName") ?: ""
         ControllerConfigScreen(
+            configName = configName,
             viewModel = viewModel,
-            onBack = { BackNavigationHandler.handleBack(navController) }
+            onBack = { BackNavigationHandler.handleBack(navController) },
         )
     }
     composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
@@ -107,7 +97,6 @@ fun NavGraphBuilder.setupNavigation(
     composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
         val protocolViewModel: ProtocolViewModel = hiltViewModel()
         val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
-        // Set the reference for protocolViewModel
         protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
         CustomProtocolScreen(
             viewModel = protocolViewModel,
