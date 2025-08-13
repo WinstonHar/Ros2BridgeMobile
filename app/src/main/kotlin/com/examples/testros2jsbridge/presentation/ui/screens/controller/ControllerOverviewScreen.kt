@@ -46,7 +46,7 @@ fun ControllerOverviewScreen(
     onPresetSwap: (ControllerPreset) -> Unit = {}
 ) {
     LaunchedEffect(selectedConfigName) {
-        viewModel.selectControllerConfig(selectedConfigName)
+        viewModel.selectControllerConfig(selectedConfigName, persist = false)
     }
 
     val uiState by viewModel.uiState.collectAsState()

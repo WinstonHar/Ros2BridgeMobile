@@ -144,7 +144,7 @@ class ControllerViewModel @Inject constructor(
                 Logger.d("ControllerViewModel", "[NAV] configToSelect: '$configToSelect'")
                 if (configToSelect != null) {
                     _uiState.update { it.copy(selectedConfigName = configToSelect) }
-                    selectControllerConfig(configToSelect)
+                    selectControllerConfig(configToSelect, persist = false)
                 }
                 lastSavedConfig = _uiState.value.config.copy(
                     buttonAssignments = _uiState.value.buttonAssignments,
@@ -330,7 +330,7 @@ class ControllerViewModel @Inject constructor(
         }
     }
 
-    fun selectControllerConfig(name: String) {
+    fun selectControllerConfig(name: String, persist: Boolean = true) {
         pendingConfigName = name
         val sanitizedNames = _uiState.value.controllerConfigs.map { sanitizeConfigName(it.name) }
         Logger.d("ControllerViewModel", "controllerConfigs sanitized names: $sanitizedNames")
@@ -344,9 +344,12 @@ class ControllerViewModel @Inject constructor(
             )
             _buttonAssignments.value = config.buttonAssignments
             _selectedPreset.value = getPresetForConfigName(_uiState.value.config.name)
-            // Persist sanitized selected config name
-            Logger.d("ControllerViewModel", "Persisting sanitized selected config name: '$sanitizedName'")
-            prefs.edit().putString(SELECTED_CONFIG_KEY, sanitizedName).apply()
+            if (persist) {
+                Logger.d("ControllerViewModel", "Persisting sanitized selected config name: '$sanitizedName'")
+                prefs.edit().putString(SELECTED_CONFIG_KEY, sanitizedName).apply()
+            } else {
+                Logger.d("ControllerViewModel", "Not persisting selected config name: '$sanitizedName' (persist=false)")
+            }
             Logger.d("ControllerViewModel", "selectControllerConfig: selectedPreset is now '${_selectedPreset.value?.name}' (not used for navigation)")
         } else {
             Logger.d("ControllerViewModel", "selectControllerConfig: config '$name' not found in list: ${_uiState.value.controllerConfigs.map { it.name }}")
