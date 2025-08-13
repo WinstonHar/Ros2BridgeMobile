@@ -265,24 +265,7 @@ fun ControllerOverviewScreen(
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).zIndex(2f)
                 )
             }
-            // Overview of all button assignments (bottom left, scrollable if needed)
-            Column(
-                modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).widthIn(max = 320.dp)
-            ) {
-                Text("Button Assignments", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    buttonAssignments.forEach { (btn, action) ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = btn, modifier = Modifier.weight(0.3f), style = MaterialTheme.typography.bodyMedium)
-                            Text(text = action.displayName, modifier = Modifier.weight(0.7f), style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
+            
             // Presets overlay popup (bottom anchored, only visible when swapping)
             if (showPresetsOverlay) {
                 Box(

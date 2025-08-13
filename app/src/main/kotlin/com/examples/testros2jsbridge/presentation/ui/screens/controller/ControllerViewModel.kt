@@ -337,10 +337,12 @@ class ControllerViewModel @Inject constructor(
         val sanitizedName = sanitizeConfigName(name)
         val config = _uiState.value.controllerConfigs.find { sanitizeConfigName(it.name) == sanitizedName }
         if (config != null) {
+            val buttonNames = config.buttonAssignments.keys.toList()
             _uiState.value = _uiState.value.copy(
                 config = config,
                 buttonAssignments = config.buttonAssignments,
-                selectedConfigName = config.name
+                selectedConfigName = config.name,
+                controllerButtons = buttonNames
             )
             _buttonAssignments.value = config.buttonAssignments
             _selectedPreset.value = getPresetForConfigName(_uiState.value.config.name)

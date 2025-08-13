@@ -248,57 +248,27 @@ fun ControllerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = "Controller Buttons", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    uiState.controllerButtons.forEach { btn ->
-                        val assigned = uiState.buttonAssignments[btn]
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            OutlinedButton(
-                                onClick = {},
-                                enabled = false,
-                                modifier = Modifier.weight(1f)
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        uiState.controllerButtons.forEach { btn ->
+                            Logger.d("ControllerScreen","Button: $btn")
+                            val action = uiState.buttonAssignments[btn]
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = btn,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Text(text = btn, modifier = Modifier.weight(0.3f), style = MaterialTheme.typography.bodyMedium)
+                                Text(text = action?.displayName ?: "(none)", modifier = Modifier.weight(0.7f), style = MaterialTheme.typography.bodySmall)
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = assigned?.displayName ?: "(Unassigned)",
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.weight(2f)
-                            )
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 // App Actions
                 Text(text = "Available App Actions", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    uiState.controllerButtons.forEach { btn ->
-                        val assigned = uiState.buttonAssignments[btn]
-                        ControllerButton(
-                            label = { Text(btn) },
-                            assignedAction = assigned,
-                            onPress = {
-                                viewModel.assignButton(
-                                    btn, assigned,
-                                    context = context
-                                )
-                            },
-                            onRelease = onBack,
-                            modifier = Modifier,
-                            labelText = btn
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 // App Actions
                 var selectedAction by remember { mutableStateOf<AppAction?>(null) }
@@ -324,7 +294,7 @@ fun ControllerScreen(
                                         context = context
                                     )
                                 }
-                            },
+                             },
                             label = "Select Action"
                         )
                         // Show info for selected action
