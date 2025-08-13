@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.presentation.ui.navigation.Destinations
 import com.examples.testros2jsbridge.presentation.ui.navigation.setupNavigation
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel
@@ -45,13 +47,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = rememberNavController()
 
+            val controllerViewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = hiltViewModel()
+            val controllerUiState by controllerViewModel.uiState.collectAsState()
+
             val tabTitles = listOf(
                 "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Geometry", "Protocol", "Settings"
             )
             val destinations = listOf(
                 Destinations.CONNECTION_SCREEN,
                 Destinations.CONTROLLER_SCREEN,
-                Destinations.CONTROLLER_OVERVIEW_SCREEN,
+                "${Destinations.CONTROLLER_OVERVIEW_SCREEN}/${controllerUiState.selectedConfigName}",
                 Destinations.PUBLISHER_SCREEN,
                 Destinations.SUBSCRIBER_SCREEN,
                 Destinations.GEOMETRY_MESSAGE_SCREEN,
@@ -106,11 +111,32 @@ class MainActivity : ComponentActivity() {
                                     selected = selectedTab == idx,
                                     onClick = {
                                         if (selectedTab != idx) {
-                                            tabHistory.add(selectedTab)
-                                            selectedTab = idx
-                                            navController.navigate(destinations[idx]) {
-                                                launchSingleTop = true
-                                                restoreState = true
+                                            if (idx == 2) {
+                                                val selectedConfigName = controllerUiState.selectedConfigName
+                                                val configNames = controllerUiState.controllerConfigs.map { it.name }
+                                                Logger.d("MainActivity","selectedConfigName: ${selectedConfigName}, configNames: ${configNames}")
+                                                if (selectedConfigName != "New Config" && configNames.contains(selectedConfigName)) {
+                                                    tabHistory.add(selectedTab)
+                                                    selectedTab = idx
+                                                    navController.navigate("${Destinations.CONTROLLER_OVERVIEW_SCREEN}/$selectedConfigName") {
+                                                        launchSingleTop = true
+                                                        restoreState = true
+                                                    }
+                                                } else {
+                                                    // Show warning (replace with Snackbar/Toast as needed)
+                                                    android.widget.Toast.makeText(
+                                                        this@MainActivity,
+                                                        "Please select a valid config before opening Controller Overview.",
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            } else {
+                                                tabHistory.add(selectedTab)
+                                                selectedTab = idx
+                                                navController.navigate(destinations[idx]) {
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
                                             }
                                         }
                                     },

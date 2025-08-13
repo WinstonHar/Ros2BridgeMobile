@@ -110,9 +110,7 @@ fun ControllerScreen(
 
                 // Dropdown for selecting controller configs
                 var configExpanded by remember { mutableStateOf(false) }
-                var selectedConfigName by remember { mutableStateOf("New Config") }
                 var newConfigName by remember { mutableStateOf("") }
-                var pendingConfigName by remember { mutableStateOf<String?>(null) }
 
                 ExposedDropdownMenuBox(
                     expanded = configExpanded,
@@ -121,7 +119,7 @@ fun ControllerScreen(
                     }
                 ) {
                     OutlinedTextField(
-                        value = selectedConfigName,
+                        value = uiState.selectedConfigName,
                         onValueChange = {},
                         label = { Text("Select Config") },
                         readOnly = true,
@@ -140,8 +138,8 @@ fun ControllerScreen(
                             DropdownMenuItem(
                                 text = { Text(config.name) },
                                 onClick = {
-                                    selectedConfigName = config.name
                                     configExpanded = false
+                                    Logger.d("ControllerScreen", "Dropdown selected: ${config.name}")
                                     viewModel.selectControllerConfig(config.name)
                                 }
                             )
@@ -149,8 +147,7 @@ fun ControllerScreen(
                         DropdownMenuItem(
                             text = { Text("New Config") },
                             onClick = {
-                                selectedConfigName = "New Config"
-                                newConfigName = "" // Reset newConfigName to allow user input
+                                newConfigName = ""
                                 configExpanded = false
                                 viewModel.selectControllerConfig("New Config")
                             }
@@ -161,10 +158,10 @@ fun ControllerScreen(
                 var configNameError by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = newConfigName,
-                    onValueChange = { if (selectedConfigName == "New Config") newConfigName = it },
+                    onValueChange = { if (uiState.selectedConfigName == "New Config") newConfigName = it },
                     label = { Text("New Config Name") },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = selectedConfigName == "New Config",
+                    enabled = uiState.selectedConfigName == "New Config",
                     isError = configNameError
                 )
                 if (configNameError) {
@@ -177,7 +174,7 @@ fun ControllerScreen(
 
                 // Add, Remove, Configure buttons
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    val isNewConfig = selectedConfigName == "New Config"
+                    val isNewConfig = uiState.selectedConfigName == "New Config"
 
                     // Add button with error flash on disabled click, matches Remove/Configure style
                     Box(
@@ -194,9 +191,8 @@ fun ControllerScreen(
                                     "Adding new config with name: $sanitizedName"
                                 )
                                 viewModel.addControllerConfig(sanitizedName, context = context)
-                                pendingConfigName = sanitizedName
-                                selectedConfigName = sanitizedName
                                 newConfigName = ""
+                                viewModel.selectControllerConfig(sanitizedName)
                             },
                             enabled = isNewConfig && newConfigName.isNotBlank(),
                             modifier = Modifier.fillMaxWidth().height(40.dp)
@@ -218,10 +214,9 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val sanitizedName = sanitizeConfigName(selectedConfigName)
+                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName)
                             viewModel.removeControllerConfig(sanitizedName, context = context)
-                            // Reset selection if the removed config was selected
-                            selectedConfigName = "New Config"
+                            viewModel.selectControllerConfig("New Config")
                         },
                         enabled = !isNewConfig,
                         modifier = Modifier.weight(1f)
@@ -231,13 +226,18 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val sanitizedName = sanitizeConfigName(selectedConfigName)
-                            viewModel.selectControllerConfig(sanitizedName)
-                            Logger.d(
-                                "ControllerScreen",
-                                "Leaving ControllerScreen, selected config: $sanitizedName"
-                            )
-                            navController.navigate("controller_config_screen/$sanitizedName")
+                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName)
+                            if (uiState.selectedConfigName == "New Config") {
+                                Logger.d("ControllerScreen", "Navigation blocked: selectedConfigName is 'New Config'.")
+                                // Optionally show a Snackbar or Toast here
+                            } else {
+                                viewModel.selectControllerConfig(sanitizedName)
+                                Logger.d(
+                                    "ControllerScreen",
+                                    "Leaving ControllerScreen, selected config: $sanitizedName"
+                                )
+                                navController.navigate("controller_config_screen/$sanitizedName")
+                            }
                         },
                         enabled = !isNewConfig,
                         modifier = Modifier.weight(1f)
@@ -249,7 +249,6 @@ fun ControllerScreen(
                 Text(text = "Controller Buttons", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    // Always show all controller buttons, not just assigned ones
                     uiState.controllerButtons.forEach { btn ->
                         val assigned = uiState.buttonAssignments[btn]
                         Row(
@@ -466,16 +465,6 @@ fun ControllerScreen(
                     }
                 }
 
-                LaunchedEffect(uiState.controllerConfigs, pendingConfigName) {
-                    pendingConfigName?.let { name ->
-                        if (uiState.controllerConfigs.any {
-                                sanitizeConfigName(it.name) == name
-                            }) {
-                            navController.navigate("controller_config_screen/$name")
-                            pendingConfigName = null
-                        }
-                    }
-                }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = presetName,

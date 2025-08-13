@@ -20,5 +20,6 @@ data class ControllerUiState(
     val showPresetDialog: Boolean = false,
     val presetNameInput: String = "",
     val abxyAssignments: Map<String, String> = mapOf("A" to "", "B" to "", "X" to "", "Y" to ""),
-    val controllerConfigs: List<ControllerConfig> = emptyList()
+    val controllerConfigs: List<ControllerConfig> = emptyList(),
+    val selectedConfigName: String = "New Config"
 )

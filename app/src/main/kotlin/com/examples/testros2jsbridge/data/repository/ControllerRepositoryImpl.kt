@@ -98,7 +98,8 @@ class ControllerRepositoryImpl @Inject constructor(
                         )
                     )
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         if (list.isEmpty()) {
             list.add(JoystickMapping("Left Stick"))
@@ -180,7 +181,8 @@ class ControllerRepositoryImpl @Inject constructor(
                         )
                     )
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         if (list.isEmpty()) {
             list.add(ControllerPreset("Default", RosId("/cmd_vel"), emptyMap()))
@@ -233,7 +235,8 @@ class ControllerRepositoryImpl @Inject constructor(
                         )
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         return map
     }
@@ -262,28 +265,34 @@ class ControllerRepositoryImpl @Inject constructor(
                     val max = obj.optDouble("max", 1.0).toFloat()
                     val step = obj.optDouble("step", 0.1).toFloat()
                     val value = obj.optDouble("value", 0.0).toFloat()
-                    actions.add(AppAction(
-                        id = "slider_inc_${name}_$topic",
-                        displayName = "Increment $name",
-                        topic = topic,
-                        type = type,
-                        source = "SliderIncrement",
-                        msg = actions.size.toString()
-                    ))
-                    actions.add(AppAction(
-                        id = "slider_dec_${name}_$topic",
-                        displayName = "Decrement $name",
-                        topic = topic,
-                        type = type,
-                        source = "SliderDecrement",
-                        msg = actions.size.toString()
-                    ))
+                    actions.add(
+                        AppAction(
+                            id = "slider_inc_${name}_$topic",
+                            displayName = "Increment $name",
+                            topic = topic,
+                            type = type,
+                            source = "SliderIncrement",
+                            msg = actions.size.toString()
+                        )
+                    )
+                    actions.add(
+                        AppAction(
+                            id = "slider_dec_${name}_$topic",
+                            displayName = "Decrement $name",
+                            topic = topic,
+                            type = type,
+                            source = "SliderDecrement",
+                            msg = actions.size.toString()
+                        )
+                    )
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
 
         // Geometry actions
-        val geoPrefs = context.getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
+        val geoPrefs =
+            context.getSharedPreferences("geometry_reusable_buttons", Context.MODE_PRIVATE)
         val geoJson = geoPrefs.getString("geometry_buttons", null)
         if (!geoJson.isNullOrEmpty()) {
             try {
@@ -294,21 +303,25 @@ class ControllerRepositoryImpl @Inject constructor(
                     val topic = obj.optString("topic", "")
                     val type = obj.optString("type", "")
                     val msg = obj.optString("msg", obj.optString("message", ""))
-                    actions.add(AppAction(
-                        id = "geometry_${name}_$topic",
-                        displayName = name,
-                        topic = topic,
-                        type = type,
-                        source = "Geometry",
-                        msg = msg
-                    ))
+                    actions.add(
+                        AppAction(
+                            id = "geometry_${name}_$topic",
+                            displayName = name,
+                            topic = topic,
+                            type = type,
+                            source = "Geometry",
+                            msg = msg
+                        )
+                    )
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
 
         // Custom publisher actions
         try {
-            val prefs = context.getSharedPreferences("custom_publishers_prefs", Context.MODE_PRIVATE)
+            val prefs =
+                context.getSharedPreferences("custom_publishers_prefs", Context.MODE_PRIVATE)
             val json = prefs.getString("custom_publishers", null)
             if (!json.isNullOrEmpty()) {
                 val arr = JSONArray(json)
@@ -318,20 +331,24 @@ class ControllerRepositoryImpl @Inject constructor(
                     val topic = obj.optString("topic", "")
                     val type = obj.optString("type", "")
                     val msg = obj.optString("msg", "")
-                    actions.add(AppAction(
-                        id = "stdmsg_${name}_$topic",
-                        displayName = name,
-                        topic = topic,
-                        type = type,
-                        source = "Standard Message",
-                        msg = msg
-                    ))
+                    actions.add(
+                        AppAction(
+                            id = "stdmsg_${name}_$topic",
+                            displayName = name,
+                            topic = topic,
+                            type = type,
+                            source = "Standard Message",
+                            msg = msg
+                        )
+                    )
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         // Imported app actions
-        val importedPrefs = context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
+        val importedPrefs =
+            context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
         val importedJson = importedPrefs.getString("imported_app_actions", null)
         if (!importedJson.isNullOrEmpty()) {
             try {
@@ -339,35 +356,45 @@ class ControllerRepositoryImpl @Inject constructor(
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     if (obj.optString("displayName") == "Cycle Presets") continue
-                    actions.add(AppAction(
-                        id = obj.optString("id", obj.optString("displayName", "") + "_" + obj.optString("topic", "")),
-                        displayName = obj.optString("displayName", ""),
-                        topic = obj.optString("topic", ""),
-                        type = obj.optString("type", ""),
-                        source = obj.optString("source", ""),
-                        msg = obj.optString("msg", "")
-                    ))
+                    actions.add(
+                        AppAction(
+                            id = obj.optString(
+                                "id",
+                                obj.optString("displayName", "") + "_" + obj.optString("topic", "")
+                            ),
+                            displayName = obj.optString("displayName", ""),
+                            topic = obj.optString("topic", ""),
+                            type = obj.optString("type", ""),
+                            source = obj.optString("source", ""),
+                            msg = obj.optString("msg", "")
+                        )
+                    )
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
 
         // Cycle preset actions
-        actions.add(AppAction(
-            id = "cycle_presets_forward",
-            displayName = "Cycle Presets Forwards",
-            topic = "/ignore",
-            type = "Set",
-            source = "CyclePresetForward",
-            msg = ""
-        ))
-        actions.add(AppAction(
-            id = "cycle_presets_backward",
-            displayName = "Cycle Presets Backwards",
-            topic = "/ignore",
-            type = "Set",
-            source = "CyclePresetBackward",
-            msg = ""
-        ))
+        actions.add(
+            AppAction(
+                id = "cycle_presets_forward",
+                displayName = "Cycle Presets Forwards",
+                topic = "/ignore",
+                type = "Set",
+                source = "CyclePresetForward",
+                msg = ""
+            )
+        )
+        actions.add(
+            AppAction(
+                id = "cycle_presets_backward",
+                displayName = "Cycle Presets Backwards",
+                topic = "/ignore",
+                type = "Set",
+                source = "CyclePresetBackward",
+                msg = ""
+            )
+        )
 
         return actions
     }
@@ -434,10 +461,14 @@ class ControllerRepositoryImpl @Inject constructor(
                     JoystickMapping(
                         axisX = (jm["axisX"] as? Int) ?: 0,
                         axisY = (jm["axisY"] as? Int) ?: 1,
-                        deadzone = (jm["deadzone"] as? Float ?: (jm["deadzone"] as? Double)?.toFloat() ?: (jm["deadzone"] as? Number)?.toFloat() ?: 0.1f),
+                        deadzone = (jm["deadzone"] as? Float
+                            ?: (jm["deadzone"] as? Double)?.toFloat()
+                            ?: (jm["deadzone"] as? Number)?.toFloat() ?: 0.1f),
                         displayName = jm["displayName"] as? String ?: "",
-                        max = (jm["max"] as? Float ?: (jm["max"] as? Double)?.toFloat() ?: (jm["max"] as? Number)?.toFloat() ?: 1.0f),
-                        step = (jm["step"] as? Float ?: (jm["step"] as? Double)?.toFloat() ?: (jm["step"] as? Number)?.toFloat() ?: 0.2f),
+                        max = (jm["max"] as? Float ?: (jm["max"] as? Double)?.toFloat()
+                        ?: (jm["max"] as? Number)?.toFloat() ?: 1.0f),
+                        step = (jm["step"] as? Float ?: (jm["step"] as? Double)?.toFloat()
+                        ?: (jm["step"] as? Number)?.toFloat() ?: 0.2f),
                         topic = jm["topic"] as? String as RosId?,
                         type = jm["type"] as? String
                     )
@@ -461,6 +492,7 @@ class ControllerRepositoryImpl @Inject constructor(
                             source = value["source"] as? String ?: "",
                             msg = value["msg"] as? String ?: ""
                         )
+
                         is String -> AppAction(
                             id = key,
                             displayName = value,
@@ -469,6 +501,7 @@ class ControllerRepositoryImpl @Inject constructor(
                             source = "",
                             msg = ""
                         )
+
                         else -> AppAction(
                             id = key,
                             displayName = key,
@@ -505,7 +538,7 @@ class ControllerRepositoryImpl @Inject constructor(
             }
         }
         saveButtonAssignments(buttonAssignments)
-        
+
         // --- Import AppActions ---
         val appActionsList = configMap["appActions"] as? List<*> ?: emptyList<Any>()
         val appActionsJsonArr = JSONArray()
@@ -529,7 +562,8 @@ class ControllerRepositoryImpl @Inject constructor(
             }
         }
         // Save to SharedPreferences (imported_app_actions)
-        val importedPrefs = context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
+        val importedPrefs =
+            context.getSharedPreferences("imported_app_actions", Context.MODE_PRIVATE)
         importedPrefs.edit().putString("imported_app_actions", appActionsJsonArr.toString()).apply()
     }
 
@@ -633,11 +667,17 @@ class ControllerRepositoryImpl @Inject constructor(
     }
 
     fun loadControllerConfigs(): MutableList<ControllerConfig> {
-        android.util.Log.d("ControllerRepositoryImpl", "Loading controller configs from SharedPreferences")
+        android.util.Log.d(
+            "ControllerRepositoryImpl",
+            "Loading controller configs from SharedPreferences"
+        )
         val debugList = mutableListOf<String>()
         val prefs = context.getSharedPreferences(PREFS_CONTROLLER_CONFIGS, Context.MODE_PRIVATE)
         val jsonString = prefs.getString("configs", null)
-        android.util.Log.d("ControllerRepositoryImpl", "Raw JSON from SharedPreferences: $jsonString")
+        android.util.Log.d(
+            "ControllerRepositoryImpl",
+            "Raw JSON from SharedPreferences: $jsonString"
+        )
         val list = mutableListOf<ControllerConfig>()
         if (!jsonString.isNullOrEmpty()) {
             try {
@@ -645,7 +685,8 @@ class ControllerRepositoryImpl @Inject constructor(
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.getJSONObject(i)
                     // Deserialize buttonAssignments
-                    val assignmentsMap = mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
+                    val assignmentsMap =
+                        mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
                     obj.optJSONObject("buttonAssignments")?.let { assignmentsObj ->
                         val keys = assignmentsObj.keys()
                         while (keys.hasNext()) {
@@ -663,68 +704,104 @@ class ControllerRepositoryImpl @Inject constructor(
                         }
                     }
                     // Deserialize joystickMappings
-                    val mappingsList = mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
+                    val mappingsList =
+                        mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
                     obj.optJSONArray("joystickMappings")?.let { mappingsArr ->
                         for (j in 0 until mappingsArr.length()) {
                             val mappingObj = mappingsArr.getJSONObject(j)
-                            val mapping = com.examples.testros2jsbridge.domain.model.JoystickMapping(
-                                displayName = mappingObj.optString("displayName"),
-                                topic = mappingObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
-                                type = mappingObj.optString("type"),
-                                axisX = mappingObj.optInt("axisX", 0),
-                                axisY = mappingObj.optInt("axisY", 1),
-                                max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble("max").toFloat() else null,
-                                step = if (mappingObj.has("step") && !mappingObj.isNull("step")) mappingObj.optDouble("step").toFloat() else null,
-                                deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull("deadzone")) mappingObj.optDouble("deadzone").toFloat() else null
-                            )
+                            val mapping =
+                                com.examples.testros2jsbridge.domain.model.JoystickMapping(
+                                    displayName = mappingObj.optString("displayName"),
+                                    topic = mappingObj.optString("topic")?.let { t ->
+                                        if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(
+                                            t
+                                        ) else null
+                                    },
+                                    type = mappingObj.optString("type"),
+                                    axisX = mappingObj.optInt("axisX", 0),
+                                    axisY = mappingObj.optInt("axisY", 1),
+                                    max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble(
+                                        "max"
+                                    ).toFloat() else null,
+                                    step = if (mappingObj.has("step") && !mappingObj.isNull("step")) mappingObj.optDouble(
+                                        "step"
+                                    ).toFloat() else null,
+                                    deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull(
+                                            "deadzone"
+                                        )
+                                    ) mappingObj.optDouble("deadzone").toFloat() else null
+                                )
                             mappingsList.add(mapping)
                         }
                     }
                     // Deserialize controllerPresets
-                    val presetsList = mutableListOf<com.examples.testros2jsbridge.domain.model.ControllerPreset>()
+                    val presetsList =
+                        mutableListOf<com.examples.testros2jsbridge.domain.model.ControllerPreset>()
                     obj.optJSONArray("controllerPresets")?.let { presetsArr ->
                         for (j in 0 until presetsArr.length()) {
                             val presetObj = presetsArr.getJSONObject(j)
-                            val presetAssignmentsMap = mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
-                            presetObj.optJSONObject("buttonAssignments")?.let { presetAssignmentsObj ->
-                                val keys = presetAssignmentsObj.keys()
-                                while (keys.hasNext()) {
-                                    val btn = keys.next()
-                                    val actionObj = presetAssignmentsObj.getJSONObject(btn)
-                                    val action = com.examples.testros2jsbridge.domain.model.AppAction(
-                                        id = actionObj.optString("id"),
-                                        displayName = actionObj.optString("displayName"),
-                                        topic = actionObj.optString("topic"),
-                                        type = actionObj.optString("type"),
-                                        source = actionObj.optString("source"),
-                                        msg = actionObj.optString("msg")
-                                    )
-                                    presetAssignmentsMap[btn] = action
+                            val presetAssignmentsMap =
+                                mutableMapOf<String, com.examples.testros2jsbridge.domain.model.AppAction>()
+                            presetObj.optJSONObject("buttonAssignments")
+                                ?.let { presetAssignmentsObj ->
+                                    val keys = presetAssignmentsObj.keys()
+                                    while (keys.hasNext()) {
+                                        val btn = keys.next()
+                                        val actionObj = presetAssignmentsObj.getJSONObject(btn)
+                                        val action =
+                                            com.examples.testros2jsbridge.domain.model.AppAction(
+                                                id = actionObj.optString("id"),
+                                                displayName = actionObj.optString("displayName"),
+                                                topic = actionObj.optString("topic"),
+                                                type = actionObj.optString("type"),
+                                                source = actionObj.optString("source"),
+                                                msg = actionObj.optString("msg")
+                                            )
+                                        presetAssignmentsMap[btn] = action
+                                    }
                                 }
-                            }
-                            val presetMappingsList = mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
+                            val presetMappingsList =
+                                mutableListOf<com.examples.testros2jsbridge.domain.model.JoystickMapping>()
                             presetObj.optJSONArray("joystickMappings")?.let { presetMappingsArr ->
                                 for (k in 0 until presetMappingsArr.length()) {
                                     val mappingObj = presetMappingsArr.getJSONObject(k)
-                                    val mapping = com.examples.testros2jsbridge.domain.model.JoystickMapping(
-                                        displayName = mappingObj.optString("displayName"),
-                                        topic = mappingObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
-                                        type = mappingObj.optString("type"),
-                                        axisX = mappingObj.optInt("axisX", 0),
-                                        axisY = mappingObj.optInt("axisY", 1),
-                                        max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble("max").toFloat() else null,
-                                        step = if (mappingObj.has("step") && !mappingObj.isNull("step")) mappingObj.optDouble("step").toFloat() else null,
-                                        deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull("deadzone")) mappingObj.optDouble("deadzone").toFloat() else null
-                                    )
+                                    val mapping =
+                                        com.examples.testros2jsbridge.domain.model.JoystickMapping(
+                                            displayName = mappingObj.optString("displayName"),
+                                            topic = mappingObj.optString("topic")?.let { t ->
+                                                if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(
+                                                    t
+                                                ) else null
+                                            },
+                                            type = mappingObj.optString("type"),
+                                            axisX = mappingObj.optInt("axisX", 0),
+                                            axisY = mappingObj.optInt("axisY", 1),
+                                            max = if (mappingObj.has("max") && !mappingObj.isNull("max")) mappingObj.optDouble(
+                                                "max"
+                                            ).toFloat() else null,
+                                            step = if (mappingObj.has("step") && !mappingObj.isNull(
+                                                    "step"
+                                                )
+                                            ) mappingObj.optDouble("step").toFloat() else null,
+                                            deadzone = if (mappingObj.has("deadzone") && !mappingObj.isNull(
+                                                    "deadzone"
+                                                )
+                                            ) mappingObj.optDouble("deadzone").toFloat() else null
+                                        )
                                     presetMappingsList.add(mapping)
                                 }
                             }
-                            val preset = com.examples.testros2jsbridge.domain.model.ControllerPreset(
-                                name = presetObj.optString("name", "Preset"),
-                                topic = presetObj.optString("topic")?.let { t -> if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(t) else null },
-                                buttonAssignments = presetAssignmentsMap,
-                                joystickMappings = presetMappingsList
-                            )
+                            val preset =
+                                com.examples.testros2jsbridge.domain.model.ControllerPreset(
+                                    name = presetObj.optString("name", "Preset"),
+                                    topic = presetObj.optString("topic")?.let { t ->
+                                        if (t.isNotBlank()) com.examples.testros2jsbridge.domain.model.RosId(
+                                            t
+                                        ) else null
+                                    },
+                                    buttonAssignments = presetAssignmentsMap,
+                                    joystickMappings = presetMappingsList
+                                )
                             presetsList.add(preset)
                         }
                     }
@@ -739,12 +816,15 @@ class ControllerRepositoryImpl @Inject constructor(
                     }
                     val loadedConfig = ControllerConfig(
                         name = obj.optString("name", "Unnamed Config"),
-                        addressingMode = obj.optString("addressingMode", "DIRECT").let { com.examples.testros2jsbridge.domain.model.RosId(it) },
+                        addressingMode = obj.optString("addressingMode", "DIRECT")
+                            .let { com.examples.testros2jsbridge.domain.model.RosId(it) },
                         sensitivity = obj.optDouble("sensitivity", 1.0).toFloat(),
                         buttonPresets = buttonPresetsMap,
                         invertYAxis = obj.optBoolean("invertYAxis", false),
                         deadZone = obj.optDouble("deadZone", 0.05).toFloat(),
-                        customProfileName = if (obj.has("customProfileName") && !obj.isNull("customProfileName")) obj.optString("customProfileName") else null,
+                        customProfileName = if (obj.has("customProfileName") && !obj.isNull("customProfileName")) obj.optString(
+                            "customProfileName"
+                        ) else null,
                         joystickMappings = mappingsList,
                         controllerPresets = presetsList,
                         buttonAssignments = assignmentsMap,
@@ -754,8 +834,13 @@ class ControllerRepositoryImpl @Inject constructor(
                     list.add(loadedConfig)
                 }
                 android.util.Log.d("ControllerRepositoryImpl", debugList.joinToString("\n"))
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+            }
         }
         return list
+    }
+
+    override fun getSelectedConfigName(selectedConfigKey: String): String? {
+        return prefs.getString(selectedConfigKey, null)
     }
 }

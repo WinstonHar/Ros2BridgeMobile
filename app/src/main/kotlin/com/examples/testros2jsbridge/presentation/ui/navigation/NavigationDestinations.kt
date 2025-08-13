@@ -1,10 +1,18 @@
 package com.examples.testros2jsbridge.presentation.ui.navigation
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
+import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.presentation.ui.MainActivity
 import com.examples.testros2jsbridge.presentation.ui.screens.connection.ConnectionScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerConfigScreen
@@ -48,6 +56,7 @@ fun NavGraphBuilder.setupNavigation(
     onRestoreTab: (() -> Unit)? = null
 ) {
     fun defaultOnBack() { BackNavigationHandler.handleBack(navController) }
+
     composable(route = Destinations.MAIN_ACTIVITY) { MainActivity() }
     composable(route = Destinations.CONNECTION_SCREEN) {
         ConnectionScreen(
@@ -57,37 +66,62 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(
         route = "${Destinations.CONTROLLER_CONFIG_SCREEN}/{configName}",
-        arguments = listOf(androidx.navigation.navArgument("configName") { type = androidx.navigation.NavType.StringType })
+        arguments = listOf(navArgument("configName") { type = NavType.StringType })
     ) { backStackEntry ->
-        val viewModel: ControllerViewModel = hiltViewModel()
+        val parentEntry = remember(backStackEntry) {
+            navController.getBackStackEntry(Destinations.CONTROLLER_SCREEN)
+        }
+        val controllerViewModel: ControllerViewModel = hiltViewModel(parentEntry)
         val configName = backStackEntry.arguments?.getString("configName") ?: ""
         ControllerConfigScreen(
             configName = configName,
-            viewModel = viewModel,
+            viewModel = controllerViewModel,
             onBack = { BackNavigationHandler.handleBack(navController) },
         )
     }
-    composable(route = Destinations.CONTROLLER_OVERVIEW_SCREEN) {
-        val viewModel: ControllerViewModel = hiltViewModel()
-        val context = androidx.compose.ui.platform.LocalContext.current
-        ControllerOverviewScreen(
-            viewModel = viewModel,
-            backgroundImageRes = null,
-            onAbxyButtonClick = { btn -> viewModel.assignAbxyButton(btn, "", context = context) },
-            onPresetSwap = { preset -> viewModel.selectPreset(preset.name) }
-        )
+    composable(
+        route = "${Destinations.CONTROLLER_OVERVIEW_SCREEN}/{configName}",
+        arguments = listOf(navArgument("configName") { type = NavType.StringType })
+    ) { backStackEntry ->
+        val parentEntry = remember(backStackEntry) {
+            navController.getBackStackEntry(Destinations.CONTROLLER_SCREEN)
+        }
+        val controllerViewModel: ControllerViewModel = hiltViewModel(parentEntry)
+        val context = LocalContext.current
+        val configName = backStackEntry.arguments?.getString("configName")
+        if (configName.isNullOrBlank()) {
+            LaunchedEffect(Unit) {
+                navController.navigate(Destinations.CONTROLLER_SCREEN) {
+                    popUpTo(Destinations.CONTROLLER_OVERVIEW_SCREEN) { inclusive = true }
+                }
+            }
+        } else {
+            ControllerOverviewScreen(
+                viewModel = controllerViewModel,
+                backgroundImageRes = null,
+                onAbxyButtonClick = { btn ->
+                    controllerViewModel.assignAbxyButton(
+                        btn,
+                        "",
+                        context = context
+                    )
+                },
+                onPresetSwap = { preset -> controllerViewModel.selectPreset(preset.name) },
+                selectedConfigName = configName,
+            )
+        }
     }
     composable(route = Destinations.CONTROLLER_SCREEN) {
-        val viewModel: ControllerViewModel = hiltViewModel()
+        val controllerViewModel: ControllerViewModel = hiltViewModel()
         ControllerScreen(
-            viewModel = viewModel,
+            viewModel = controllerViewModel,
             navController = navController,
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.GEOMETRY_MESSAGE_SCREEN) {
         val viewModel: GeometryViewModel = hiltViewModel()
-        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
+        val rosBridgeViewModel: RosBridgeViewModel = hiltViewModel()
         GeometryMessageScreen(
             viewModel = viewModel,
             rosBridgeViewModel = rosBridgeViewModel,
@@ -96,7 +130,7 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
         val protocolViewModel: ProtocolViewModel = hiltViewModel()
-        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
+        val rosBridgeViewModel: RosBridgeViewModel = hiltViewModel()
         protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
         CustomProtocolScreen(
             viewModel = protocolViewModel,
@@ -122,7 +156,7 @@ fun NavGraphBuilder.setupNavigation(
     }
     composable(route = Destinations.PUBLISHER_SCREEN) {
         val viewModel: PublisherViewModel = hiltViewModel()
-        val rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel = hiltViewModel()
+        val rosBridgeViewModel: RosBridgeViewModel = hiltViewModel()
         PublisherScreen(
             viewModel = viewModel,
             rosBridgeViewModel = rosBridgeViewModel,

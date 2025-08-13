@@ -12,4 +12,5 @@ interface ControllerRepository {
 
     suspend fun saveController(controller: ControllerConfig)
     suspend fun getController(): ControllerConfig
+    fun getSelectedConfigName(selectedConfigKey: String): String?
 }

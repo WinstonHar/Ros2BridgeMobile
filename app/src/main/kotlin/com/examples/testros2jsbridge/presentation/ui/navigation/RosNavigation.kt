@@ -15,7 +15,8 @@ class RosNavigation {
         navController.navigate(Destinations.CONTROLLER_CONFIG_SCREEN)
     }
 
-    fun toControllerOverview(navController: NavHostController) = navController.navigate(Destinations.CONTROLLER_OVERVIEW_SCREEN)
+    fun toControllerOverview(navController: NavHostController, configName: String) = 
+        navController.navigate("${Destinations.CONTROLLER_OVERVIEW_SCREEN}/$configName") 
 
     fun toController(navController: NavHostController, preset: com.examples.testros2jsbridge.domain.model.ControllerPreset? = null) {
         // Pass preset as argument if needed

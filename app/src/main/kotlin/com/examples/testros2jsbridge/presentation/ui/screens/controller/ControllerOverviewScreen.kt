@@ -21,8 +21,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.examples.testros2jsbridge.core.util.Logger
 
-// Helper for mapping key codes to button names
 fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
     android.view.KeyEvent.KEYCODE_BUTTON_A -> "A"
     android.view.KeyEvent.KEYCODE_BUTTON_B -> "B"
@@ -40,16 +40,30 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
 @Composable
 fun ControllerOverviewScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
+    selectedConfigName: String,
     backgroundImageRes: Int? = null,
     onAbxyButtonClick: (String) -> Unit = {},
     onPresetSwap: (ControllerPreset) -> Unit = {}
 ) {
+    LaunchedEffect(selectedConfigName) {
+        viewModel.selectControllerConfig(selectedConfigName)
+    }
+
+    val uiState by viewModel.uiState.collectAsState()
+    val config = uiState.controllerConfigs.find { it.name == selectedConfigName }
+    val buttonAssignments = config?.buttonAssignments ?: emptyMap()
     val selectedPreset: ControllerPreset? by viewModel.selectedPreset.collectAsState()
     val presets: List<ControllerPreset> by viewModel.presets.collectAsState()
-    val buttonAssignments: Map<String, AppAction> by viewModel.buttonAssignments.collectAsState()
     val showPresetsOverlay by viewModel.showPresetsOverlay.collectAsState()
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(selectedConfigName, config, selectedPreset, presets) {
+        Logger.d("ControllerOverviewScreen", "selectedConfigName: $selectedConfigName")
+        Logger.d("ControllerOverviewScreen", "config: ${config?.name} (exists: ${config != null})")
+        Logger.d("ControllerOverviewScreen", "presets: ${presets.joinToString { it.name }}")
+        Logger.d("ControllerOverviewScreen", "selectedPreset: ${selectedPreset?.name}")
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -64,10 +78,10 @@ fun ControllerOverviewScreen(
                     when (event) {
                         is android.view.KeyEvent -> {
                             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                                val btn = keyCodeToButtonName(event.keyCode)
-                                btn?.let {
-                                    val action = buttonAssignments[it]
-                                    action?.let { viewModel.triggerAppAction(it) }
+                                // Use existing handleKeyEvent logic from HandleControllerInputUseCase
+                                val action = viewModel.handleControllerInputUseCase.handleKeyEvent(event.keyCode, buttonAssignments)
+                                if (action != null) {
+                                    viewModel.triggerAppAction(action)
                                 }
                             }
                             true
@@ -75,7 +89,47 @@ fun ControllerOverviewScreen(
                         is android.view.MotionEvent -> {
                             if (event.source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK &&
                                 event.action == android.view.MotionEvent.ACTION_MOVE) {
-                                // TODO: handle joystick axes and trigger mapped actions if needed
+                                // For each joystick mapping, extract axes and publish
+                                config?.joystickMappings?.forEach { mapping ->
+                                    val device = event.device ?: return@forEach
+                                    val x = event.getAxisValue(mapping.axisX)
+                                    val y = event.getAxisValue(mapping.axisY)
+                                    val (qx, qy) = viewModel.handleControllerInputUseCase.handleJoystickInput(x, y, mapping)
+                                    val msgJson = when (mapping.type) {
+                                        "geometry_msgs/msg/Twist" ->
+                                            "{" +
+                                                "\"linear\": {\"x\": $qx, \"y\": 0.0, \"z\": 0.0}, " +
+                                                "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $qy}" +
+                                            "}"
+                                        "geometry_msgs/msg/TwistStamped" -> {
+                                            val now = System.currentTimeMillis()
+                                            val secs = now / 1000
+                                            val nsecs = (now % 1000) * 1_000_000
+                                            val twist = "{\"linear\": {\"x\": $qx, \"y\": 0.0, \"z\": 0.0}, " +
+                                                "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $qy}}"
+                                            "{" +
+                                                "\"header\": {\"stamp\": {\"sec\": $secs, \"nanosec\": $nsecs}, \"frame_id\": \"\"}, " +
+                                                "\"twist\": $twist" +
+                                            "}"
+                                        }
+                                        else ->
+                                            // Fallback: just send x/y as fields
+                                            "{" +
+                                                "\"x\": $qx, \"y\": $qy" +
+                                            "}"
+                                    }
+                                    val topic = mapping.topic?.value ?: return@forEach
+                                    val type = mapping.type ?: return@forEach
+                                    val action = com.examples.testros2jsbridge.domain.model.AppAction(
+                                        id = "joystick_${mapping.displayName}",
+                                        displayName = mapping.displayName,
+                                        topic = topic,
+                                        type = type,
+                                        source = "joystick",
+                                        msg = msgJson
+                                    )
+                                    viewModel.triggerAppAction(action)
+                                }
                                 true
                             } else false
                         }
@@ -83,20 +137,6 @@ fun ControllerOverviewScreen(
                     }
                 }
         ) {
-// Helper for mapping key codes to button names
-fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
-    android.view.KeyEvent.KEYCODE_BUTTON_A -> "A"
-    android.view.KeyEvent.KEYCODE_BUTTON_B -> "B"
-    android.view.KeyEvent.KEYCODE_BUTTON_X -> "X"
-    android.view.KeyEvent.KEYCODE_BUTTON_Y -> "Y"
-    android.view.KeyEvent.KEYCODE_BUTTON_L1 -> "L1"
-    android.view.KeyEvent.KEYCODE_BUTTON_R1 -> "R1"
-    android.view.KeyEvent.KEYCODE_BUTTON_L2 -> "L2"
-    android.view.KeyEvent.KEYCODE_BUTTON_R2 -> "R2"
-    android.view.KeyEvent.KEYCODE_BUTTON_START -> "Start"
-    android.view.KeyEvent.KEYCODE_BUTTON_SELECT -> "Select"
-    else -> null
-}
             // Use BoxWithConstraints for future layout logic if needed
             // Background image if provided
             backgroundImageRes?.let {
