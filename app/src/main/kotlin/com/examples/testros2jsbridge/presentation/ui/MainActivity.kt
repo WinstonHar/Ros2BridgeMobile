@@ -48,7 +48,6 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             val controllerViewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = hiltViewModel()
-            val controllerUiState by controllerViewModel.uiState.collectAsState()
 
             val tabTitles = listOf(
                 "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Geometry", "Protocol", "Settings"
@@ -56,7 +55,7 @@ class MainActivity : ComponentActivity() {
             val destinations = listOf(
                 Destinations.CONNECTION_SCREEN,
                 Destinations.CONTROLLER_SCREEN,
-                "${Destinations.CONTROLLER_OVERVIEW_SCREEN}/${controllerUiState.selectedConfigName}",
+                Destinations.CONTROLLER_OVERVIEW_SCREEN, // Only base route
                 Destinations.PUBLISHER_SCREEN,
                 Destinations.SUBSCRIBER_SCREEN,
                 Destinations.GEOMETRY_MESSAGE_SCREEN,
@@ -67,7 +66,9 @@ class MainActivity : ComponentActivity() {
             val tabHistory = androidx.compose.runtime.remember { mutableListOf<Int>() }
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route
-            val tabIndex = destinations.indexOf(currentRoute)
+            val tabIndex = destinations.indexOf(
+                if (currentRoute?.startsWith(Destinations.CONTROLLER_OVERVIEW_SCREEN) == true) Destinations.CONTROLLER_OVERVIEW_SCREEN else currentRoute
+            )
             if (tabIndex != -1 && tabIndex != selectedTab) {
                 selectedTab = tabIndex
             }
@@ -112,8 +113,8 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         if (selectedTab != idx) {
                                             if (idx == 2) {
-                                                val selectedConfigName = controllerUiState.selectedConfigName
-                                                val configNames = controllerUiState.controllerConfigs.map { it.name }
+                                                val selectedConfigName = controllerViewModel.uiState.value.selectedConfigName
+                                                val configNames = controllerViewModel.uiState.value.controllerConfigs.map { it.name }
                                                 Logger.d("MainActivity","selectedConfigName: ${selectedConfigName}, configNames: ${configNames}")
                                                 if (selectedConfigName != "New Config" && configNames.contains(selectedConfigName)) {
                                                     tabHistory.add(selectedTab)
@@ -123,7 +124,6 @@ class MainActivity : ComponentActivity() {
                                                         restoreState = true
                                                     }
                                                 } else {
-                                                    // Show warning (replace with Snackbar/Toast as needed)
                                                     android.widget.Toast.makeText(
                                                         this@MainActivity,
                                                         "Please select a valid config before opening Controller Overview.",

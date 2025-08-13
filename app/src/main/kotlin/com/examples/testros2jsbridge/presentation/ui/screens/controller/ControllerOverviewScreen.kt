@@ -45,10 +45,6 @@ fun ControllerOverviewScreen(
     onAbxyButtonClick: (String) -> Unit = {},
     onPresetSwap: (ControllerPreset) -> Unit = {}
 ) {
-    LaunchedEffect(selectedConfigName) {
-        viewModel.selectControllerConfig(selectedConfigName, persist = false)
-    }
-
     val uiState by viewModel.uiState.collectAsState()
     val config = uiState.controllerConfigs.find { it.name == selectedConfigName }
     val buttonAssignments = config?.buttonAssignments ?: emptyMap()
