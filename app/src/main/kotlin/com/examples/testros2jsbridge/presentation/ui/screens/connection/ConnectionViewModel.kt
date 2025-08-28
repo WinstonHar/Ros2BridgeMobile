@@ -1,20 +1,16 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.connection
 
 
-import com.examples.testros2jsbridge.presentation.state.ConnectionUiState
-import androidx.lifecycle.ViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
 import android.app.Application
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
-import javax.inject.Inject
+import com.examples.testros2jsbridge.core.network.ConnectionManager
+import com.examples.testros2jsbridge.presentation.state.ConnectionUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import com.examples.testros2jsbridge.core.network.ConnectionManager
+import javax.inject.Inject
 
 
 @HiltViewModel
