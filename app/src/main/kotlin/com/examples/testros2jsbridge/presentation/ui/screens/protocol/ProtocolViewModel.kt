@@ -43,14 +43,18 @@ class ProtocolViewModel @javax.inject.Inject constructor(
     private val _editingAppAction = MutableStateFlow<AppAction?>(null)
     val editingAppAction: StateFlow<AppAction?> = _editingAppAction.asStateFlow()
 
+    private val _packageNames = MutableStateFlow<List<String>>(emptyList())
+    val packageNames: StateFlow<List<String>> = _packageNames.asStateFlow()
+
     /**
      * Parse a .msg/.srv/.action file from assets and update protocolFields.
      */
-    fun loadProtocolFields(context: Context, protocol: CustomProtocol) {
-    _activeProtocol.value = protocol
-    val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, protocol.type)
-    _protocolFields.value = fields
-    _protocolFieldValues.value = fields.associate { it.name to (it.default ?: "") }
+    fun loadProtocolFields(context: Context, packageName: String) {
+        viewModelScope.launch {
+            _availableActionProtocols.value = protocolRepository.getMessageFiles(context).filter { it.packageName == packageName }
+            _availableSrvProtocols.value = protocolRepository.getServiceFiles(context).filter { it.packageName == packageName }
+            _availableActionProtocols.value = protocolRepository.getActionFiles(context).filter { it.packageName == packageName }
+        }
     }
 
     /**
@@ -128,8 +132,8 @@ class ProtocolViewModel @javax.inject.Inject constructor(
 
     // Helper to find protocol for an AppAction (by topic/type or other unique identifier)
     private fun findProtocolForAppAction(action: AppAction): CustomProtocol? {
-    val allProtocols = _availableMsgProtocols.value + _availableSrvProtocols.value + _availableActionProtocols.value
-    return allProtocols.find { it.name == action.type || it.name == action.displayName }
+        val allProtocols = _availableMsgProtocols.value + _availableSrvProtocols.value + _availableActionProtocols.value
+        return allProtocols.find { it.name == action.type || it.name == action.displayName }
     }
 
     // Helper to parse msg JSON string into a map of field values
@@ -304,5 +308,19 @@ class ProtocolViewModel @javax.inject.Inject constructor(
             "\"msg\": $msgJson" +
             "}"
         return envelope
+    }
+
+    fun loadPackageNames(context: Context) {
+        viewModelScope.launch {
+            try {
+                val packages = protocolRepository.getAvailablePackages(context)
+                _uiState.value = _uiState.value.copy(packageNames = packages)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    showErrorDialog = true,
+                    errorMessage = e.message
+                )            
+            }
+        }
     }
 }

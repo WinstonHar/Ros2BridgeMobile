@@ -4,6 +4,7 @@ package com.examples.testros2jsbridge.presentation.state
  * UI state for custom protocol management (.msg, .srv, .action files).
  */
 data class ProtocolUiState(
+    val packageNames: List<String> = emptyList(),               // list of package names avaliable
     val availableMessages: List<ProtocolFile> = emptyList(),   // .msg files
     val availableServices: List<ProtocolFile> = emptyList(),   // .srv files
     val availableActions: List<ProtocolFile> = emptyList(),    // .action files

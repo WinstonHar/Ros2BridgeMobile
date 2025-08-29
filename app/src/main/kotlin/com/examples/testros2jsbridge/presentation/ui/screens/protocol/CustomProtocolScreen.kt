@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,6 +77,11 @@ fun CustomProtocolScreen(
     var actionSource by remember { mutableStateOf(TextFieldValue()) }
     var actionMsg by remember { mutableStateOf(TextFieldValue()) }
 
+    //var for selectable msg package
+    var packageNames by remember { mutableStateOf(listOf<String>()) }
+    var isDropdownExpanded by remember { mutableStateOf(false) }
+    var selectedPackageName by remember { mutableStateOf("") }
+
     // Sync local state with editingAction
     LaunchedEffect(editingAction) {
         val action = editingAction
@@ -95,6 +101,7 @@ fun CustomProtocolScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.loadPackageNames(context)
         viewModel.loadProtocols(context)
         viewModel.loadCustomAppActions(context)
     }
@@ -121,6 +128,38 @@ fun CustomProtocolScreen(
                 ) {
                     Text(text = "Custom Protocols", style = MaterialTheme.typography.titleLarge)
                     Button(onClick = onBack) { Text("Back") }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            item {
+                // Dropdown for dynamically loaded package names
+                ExposedDropdownMenuBox(
+                    expanded = isDropdownExpanded,
+                    onExpandedChange = { isDropdownExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedPackageName,
+                        onValueChange = {}, // Read-only field
+                        readOnly = true,
+                        label = { Text("Select Package") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = isDropdownExpanded,
+                        onDismissRequest = { isDropdownExpanded = false }
+                    ) {
+                        uiState.packageNames.forEach { packageName ->
+                            DropdownMenuItem(
+                                text = { Text(packageName) },
+                                onClick = {
+                                    isDropdownExpanded = false
+                                    selectedPackageName = packageName
+                                    viewModel.loadAvailableProtocols(context)
+                                }
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -160,7 +199,7 @@ fun CustomProtocolScreen(
                                     expandedMsg = false
                                     viewModel.loadProtocolFields(
                                         context,
-                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                        packageName = selectedPackageName,
                                     )
                                 }
                             )
@@ -196,7 +235,7 @@ fun CustomProtocolScreen(
                                     expandedSrv = false
                                     viewModel.loadProtocolFields(
                                         context,
-                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                        packageName = selectedPackageName,
                                     )
                                 }
                             )
@@ -232,7 +271,7 @@ fun CustomProtocolScreen(
                                     expandedAct = false
                                     viewModel.loadProtocolFields(
                                         context,
-                                        CustomProtocol(proto.name, proto.importPath, CustomProtocol.Type.valueOf(proto.type.name))
+                                        packageName = selectedPackageName,
                                     )
                                 }
                             )
@@ -246,7 +285,6 @@ fun CustomProtocolScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Configure Fields for ${activeProtocol!!.name}", style = MaterialTheme.typography.titleMedium)
 
-                    // Editable: only Goal fields that are not constants; Non-editable: constants or non-Goal fields
                     val editableFields = remember(protocolFields) { protocolFields.filter { it.section == "Goal" && !it.isConstant } }
                     val fixedFields = remember(protocolFields) { protocolFields.filter { it.isConstant || it.section != "Goal" } }
 
@@ -336,8 +374,6 @@ fun CustomProtocolScreen(
                     }
                 }
             }
-            // ...existing code...
-            // Removed selectedProtocolForConfig block; handled above with activeProtocol
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -414,7 +450,6 @@ fun CustomProtocolScreen(
                     visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
                     interactionSource = remember {
                         val source = androidx.compose.foundation.interaction.MutableInteractionSource()
-                        // Set IME_FLAG_NO_EXTRACT_UI via AndroidView if needed
                         source
                     }
                 )
