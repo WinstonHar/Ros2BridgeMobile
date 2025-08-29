@@ -155,7 +155,7 @@ fun CustomProtocolScreen(
                                 onClick = {
                                     isDropdownExpanded = false
                                     selectedPackageName = packageName
-                                    viewModel.loadAvailableProtocols(context)
+                                    viewModel.loadAvailableProtocols(context, packageName)
                                 }
                             )
                         }

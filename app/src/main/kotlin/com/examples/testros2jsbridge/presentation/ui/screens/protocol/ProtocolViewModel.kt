@@ -165,13 +165,40 @@ class ProtocolViewModel @javax.inject.Inject constructor(
     val customAppActions: StateFlow<List<AppAction>> = _customAppActions.asStateFlow()
 
     // Load all available protocols from assets
-    fun loadAvailableProtocols(context: Context) {
+    fun loadAvailableProtocols(context: Context, packageName: String) {
         viewModelScope.launch {
-            _availableMsgProtocols.value = protocolRepository.getMessageFiles(context)
-            _availableSrvProtocols.value = protocolRepository.getServiceFiles(context)
-            _availableActionProtocols.value = protocolRepository.getActionFiles(context)
+            try {
+                // Fetch all protocols
+                val allMessages = protocolRepository.getMessageFiles(context)
+                val allServices = protocolRepository.getServiceFiles(context)
+                val allActions = protocolRepository.getActionFiles(context)
+
+                // Filter protocols by the selected package
+                val messages = allMessages.filter { it.packageName == packageName }
+                val services = allServices.filter { it.packageName == packageName }
+                val actions = allActions.filter { it.packageName == packageName }
+
+                // Update the UI state with the filtered protocols
+                _uiState.value = _uiState.value.copy(
+                    availableMessages = messages.map {
+                        ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.MSG)
+                    },
+                    availableServices = services.map {
+                        ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.SRV)
+                    },
+                    availableActions = actions.map {
+                        ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.ACTION)
+                    }
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    showErrorDialog = true,
+                    errorMessage = e.message
+                )
+            }
         }
     }
+
 
     // Select or deselect a protocol by importPath
     fun toggleProtocolSelection(importPath: String) {
@@ -319,7 +346,7 @@ class ProtocolViewModel @javax.inject.Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     showErrorDialog = true,
                     errorMessage = e.message
-                )            
+                )
             }
         }
     }
