@@ -4,9 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -82,11 +84,17 @@ fun PublisherScreen(
             }
             item { Spacer(modifier = Modifier.height(32.dp)) }
             item {
-                CreatePublisherScreen(
-                    viewModel = viewModel,
-                    onPublisherCreated = { viewModel.selectPublisher(it) },
-                    onCancel = { viewModel.clearPublisherInputFields() }
-                )
+                val protocolViewModel: com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ) {
+                    com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProtocolScreen(
+                        viewModel = protocolViewModel,
+                        onBack = onBack
+                    )
+                }
             }
             item { Spacer(modifier = Modifier.height(8.dp)) }
         }

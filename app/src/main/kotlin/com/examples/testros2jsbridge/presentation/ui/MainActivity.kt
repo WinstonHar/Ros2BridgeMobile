@@ -59,7 +59,6 @@ class MainActivity : ComponentActivity() {
                 Destinations.PUBLISHER_SCREEN,
                 Destinations.SUBSCRIBER_SCREEN,
                 Destinations.GEOMETRY_MESSAGE_SCREEN,
-                Destinations.CUSTOM_PROTOCOL_SCREEN,
                 Destinations.SETTINGS_SCREEN
             )
             var selectedTab by rememberSaveable { mutableIntStateOf(0) }

@@ -23,7 +23,6 @@ import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryMe
 import com.examples.testros2jsbridge.presentation.ui.screens.geometry.GeometryViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProtocolScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel
-import com.examples.testros2jsbridge.presentation.ui.screens.publisher.CreatePublisherScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherListScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherScreen
 import com.examples.testros2jsbridge.presentation.ui.screens.publisher.PublisherViewModel
@@ -135,14 +134,6 @@ fun NavGraphBuilder.setupNavigation(
         CustomProtocolScreen(
             viewModel = protocolViewModel,
             onBack = { BackNavigationHandler.handleBack(navController) }
-        )
-    }
-    composable(route = Destinations.CREATE_PUBLISHER_SCREEN) {
-        val viewModel: PublisherViewModel = hiltViewModel()
-        CreatePublisherScreen(
-            viewModel = viewModel,
-            onPublisherCreated = { navController.navigate(Destinations.PUBLISHER_LIST_SCREEN) },
-            onCancel = { BackNavigationHandler.handleBack(navController) }
         )
     }
     composable(route = Destinations.PUBLISHER_LIST_SCREEN) {
