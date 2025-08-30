@@ -47,12 +47,14 @@ import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,6 +192,8 @@ fun CustomProtocolScreen(
                         onDismissRequest = { expandedMsg = false }
                     ) {
                         uiState.availableMessages.forEach { proto ->
+                            val coroutineScope = rememberCoroutineScope()
+
                             DropdownMenuItem(
                                 text = { Text(proto.name) },
                                 onClick = {
@@ -197,10 +201,13 @@ fun CustomProtocolScreen(
                                     selectedSrv = null
                                     selectedAct = null
                                     expandedMsg = false
-                                    viewModel.loadProtocolFields(
-                                        context,
-                                        packageName = selectedPackageName,
-                                    )
+                                    coroutineScope.launch {
+                                        viewModel.loadProtocolFields(
+                                            context,
+                                            packageName = selectedPackageName,
+                                            selectedProtocol = proto
+                                        )
+                                    }
                                 }
                             )
                         }
@@ -226,6 +233,8 @@ fun CustomProtocolScreen(
                         onDismissRequest = { expandedSrv = false }
                     ) {
                         uiState.availableServices.forEach { proto ->
+                            val coroutineScope = rememberCoroutineScope()
+
                             DropdownMenuItem(
                                 text = { Text(proto.name) },
                                 onClick = {
@@ -233,10 +242,13 @@ fun CustomProtocolScreen(
                                     selectedMsg = null
                                     selectedAct = null
                                     expandedSrv = false
-                                    viewModel.loadProtocolFields(
-                                        context,
-                                        packageName = selectedPackageName,
-                                    )
+                                    coroutineScope.launch {
+                                        viewModel.loadProtocolFields(
+                                            context,
+                                            packageName = selectedPackageName,
+                                            selectedProtocol = proto
+                                        )
+                                    }
                                 }
                             )
                         }
@@ -262,6 +274,8 @@ fun CustomProtocolScreen(
                         onDismissRequest = { expandedAct = false }
                     ) {
                         uiState.availableActions.forEach { proto ->
+                            val coroutineScope = rememberCoroutineScope()
+
                             DropdownMenuItem(
                                 text = { Text(proto.name) },
                                 onClick = {
@@ -269,10 +283,13 @@ fun CustomProtocolScreen(
                                     selectedMsg = null
                                     selectedSrv = null
                                     expandedAct = false
-                                    viewModel.loadProtocolFields(
-                                        context,
-                                        packageName = selectedPackageName,
-                                    )
+                                    coroutineScope.launch {
+                                        viewModel.loadProtocolFields(
+                                            context,
+                                            packageName = selectedPackageName,
+                                            selectedProtocol = proto
+                                        )
+                                    }
                                 }
                             )
                         }

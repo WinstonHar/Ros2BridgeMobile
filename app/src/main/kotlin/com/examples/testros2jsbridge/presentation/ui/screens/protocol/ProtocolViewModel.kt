@@ -3,6 +3,8 @@ package com.examples.testros2jsbridge.presentation.ui.screens.protocol
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
+import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.typeString
@@ -13,14 +15,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import javax.inject.Inject
 
 @HiltViewModel
-class ProtocolViewModel @javax.inject.Inject constructor(
+class ProtocolViewModel @Inject constructor(
     private val protocolRepository: ProtocolRepository
 ) : ViewModel() {
     // Reference to RosBridgeViewModel for advertisement (set externally if needed)
-    var rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel? = null
+    var rosBridgeViewModel: RosBridgeViewModel? = null
     // --- Custom Protocol Compose UI State ---
 
     data class ProtocolField(
@@ -49,18 +53,40 @@ class ProtocolViewModel @javax.inject.Inject constructor(
     /**
      * Parse a .msg/.srv/.action file from assets and update protocolFields.
      */
-    fun loadProtocolFields(context: Context, packageName: String) {
-        viewModelScope.launch {
-            _availableActionProtocols.value = protocolRepository.getMessageFiles(context).filter { it.packageName == packageName }
+    suspend fun loadProtocolFields(context: Context, packageName: String, selectedProtocol: ProtocolUiState.ProtocolFile) {
+        try{
+            // Convert ProtocolUiState.ProtocolFile to CustomProtocol
+            val packageName = selectedProtocol.importPath.substringBeforeLast("/")
+            val customProtocol = CustomProtocol(
+                name = selectedProtocol.name,
+                importPath = selectedProtocol.importPath,
+                type = CustomProtocol.Type.valueOf(selectedProtocol.type.name),
+                packageName = packageName
+            )
+
+            // Update the active protocol
+            _activeProtocol.value = customProtocol
+
+            // Parse the fields for the selected protocol
+            val fields = parseProtocolFieldsFromAssets(context, selectedProtocol.importPath, selectedProtocol.type)
+            _protocolFields.value = fields
+
+            // Initialize field values with defaults
+            _protocolFieldValues.value = fields.associate { it.name to (it.default ?: "") }
+
+            // Filter available protocols by package name
+            _availableMsgProtocols.value = protocolRepository.getMessageFiles(context).filter { it.packageName == packageName }
             _availableSrvProtocols.value = protocolRepository.getServiceFiles(context).filter { it.packageName == packageName }
             _availableActionProtocols.value = protocolRepository.getActionFiles(context).filter { it.packageName == packageName }
+        } catch (e: Exception) {
+            Logger.e("ProtocolViewModel", "Error loading protocol fields", e)
         }
     }
 
     /**
      * Utility to parse protocol fields from assets (msg/srv/action).
      */
-    fun parseProtocolFieldsFromAssets(context: Context, importPath: String, type: CustomProtocol.Type): List<ProtocolField> {
+    fun parseProtocolFieldsFromAssets(context: Context, importPath: String, type: ProtocolUiState.ProtocolType): List<ProtocolField> {
         val fields = mutableListOf<ProtocolField>()
         var currentSection = "Goal"
         try {
@@ -69,7 +95,7 @@ class ProtocolViewModel @javax.inject.Inject constructor(
                     val trimmed = line.trim()
                     if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                         // Section header detection for .action files
-                        if (type == CustomProtocol.Type.ACTION && trimmed.startsWith("#")) {
+                        if (type == ProtocolUiState.ProtocolType.ACTION && trimmed.startsWith("#")) {
                             val lower = trimmed.lowercase()
                             if ("goal" in lower) currentSection = "Goal"
                             else if ("result" in lower) currentSection = "Result"
@@ -77,9 +103,9 @@ class ProtocolViewModel @javax.inject.Inject constructor(
                         }
                         continue
                     }
-                    if ((type == CustomProtocol.Type.SRV || type == CustomProtocol.Type.ACTION) && trimmed == "---") {
+                    if ((type == ProtocolUiState.ProtocolType.SRV || type == ProtocolUiState.ProtocolType.ACTION) && trimmed == "---") {
                         // For .srv and .action, section delimiter
-                        if (type == CustomProtocol.Type.ACTION) {
+                        if (type == ProtocolUiState.ProtocolType.ACTION) {
                             // Switch section for .action: Goal -> Result -> Feedback
                             currentSection = when (currentSection) {
                                 "Goal" -> "Result"
@@ -101,7 +127,7 @@ class ProtocolViewModel @javax.inject.Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            com.examples.testros2jsbridge.core.util.Logger.e("ProtocolViewModel", "Error parsing protocol fields from $importPath", e)
+            Logger.e("ProtocolViewModel", "Error parsing protocol fields from $importPath", e)
         }
         return fields
     }
@@ -121,7 +147,7 @@ class ProtocolViewModel @javax.inject.Inject constructor(
         if (action != null) {
             val protocol = findProtocolForAppAction(action)
             if (protocol != null && context != null) {
-                val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, protocol.type)
+                val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, ProtocolUiState.ProtocolType.valueOf(protocol.type.name))
                 _activeProtocol.value = protocol
                 _protocolFields.value = fields
                 val msgMap = parseMsgJsonToFieldMap(action.msg)
@@ -139,10 +165,10 @@ class ProtocolViewModel @javax.inject.Inject constructor(
     // Helper to parse msg JSON string into a map of field values
     private fun parseMsgJsonToFieldMap(msg: String): Map<String, String> {
         return try {
-            val json = kotlinx.serialization.json.Json.parseToJsonElement(msg).jsonObject
+            val json = Json.parseToJsonElement(msg).jsonObject
             json.mapValues { (_, v) -> v.toString().trim('"') }
         } catch (e: Exception) {
-            com.examples.testros2jsbridge.core.util.Logger.e("ProtocolViewModel", "Error parsing msg JSON: $msg", e)
+            Logger.e("ProtocolViewModel", "Error parsing msg JSON: $msg", e)
             emptyMap()
         }
     }
@@ -198,7 +224,6 @@ class ProtocolViewModel @javax.inject.Inject constructor(
             }
         }
     }
-
 
     // Select or deselect a protocol by importPath
     fun toggleProtocolSelection(importPath: String) {
