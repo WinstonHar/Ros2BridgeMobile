@@ -23,17 +23,10 @@ class RosNavigation {
         navController.navigate(Destinations.CONTROLLER_SCREEN)
     }
 
-    fun toGeometryMessage(navController: NavHostController, geometry: com.examples.testros2jsbridge.domain.model.RosMessage? = null) {
-        // Pass geometry as argument if needed
-        navController.navigate(Destinations.GEOMETRY_MESSAGE_SCREEN)
-    }
-
     fun toCustomProtocol(navController: NavHostController, protocol: com.examples.testros2jsbridge.presentation.state.ProtocolUiState.ProtocolFile? = null) {
         // Pass protocol as argument if needed
         navController.navigate(Destinations.CUSTOM_PROTOCOL_SCREEN)
     }
-
-    fun toCreatePublisher(navController: NavHostController) = navController.navigate(Destinations.CREATE_PUBLISHER_SCREEN)
 
     fun toPublisherList(navController: NavHostController) = navController.navigate(Destinations.PUBLISHER_LIST_SCREEN)
 

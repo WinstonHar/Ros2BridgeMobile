@@ -119,7 +119,6 @@ fun CustomProtocolScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
         ) {
         
             Row(

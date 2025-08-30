@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
             val controllerViewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = hiltViewModel()
 
             val tabTitles = listOf(
-                "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Geometry", "Protocol", "Settings"
+                "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Settings"
             )
             val destinations = listOf(
                 Destinations.CONNECTION_SCREEN,
@@ -58,7 +58,6 @@ class MainActivity : ComponentActivity() {
                 Destinations.CONTROLLER_OVERVIEW_SCREEN, // Only base route
                 Destinations.PUBLISHER_SCREEN,
                 Destinations.SUBSCRIBER_SCREEN,
-                Destinations.GEOMETRY_MESSAGE_SCREEN,
                 Destinations.SETTINGS_SCREEN
             )
             var selectedTab by rememberSaveable { mutableIntStateOf(0) }

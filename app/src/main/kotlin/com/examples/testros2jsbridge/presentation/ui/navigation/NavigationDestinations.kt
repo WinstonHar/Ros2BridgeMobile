@@ -32,15 +32,12 @@ import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.Subscrib
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.SubscriberViewModel
 import com.examples.testros2jsbridge.presentation.ui.screens.subscriber.TopicListScreen
 
-@Suppress("unused")
 object Destinations {
-    const val SPLASH_SCREEN = "splash_screen"
     const val MAIN_ACTIVITY = "main_activity"
     const val CONNECTION_SCREEN = "connection_screen"
     const val CONTROLLER_CONFIG_SCREEN = "controller_config_screen"
     const val CONTROLLER_OVERVIEW_SCREEN = "controller_overview_screen"
     const val CONTROLLER_SCREEN = "controller_screen"
-    const val GEOMETRY_MESSAGE_SCREEN = "geometry_message_screen"
     const val CUSTOM_PROTOCOL_SCREEN = "custom_protocol_screen"
     const val CREATE_PUBLISHER_SCREEN = "create_publisher_screen"
     const val PUBLISHER_LIST_SCREEN = "publisher_list_screen"
@@ -118,30 +115,12 @@ fun NavGraphBuilder.setupNavigation(
             onBack = { BackNavigationHandler.handleBack(navController) }
         )
     }
-    composable(route = Destinations.GEOMETRY_MESSAGE_SCREEN) {
-        val viewModel: GeometryViewModel = hiltViewModel()
-        val rosBridgeViewModel: RosBridgeViewModel = hiltViewModel()
-        GeometryMessageScreen(
-            viewModel = viewModel,
-            rosBridgeViewModel = rosBridgeViewModel,
-            onBack = { BackNavigationHandler.handleBack(navController) }
-        )
-    }
-    composable(route = Destinations.CUSTOM_PROTOCOL_SCREEN) {
-        val protocolViewModel: ProtocolViewModel = hiltViewModel()
-        val rosBridgeViewModel: RosBridgeViewModel = hiltViewModel()
-        protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
-        CustomProtocolScreen(
-            viewModel = protocolViewModel,
-            onBack = { BackNavigationHandler.handleBack(navController) }
-        )
-    }
     composable(route = Destinations.PUBLISHER_LIST_SCREEN) {
         val viewModel: PublisherViewModel = hiltViewModel()
         PublisherListScreen(
             viewModel = viewModel,
             onPublisherSelected = { navController.navigate(Destinations.PUBLISHER_SCREEN) },
-            onEditPublisher = { navController.navigate(Destinations.CREATE_PUBLISHER_SCREEN) },
+            onEditPublisher = { /* REMOVED now custom protocol */ },
             onDeletePublisher = { /* Implement delete logic in ViewModel or pass lambda */ },
         )
     }
