@@ -1,9 +1,11 @@
-@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+@file:OptIn(InternalSerializationApi::class)
 package com.examples.testros2jsbridge.data.remote.rosbridge.dto
 
+import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import kotlinx.serialization.Contextual
+import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -41,3 +43,20 @@ fun RosMessage.toDto(): RosMessageDto = RosMessageDto(
     isPublished = this.isPublished,
     content = this.content
 )
+
+fun appActionToRosMessageDto(action: AppAction): RosMessageDto {
+    return RosMessageDto(
+        id = action.id,
+        topic = RosId(action.topic),
+        type = action.type,
+        content = action.msg,
+        label = action.displayName,
+        timestamp = System.currentTimeMillis(),
+        op = "publish",
+        msg = null,
+        latch = false,
+        queue_size = 10,
+        sender = "AppAction",
+        isPublished = true
+    )
+}

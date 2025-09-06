@@ -8,6 +8,7 @@ import com.examples.testros2jsbridge.data.local.database.entities.toDto
 import com.examples.testros2jsbridge.data.local.database.entities.toEntity
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.appActionToRosMessageDto
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.toDto
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
@@ -61,9 +62,12 @@ class AppActionRepositoryImpl @Inject constructor(
         val actions = getCustomAppActions(context).toMutableList()
         actions.removeAll { it.id == action.id }
         actions.add(action)
-        // Assuming JsonUtils exists as per the original implementation
         val jsonSet = actions.map { com.examples.testros2jsbridge.core.util.JsonUtils.toJson(it) }.toSet()
         prefs.edit().putStringSet(PREFS_ACTIONS_KEY, jsonSet).apply()
+
+        // Update the messages flow(Ui Unify)
+        val updatedMessages = actions.map { appActionToRosMessageDto(it) }
+        messages.value = updatedMessages
     }
 
     override suspend fun getCustomAppActions(context: Context): List<AppAction> = withContext(Dispatchers.IO) {
