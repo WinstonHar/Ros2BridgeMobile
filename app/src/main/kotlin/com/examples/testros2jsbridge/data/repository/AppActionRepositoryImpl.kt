@@ -27,8 +27,10 @@ class AppActionRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
     private val connectionDao: ConnectionDao,
     private val geometryMessageDao: GeometryMessageDao,
-    override val messages: MutableStateFlow<List<RosMessageDto>>,
+    private val context: Context
 ) : AppActionRepository {
+
+    override val messages = MutableStateFlow<List<RosMessageDto>>(emptyList())
 
     private val PREFS_NAME = "custom_protocols_prefs"
     private val PREFS_ACTIONS_KEY = "custom_app_actions"
@@ -43,10 +45,10 @@ class AppActionRepositoryImpl @Inject constructor(
     }
 
     init {
-        // Load initial messages from the database when the repository is created.
         GlobalScope.launch(Dispatchers.IO) {
-            val entities = geometryMessageDao.getAll()
-            messages.value = entities.map { it.toDto() }
+            val actions = getCustomAppActions(context)
+            val rosMessages = actions.map { appActionToRosMessageDto(it) }
+            messages.value = rosMessages
         }
     }
 
@@ -75,7 +77,6 @@ class AppActionRepositoryImpl @Inject constructor(
         val jsonSet = prefs.getStringSet(PREFS_ACTIONS_KEY, emptySet()) ?: emptySet()
         jsonSet.mapNotNull { json ->
             try {
-                // Assuming JsonUtils exists as per the original implementation
                 com.examples.testros2jsbridge.core.util.JsonUtils.fromJson<AppAction>(json)
             } catch (e: Exception) {
                 null
@@ -97,7 +98,6 @@ class AppActionRepositoryImpl @Inject constructor(
                 context.assets.list("msgs/$folderName")?.isNotEmpty() == true
             } ?: emptyList()
         } catch (e: Exception) {
-            // Assuming Logger exists as per the original implementation
             com.examples.testros2jsbridge.core.util.Logger.e("AppActionRepository", "Error fetching package names", e)
             emptyList()
         }

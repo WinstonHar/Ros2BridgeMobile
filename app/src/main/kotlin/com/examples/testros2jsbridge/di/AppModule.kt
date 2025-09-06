@@ -16,6 +16,7 @@ import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketLis
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
@@ -25,7 +26,7 @@ import javax.inject.Singleton
 object AppModule {
     @Provides
     @Singleton
-    fun provideAppContext(@dagger.hilt.android.qualifiers.ApplicationContext context: android.content.Context): android.content.Context = context
+    fun provideAppContext(@ApplicationContext context: Context): Context = context
 
     // Event dispatcher for rosbridge events
     object RosbridgeEventDispatcher {
@@ -78,13 +79,14 @@ object AppModule {
     fun provideAppActionRepository(
         rosbridgeClient: RosbridgeClient,
         connectionDao: ConnectionDao,
-        geometryMessageDao: GeometryMessageDao
+        geometryMessageDao: GeometryMessageDao,
+        @ApplicationContext context: Context
     ): AppActionRepository {
         return AppActionRepositoryImpl(
             rosbridgeClient = rosbridgeClient,
             connectionDao = connectionDao,
             geometryMessageDao = geometryMessageDao,
-            messages = MutableStateFlow(emptyList())
+            context = context
         )
     }
 }

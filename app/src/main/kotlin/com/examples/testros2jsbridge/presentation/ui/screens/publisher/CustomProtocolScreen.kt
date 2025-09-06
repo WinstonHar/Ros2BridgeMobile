@@ -495,7 +495,8 @@ fun CustomProtocolScreen(
         
             Spacer(modifier = Modifier.height(24.dp))
         
-            // List of saved custom app actions
+            // List of saved custom app actions (Legacy moved to publisher list screen)
+            /*
             Text(text = "Custom App Actions", style = MaterialTheme.typography.titleMedium)
             LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
                 items(customAppActions) { action ->
@@ -545,6 +546,7 @@ fun CustomProtocolScreen(
                     }
                 }
             }
+             */
         
             if (uiState.isImporting) {
                 CircularProgressIndicator(modifier = Modifier.padding(8.dp))
