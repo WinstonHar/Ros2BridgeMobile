@@ -11,17 +11,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 
 @HiltViewModel
 class PublisherViewModel @Inject constructor(
     private val rosMessageRepository: com.examples.testros2jsbridge.domain.repository.RosMessageRepository
+    private val appActionRepository: AppActionRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PublisherUiState())
     val uiState: StateFlow<PublisherUiState> = _uiState
 
     init {
         viewModelScope.launch {
-            rosMessageRepository.messages.collect { messages ->
+            appActionRepository.messages.collect { messages ->
                 _uiState.value = _uiState.value.copy(publishers = messages.map { it.toPublisher() })
             }
         }
@@ -70,7 +72,7 @@ class PublisherViewModel @Inject constructor(
             timestamp = System.currentTimeMillis()
         )
         viewModelScope.launch {
-            rosMessageRepository.saveMessage(rosMsg)
+            appActionRepository.saveMessage(rosMsg)
             _uiState.value = _uiState.value.copy(isSaving = true)
             _uiState.value = _uiState.value.copy(isSaving = false)
         }
@@ -82,7 +84,7 @@ class PublisherViewModel @Inject constructor(
 
     fun deletePublisher(publisher: com.examples.testros2jsbridge.domain.model.Publisher) {
         viewModelScope.launch {
-            val msg = rosMessageRepository.messages.value.find {
+            val msg = appActionRepository.messages.value.find {
                 // Prefer unique ID if available
                 (publisher.id != null && it.id == publisher.id.value) ||
                 // Fallback: match all key fields
@@ -91,7 +93,7 @@ class PublisherViewModel @Inject constructor(
                  it.content == publisher.message &&
                  it.label == publisher.label)
             }
-            if (msg != null) rosMessageRepository.deleteMessage(msg)
+            if (msg != null) appActionRepository.deleteMessage(msg)
         }
     }
 
@@ -189,7 +191,7 @@ class PublisherViewModel @Inject constructor(
             timestamp = System.currentTimeMillis()
         )
         viewModelScope.launch {
-            rosMessageRepository.saveMessage(rosMsg)
+            appActionRepository.saveMessage(rosMsg)
             _uiState.value = _uiState.value.copy(selectedPublisher = rosMsg.toPublisher())
         }
     }
@@ -210,7 +212,7 @@ class PublisherViewModel @Inject constructor(
     fun updatePublisher(updated: Publisher) {
         viewModelScope.launch {
             // Always use the original id for lookup, even if topic/label changed
-            val orig = rosMessageRepository.messages.value.find {
+            val orig = appActionRepository.messages.value.find {
                 it.id != null && it.id == updated.id?.value
             }
             if (orig != null) {
@@ -222,7 +224,7 @@ class PublisherViewModel @Inject constructor(
                     label = updated.label,
                     timestamp = System.currentTimeMillis()
                 )
-                rosMessageRepository.saveMessage(newMsg)
+                appActionRepository.saveMessage(newMsg)
             }
         }
     }

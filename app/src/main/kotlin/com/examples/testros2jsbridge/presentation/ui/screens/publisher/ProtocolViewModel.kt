@@ -9,6 +9,7 @@ import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.typeString
 import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
+import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProtocolViewModel @Inject constructor(
     private val protocolRepository: ProtocolRepository
+    private val appActionRepository: AppActionRepository
 ) : ViewModel() {
     // Reference to RosBridgeViewModel for advertisement (set externally if needed)
     var rosBridgeViewModel: RosBridgeViewModel? = null
@@ -75,9 +77,9 @@ class ProtocolViewModel @Inject constructor(
             _protocolFieldValues.value = fields.associate { it.name to (it.default ?: "") }
 
             // Filter available protocols by package name
-            _availableMsgProtocols.value = protocolRepository.getMessageFiles(context).filter { it.packageName == packageName }
-            _availableSrvProtocols.value = protocolRepository.getServiceFiles(context).filter { it.packageName == packageName }
-            _availableActionProtocols.value = protocolRepository.getActionFiles(context).filter { it.packageName == packageName }
+            _availableMsgProtocols.value = appActionRepository.getMessageFiles(context).filter { it.packageName == packageName }
+            _availableSrvProtocols.value = appActionRepository.getServiceFiles(context).filter { it.packageName == packageName }
+            _availableActionProtocols.value = appActionRepository.getActionFiles(context).filter { it.packageName == packageName }
         } catch (e: Exception) {
             Logger.e("ProtocolViewModel", "Error loading protocol fields", e)
         }
@@ -195,9 +197,9 @@ class ProtocolViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 // Fetch all protocols
-                val allMessages = protocolRepository.getMessageFiles(context)
-                val allServices = protocolRepository.getServiceFiles(context)
-                val allActions = protocolRepository.getActionFiles(context)
+                val allMessages = appActionRepository.getMessageFiles(context)
+                val allServices = appActionRepository.getServiceFiles(context)
+                val allActions = appActionRepository.getActionFiles(context)
 
                 // Filter protocols by the selected package
                 val messages = allMessages.filter { it.packageName == packageName }
@@ -237,7 +239,7 @@ class ProtocolViewModel @Inject constructor(
     // Import selected protocols as CustomProtocol objects
     fun importSelectedProtocols(context: Context, onResult: (List<CustomProtocol>) -> Unit = {}) {
         viewModelScope.launch {
-            val imported = protocolRepository.importProtocols(context, _selectedProtocols.value)
+            val imported = appActionRepository.importProtocols(context, _selectedProtocols.value)
             onResult(imported)
         }
     }
@@ -245,14 +247,14 @@ class ProtocolViewModel @Inject constructor(
     // Load all custom app actions
     fun loadCustomAppActions(context: Context) {
         viewModelScope.launch {
-            _customAppActions.value = protocolRepository.getCustomAppActions(context)
+            _customAppActions.value = appActionRepository.getCustomAppActions(context)
         }
     }
 
     // Save a new or edited custom app action
     fun saveCustomAppAction(context: Context, action: AppAction) {
         viewModelScope.launch {
-            protocolRepository.saveCustomAppAction(action, context)
+            appActionRepository.saveCustomAppAction(action, context)
             loadCustomAppActions(context)
         }
     }
@@ -260,7 +262,7 @@ class ProtocolViewModel @Inject constructor(
     // Delete a custom app action by id
     fun deleteCustomAppAction(context: Context, actionId: String) {
         viewModelScope.launch {
-            protocolRepository.deleteCustomAppAction(actionId, context)
+            appActionRepository.deleteCustomAppAction(actionId, context)
             loadCustomAppActions(context)
         }
     }
@@ -276,9 +278,9 @@ class ProtocolViewModel @Inject constructor(
     // Load all available protocols and update UI state
     fun loadProtocols(context: Context) {
         viewModelScope.launch {
-            val messages = protocolRepository.getMessageFiles(context)
-            val services = protocolRepository.getServiceFiles(context)
-            val actions = protocolRepository.getActionFiles(context)
+            val messages = appActionRepository.getMessageFiles(context)
+            val services = appActionRepository.getServiceFiles(context)
+            val actions = appActionRepository.getActionFiles(context)
             _uiState.value = _uiState.value.copy(
                 availableMessages = messages.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.valueOf(it.type.name)) },
                 availableServices = services.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.valueOf(it.type.name)) },
@@ -292,7 +294,7 @@ class ProtocolViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isImporting = true)
         viewModelScope.launch {
             try {
-                protocolRepository.importProtocols(context, selected)
+                appActionRepository.importProtocols(context, selected)
                 _uiState.value = _uiState.value.copy(isImporting = false, selectedProtocols = selected)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isImporting = false, showErrorDialog = true, errorMessage = e.message)
@@ -365,7 +367,7 @@ class ProtocolViewModel @Inject constructor(
     fun loadPackageNames(context: Context) {
         viewModelScope.launch {
             try {
-                val packages = protocolRepository.getAvailablePackages(context)
+                val packages = appActionRepository.getAvailablePackages(context)
                 _uiState.value = _uiState.value.copy(packageNames = packages)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
