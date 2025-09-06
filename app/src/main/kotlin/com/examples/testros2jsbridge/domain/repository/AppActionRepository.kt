@@ -1,5 +1,6 @@
 package com.examples.testros2jsbridge.domain.repository
 
+import android.content.Context
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
@@ -25,8 +26,8 @@ interface AppActionRepository {
     fun updateConnectionStatus(status: String)
 
     // Protocol file management
-    suspend fun getMessageFiles(context: android.content.Context): List<CustomProtocol>
-    suspend fun getServiceFiles(context: android.content.Context): List<CustomProtocol>
-    suspend fun getActionFiles(context: android.content.Context): List<CustomProtocol>
-    suspend fun importProtocols(context: android.content.Context, selected: Set<String>): List<CustomProtocol>
+    suspend fun getMessageFiles(context: Context): List<CustomProtocol>
+    suspend fun getServiceFiles(context: Context): List<CustomProtocol>
+    suspend fun getActionFiles(context: Context): List<CustomProtocol>
+    suspend fun importProtocols(context: Context, selected: Set<String>): List<CustomProtocol>
 }

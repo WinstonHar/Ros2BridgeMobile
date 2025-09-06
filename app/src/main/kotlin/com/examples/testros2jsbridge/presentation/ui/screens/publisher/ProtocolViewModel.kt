@@ -22,7 +22,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProtocolViewModel @Inject constructor(
-    private val protocolRepository: ProtocolRepository
     private val appActionRepository: AppActionRepository
 ) : ViewModel() {
     // Reference to RosBridgeViewModel for advertisement (set externally if needed)

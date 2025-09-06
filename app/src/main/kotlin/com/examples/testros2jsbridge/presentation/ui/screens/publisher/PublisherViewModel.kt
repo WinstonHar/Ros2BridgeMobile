@@ -15,7 +15,6 @@ import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 
 @HiltViewModel
 class PublisherViewModel @Inject constructor(
-    private val rosMessageRepository: com.examples.testros2jsbridge.domain.repository.RosMessageRepository
     private val appActionRepository: AppActionRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PublisherUiState())

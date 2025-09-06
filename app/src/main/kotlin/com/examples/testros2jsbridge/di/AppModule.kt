@@ -9,12 +9,15 @@ import com.examples.testros2jsbridge.data.repository.*
 import com.examples.testros2jsbridge.domain.repository.*
 import com.examples.testros2jsbridge.core.error.ErrorHandler
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 @Module
@@ -70,4 +73,18 @@ object AppModule {
     fun providePublisherRepository(publisherDao: PublisherDao): PublisherRepository =
         PublisherRepositoryImpl(publisherDao)
 
+    @Provides
+    @Singleton
+    fun provideAppActionRepository(
+        rosbridgeClient: RosbridgeClient,
+        connectionDao: ConnectionDao,
+        geometryMessageDao: GeometryMessageDao
+    ): AppActionRepository {
+        return AppActionRepositoryImpl(
+            rosbridgeClient = rosbridgeClient,
+            connectionDao = connectionDao,
+            geometryMessageDao = geometryMessageDao,
+            messages = MutableStateFlow(emptyList())
+        )
+    }
 }
