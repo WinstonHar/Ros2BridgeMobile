@@ -1,4 +1,4 @@
-package com.examples.testros2jsbridge.presentation.ui.screens.protocol
+package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -8,7 +8,6 @@ import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.typeString
-import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import dagger.hilt.android.lifecycle.HiltViewModel

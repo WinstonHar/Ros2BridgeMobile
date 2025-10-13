@@ -9,9 +9,9 @@ import androidx.room.Transaction
 import com.examples.testros2jsbridge.data.local.database.entities.ButtonMap
 import com.examples.testros2jsbridge.data.local.database.entities.ButtonPresets
 import com.examples.testros2jsbridge.data.local.database.entities.Controller
-import com.examples.testros2jsbridge.data.local.database.PresetButtonMapCrossRef
 import com.examples.testros2jsbridge.data.local.database.ControllerWithDetails
 import com.examples.testros2jsbridge.data.local.database.PresetWithButtonMaps
+import com.examples.testros2jsbridge.data.local.database.entities.PresetButtonMapCrossRef
 import kotlinx.coroutines.flow.Flow
 
 @Dao

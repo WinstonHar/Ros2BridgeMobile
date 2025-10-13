@@ -1,5 +1,6 @@
-package com.examples.testros2jsbridge.presentation.ui.screens.protocol
+package com.examples.testros2jsbridge.presentation.ui.screens.publisher
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,25 +8,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -36,31 +29,29 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.AppAction
-import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
+import com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomProtocolScreen(
     viewModel: ProtocolViewModel = hiltViewModel(),
-    controllerViewModel: com.examples.testros2jsbridge.presentation.ui.screens.controller.ControllerViewModel = hiltViewModel(),
+    controllerViewModel: ControllerViewModel = hiltViewModel(),
     onBack: () -> Unit
 ) {
 
@@ -109,7 +100,7 @@ fun CustomProtocolScreen(
     }
 
     // For hiding keyboard
-    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -367,7 +358,7 @@ fun CustomProtocolScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = {
                     // Save as AppAction
-                    val id = java.util.UUID.randomUUID().toString()
+                    val id = UUID.randomUUID().toString()
                     // Build msg JSON from all non-constant, non-meta fields
                     val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
                     viewModel.saveCustomAppAction(
@@ -459,9 +450,9 @@ fun CustomProtocolScreen(
                 singleLine = false,
                 maxLines = 8,
                 // Disable fullscreen extract UI for landscape
-                visualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
+                visualTransformation = VisualTransformation.None,
                 interactionSource = remember {
-                    val source = androidx.compose.foundation.interaction.MutableInteractionSource()
+                    val source = MutableInteractionSource()
                     source
                 }
             )
@@ -473,7 +464,7 @@ fun CustomProtocolScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 Button(onClick = {
-                    val id = editingAction?.id ?: java.util.UUID.randomUUID().toString()
+                    val id = editingAction?.id ?: UUID.randomUUID().toString()
                     // Build msg JSON from all non-constant, non-meta fields for edit mode
                     val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
                     viewModel.saveCustomAppAction(

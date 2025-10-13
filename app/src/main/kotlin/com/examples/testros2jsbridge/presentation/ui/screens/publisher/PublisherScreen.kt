@@ -84,13 +84,13 @@ fun PublisherScreen(
             }
             item { Spacer(modifier = Modifier.height(32.dp)) }
             item {
-                val protocolViewModel: com.examples.testros2jsbridge.presentation.ui.screens.protocol.ProtocolViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+                val protocolViewModel: ProtocolViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                 protocolViewModel.rosBridgeViewModel = rosBridgeViewModel
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
-                    com.examples.testros2jsbridge.presentation.ui.screens.protocol.CustomProtocolScreen(
+                    CustomProtocolScreen(
                         viewModel = protocolViewModel,
                         onBack = onBack
                     )

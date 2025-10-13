@@ -2,13 +2,6 @@ package com.examples.testros2jsbridge.domain.usecase.controller
 
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
-import javax.inject.Inject
-
-/**
- * Handles key and joystick input events.
- */
-
-
 import com.examples.testros2jsbridge.domain.repository.RosActionRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,13 +9,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.double
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.int
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
+import javax.inject.Inject
 
 class HandleControllerInputUseCase @Inject constructor(
     private val rosActionRepository: RosActionRepository
@@ -67,25 +55,11 @@ class HandleControllerInputUseCase @Inject constructor(
                     val actionType = action.type
                     val goalUuid = java.util.UUID.randomUUID().toString()
                     // Recursively map JsonElement to ActionFieldValue
-                    fun mapJsonToFieldValue(elem: kotlinx.serialization.json.JsonElement): com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue = when {
-                        elem is kotlinx.serialization.json.JsonPrimitive && elem.isString ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.StringValue(elem.content)
-                        elem is kotlinx.serialization.json.JsonPrimitive && elem.booleanOrNull != null ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.BoolValue(elem.boolean)
-                        elem is kotlinx.serialization.json.JsonPrimitive && elem.intOrNull != null ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.IntValue(elem.int)
-                        elem is kotlinx.serialization.json.JsonPrimitive && elem.doubleOrNull != null ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.DoubleValue(elem.double)
-                        elem is kotlinx.serialization.json.JsonObject ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.ObjectValue(elem.mapValues { mapJsonToFieldValue(it.value) })
-                        elem is kotlinx.serialization.json.JsonArray ->
-                            com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.ListValue(elem.map { mapJsonToFieldValue(it) })
-                        else -> com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue.StringValue(elem.toString())
-                    }
+                    //This functionality needs to be ported toi new domain model
                     rosActionRepository.sendOrQueueActionGoal(
                         actionName = actionName,
                         actionType = actionType,
-                        goalFields = msgJson.jsonObject.mapValues { (_, v) -> mapJsonToFieldValue(v) },
+                        goalFields = msgJson.jsonObject,
                         goalUuid = goalUuid,
                         onResult = null // Optionally handle result callback
                     )

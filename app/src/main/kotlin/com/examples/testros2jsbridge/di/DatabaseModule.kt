@@ -6,9 +6,11 @@ Eliminates manual ViewModel creation in MainActivity:103-108
 
 import android.content.Context
 import androidx.room.Room
-import com.examples.testros2jsbridge.data.local.database.RosDatabase
+import com.examples.testros2jsbridge.data.local.database.AppActionDatabase
+import com.examples.testros2jsbridge.data.local.database.ControllerDatabase
+import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.dao.ConfigurationDao
-import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.ControllerDao
 import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import dagger.Module
 import dagger.Provides
@@ -19,68 +21,37 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    // --- Add missing repository and service providers for Hilt ---
     @Provides
     @Singleton
-    fun provideRosTopicRepository(
-        rosbridgeClient: com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient,
-        subscriberDao: com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
-    ): com.examples.testros2jsbridge.domain.repository.RosTopicRepository =
-        com.examples.testros2jsbridge.data.repository.RosTopicRepositoryImpl(rosbridgeClient, subscriberDao)
-
-    @Provides
-    @Singleton
-    fun provideRosServiceRepository(
-        rosbridgeClient: com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-    ): com.examples.testros2jsbridge.domain.repository.RosServiceRepository =
-        com.examples.testros2jsbridge.data.repository.RosServiceRepositoryImpl(rosbridgeClient)
-
-    @Provides
-    @Singleton
-    fun provideRosActionRepository(
-        rosbridgeClient: com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-    ): com.examples.testros2jsbridge.domain.repository.RosActionRepository =
-        com.examples.testros2jsbridge.data.repository.RosActionRepositoryImpl(
-            rosbridgeClient,
-            actions = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
-        )
-
-    @Provides
-    @Singleton
-    fun provideProtocolRepositoryImpl(): com.examples.testros2jsbridge.data.repository.ProtocolRepositoryImpl =
-        com.examples.testros2jsbridge.data.repository.ProtocolRepositoryImpl()
-
-    @Provides
-    @Singleton
-    fun provideRosDatabase(context: Context): RosDatabase {
+    fun provideControllerDatabase(context: Context): ControllerDatabase {
         return Room.databaseBuilder(
             context.applicationContext,
-            RosDatabase::class.java,
-            "ros_database"
+            ControllerDatabase::class.java,
+            "controller_database"
         )
             .fallbackToDestructiveMigration()
             .build()
     }
 
-    // PublisherDao binding removed
-
     @Provides
-    fun provideSubscriberDao(database: RosDatabase): SubscriberDao {
-        return database.subscriberDao()
+    @Singleton
+    fun provideAppActionDatabase(context: Context): AppActionDatabase {
+        return Room.databaseBuilder(
+            context.applicationContext,
+            AppActionDatabase::class.java,
+            "app_action_database"
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
-    fun provideConfigurationDao(database: RosDatabase): ConfigurationDao {
-        return database.configurationDao()
+    fun provideControllerDao(database: ControllerDatabase): ControllerDao {
+        return database.controllerDao()
     }
 
     @Provides
-    fun provideConnectionDao(database: RosDatabase): com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao {
-        return database.connectionDao()
-    }
-
-    @Provides
-    fun provideGeometryMessageDao(database: RosDatabase): com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao {
-        return database.geometryMessageDao()
+    fun provideAppActionDao(database: AppActionDatabase): AppActionDao {
+        return database.appActionDao()
     }
 }
