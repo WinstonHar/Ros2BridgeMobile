@@ -35,25 +35,5 @@ object NetworkModule {
         )
 
 
-    @Provides
-    @Singleton
-    fun provideRosbridgeClient(
-        @ApplicationContext app: Context,
-        rosbridgeWebSocketListener: RosbridgeWebSocketListener
-    ): RosbridgeClient {
-        val prefs = app.getSharedPreferences("app_config", Context.MODE_PRIVATE)
-        val ip = prefs.getString("rosbridge_ip", "192.168.1.100") ?: "192.168.1.100"
-        val port = prefs.getInt("rosbridge_port", 9090)
-        val protocol = prefs.getString("rosbridge_protocol", "ws") ?: "ws"
-        val url = "$protocol://$ip:$port"
-        return RosbridgeClient(
-            url,
-            listener = rosbridgeWebSocketListener
-        )
-    }
-
-    @Provides
-    fun provideRosbridgeWebSocketListener(): RosbridgeWebSocketListener {
-        return RosbridgeWebSocketListener()
-    }
+    // RosbridgeClient is now provided via @Inject constructor, no need for manual provision
 }

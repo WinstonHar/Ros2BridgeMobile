@@ -154,8 +154,6 @@ class ControllerViewModel @Inject constructor(
             }
         refreshControllerButtons()
 
-        (rosMessageRepository as? RosMessageRepositoryImpl)?.initialize(viewModelScope)
-
         viewModelScope.launch {
             Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
             rosMessageRepository.messages.collect { messageList ->

@@ -3,13 +3,11 @@ package com.examples.testros2jsbridge.domain.usecase.controller
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.repository.RosActionRepository
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.*
 import javax.inject.Inject
 
 class HandleControllerInputUseCase @Inject constructor(
@@ -54,12 +52,12 @@ class HandleControllerInputUseCase @Inject constructor(
                     val actionName = action.topic
                     val actionType = action.type
                     val goalUuid = java.util.UUID.randomUUID().toString()
-                    // Recursively map JsonElement to ActionFieldValue
-                    //This functionality needs to be ported toi new domain model
+                    // Convert JsonObject to Map<String, ActionFieldValue>
+                    val goalFields = jsonObjectToActionFieldMap(msgJson.jsonObject)
                     rosActionRepository.sendOrQueueActionGoal(
                         actionName = actionName,
                         actionType = actionType,
-                        goalFields = msgJson.jsonObject,
+                        goalFields = goalFields,
                         goalUuid = goalUuid,
                         onResult = null // Optionally handle result callback
                     )
@@ -114,7 +112,43 @@ class HandleControllerInputUseCase @Inject constructor(
     }
 
     private fun clamped(value: Double, maxValue: Float): Float {
-        val maxVal = maxValue.toDouble()    
+        val maxVal = maxValue.toDouble()
         return Math.min(Math.max(value, -maxVal), maxVal).toFloat()
+    }
+
+    /**
+     * Converts a JsonObject to a Map<String, ActionFieldValue> recursively
+     */
+    private fun jsonObjectToActionFieldMap(jsonObject: JsonObject): Map<String, ActionFieldValue> {
+        return jsonObject.mapValues { (_, value) ->
+            jsonElementToActionFieldValue(value)
+        }
+    }
+
+    /**
+     * Converts a JsonElement to an ActionFieldValue recursively
+     */
+    private fun jsonElementToActionFieldValue(element: JsonElement): ActionFieldValue {
+        return when (element) {
+            is JsonPrimitive -> {
+                when {
+                    element.isString -> ActionFieldValue.StringValue(element.content)
+                    element.content == "true" || element.content == "false" ->
+                        ActionFieldValue.BoolValue(element.content.toBoolean())
+                    element.content.toIntOrNull() != null ->
+                        ActionFieldValue.IntValue(element.content.toInt())
+                    element.content.toDoubleOrNull() != null ->
+                        ActionFieldValue.DoubleValue(element.content.toDouble())
+                    else -> ActionFieldValue.StringValue(element.content)
+                }
+            }
+            is JsonObject -> {
+                ActionFieldValue.ObjectValue(jsonObjectToActionFieldMap(element))
+            }
+            is JsonArray -> {
+                ActionFieldValue.ArrayValue(element.map { jsonElementToActionFieldValue(it) })
+            }
+            else -> ActionFieldValue.StringValue(element.toString())
+        }
     }
 }

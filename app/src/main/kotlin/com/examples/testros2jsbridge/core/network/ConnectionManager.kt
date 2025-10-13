@@ -20,9 +20,9 @@ class ConnectionManager(
 
     // Setup WebSocket event forwarding
     private val wsListener = com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener(
-        onOpen = { listeners.forEach { it.onConnected() } },
-        onMessage = { msg -> listeners.forEach { it.onMessage(msg) } },
-        onFailure = { t -> listeners.forEach { it.onError(t.message ?: "Unknown error") } },
+        onOpen = { _, _ -> listeners.forEach { it.onConnected() } },
+        onMessage = { msg: String -> listeners.forEach { it.onMessage(msg) } },
+        onFailure = { t: Throwable -> listeners.forEach { it.onError(t.message ?: "Unknown error") } },
         onClosing = { listeners.forEach { it.onDisconnected() } },
         onClosed = { listeners.forEach { it.onDisconnected() } }
     )
@@ -47,14 +47,8 @@ class ConnectionManager(
         val protocol = "ws" // TODO: Make configurable if needed
         val url = "$protocol://$ip:$port"
         try {
-            // Set the URL on the RosbridgeClient if needed (or recreate)
-            val clientField = rosbridgeClient.javaClass.getDeclaredField("url")
-            clientField.isAccessible = true
-            clientField.set(rosbridgeClient, url)
-            // Set the listener if needed
-            val listenerField = rosbridgeClient.javaClass.getDeclaredField("listener")
-            listenerField.isAccessible = true
-            listenerField.set(rosbridgeClient, wsListener)
+            rosbridgeClient.setUrl(url)
+            rosbridgeClient.setListener(wsListener)
             rosbridgeClient.connect()
         } catch (e: Exception) {
             Logger.e("ConnectionManager", "Connection failed: ${e.message}")

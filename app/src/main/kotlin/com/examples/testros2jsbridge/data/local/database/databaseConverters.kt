@@ -1,8 +1,6 @@
 package com.examples.testros2jsbridge.data.local.database
 
 import androidx.room.TypeConverter
-import com.examples.testros2jsbridge.data.local.database.entities.InputType
-import com.examples.testros2jsbridge.data.local.database.entities.RosProtocolType
 
 class DatabaseConverters {
     @TypeConverter

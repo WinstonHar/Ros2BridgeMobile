@@ -2,6 +2,7 @@ package com.examples.testros2jsbridge.data.local.database.entities
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 
 @Entity(tableName = "app_action")
 data class AppAction(

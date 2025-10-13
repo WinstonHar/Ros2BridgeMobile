@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.examples.testros2jsbridge.data.local.database.InputType
 
 @Entity(
     tableName = "button_map",

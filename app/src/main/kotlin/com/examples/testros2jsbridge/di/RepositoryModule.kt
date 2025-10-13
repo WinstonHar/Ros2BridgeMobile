@@ -17,6 +17,12 @@ import com.examples.testros2jsbridge.domain.repository.SubscriberRepository
 import com.examples.testros2jsbridge.data.repository.SubscriberRepositoryImpl
 import com.examples.testros2jsbridge.domain.repository.ProtocolRepository
 import com.examples.testros2jsbridge.data.repository.ProtocolRepositoryImpl
+import com.examples.testros2jsbridge.domain.repository.RosActionRepository
+import com.examples.testros2jsbridge.data.repository.RosActionRepositoryImpl
+import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
+import com.examples.testros2jsbridge.data.repository.RosTopicRepositoryImpl
+import com.examples.testros2jsbridge.domain.repository.RosServiceRepository
+import com.examples.testros2jsbridge.data.repository.RosServiceRepositoryImpl
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -45,4 +51,22 @@ abstract class RepositoryModule {
     abstract fun bindProtocolRepository(
         impl: ProtocolRepositoryImpl
     ): ProtocolRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRosActionRepository(
+        impl: RosActionRepositoryImpl
+    ): RosActionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRosTopicRepository(
+        impl: RosTopicRepositoryImpl
+    ): RosTopicRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRosServiceRepository(
+        impl: RosServiceRepositoryImpl
+    ): RosServiceRepository
 }

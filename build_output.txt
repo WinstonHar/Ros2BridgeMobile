@@ -1,0 +1,272 @@
+
+> Task :app:externalNativeBuildCleanDebug
+Clean yuv_common_objects-armeabi-v7a, yuvconvert-armeabi-v7a, imageUtils-armeabi-v7a, yuv_shared-armeabi-v7a, cpuid-armeabi-v7a, yuvconstants-armeabi-v7a, yuv-armeabi-v7a, yuv_neon-armeabi-v7a
+Clean yuv_common_objects-arm64-v8a, yuvconvert-arm64-v8a, yuv_neon64-arm64-v8a, imageUtils-arm64-v8a, yuv_sve-arm64-v8a, yuv_shared-arm64-v8a, cpuid-arm64-v8a, yuvconstants-arm64-v8a, yuv_sme-arm64-v8a, yuv-arm64-v8a
+Clean yuv_common_objects-x86, yuvconvert-x86, imageUtils-x86, yuv_shared-x86, cpuid-x86, yuvconstants-x86, yuv-x86
+Clean yuv_common_objects-x86_64, yuvconvert-x86_64, imageUtils-x86_64, yuv_shared-x86_64, cpuid-x86_64, yuvconstants-x86_64, yuv-x86_64
+
+> Task :app:externalNativeBuildCleanRelease
+Clean yuv_common_objects-armeabi-v7a, yuvconvert-armeabi-v7a, imageUtils-armeabi-v7a, yuv_shared-armeabi-v7a, cpuid-armeabi-v7a, yuvconstants-armeabi-v7a, yuv-armeabi-v7a, yuv_neon-armeabi-v7a
+Clean yuv_common_objects-arm64-v8a, yuvconvert-arm64-v8a, yuv_neon64-arm64-v8a, imageUtils-arm64-v8a, yuv_sve-arm64-v8a, yuv_shared-arm64-v8a, cpuid-arm64-v8a, yuvconstants-arm64-v8a, yuv_sme-arm64-v8a, yuv-arm64-v8a
+Clean yuv_common_objects-x86, yuvconvert-x86, imageUtils-x86, yuv_shared-x86, cpuid-x86, yuvconstants-x86, yuv-x86
+Clean yuv_common_objects-x86_64, yuvconvert-x86_64, imageUtils-x86_64, yuv_shared-x86_64, cpuid-x86_64, yuvconstants-x86_64, yuv-x86_64
+
+> Task :app:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:parseDebugLocalResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:mergeDebugShaders
+> Task :app:javaPreCompileDebug
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:checkDebugDuplicateClasses
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:mergeDebugResources
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeLibDexDebug
+> Task :app:processDebugResources
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:configureCMakeDebug[armeabi-v7a]
+> Task :app:buildCMakeDebug[armeabi-v7a]
+> Task :app:configureCMakeDebug[x86]
+> Task :app:buildCMakeDebug[x86]
+> Task :app:configureCMakeDebug[x86_64]
+> Task :app:buildCMakeDebug[x86_64]
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:configureCMakeRelWithDebInfo[arm64-v8a]
+> Task :app:mergeDebugNativeLibs
+> Task :app:buildCMakeRelWithDebInfo[arm64-v8a]
+> Task :app:configureCMakeRelWithDebInfo[armeabi-v7a]
+> Task :app:stripDebugDebugSymbols
+> Task :app:mergeExtDexDebug
+
+> Task :app:kspDebugKotlin
+w: [ksp] /home/dft3/Documents/Ros2BridgeMobile/app/src/main/kotlin/com/examples/testros2jsbridge/data/local/database/entities/buttonPresets.kt:55: mappingId column references a foreign key but it is not part of an index. This may trigger full table scans whenever parent table is modified so you are highly advised to create an index that covers this column.
+w: [ksp] /home/dft3/Documents/Ros2BridgeMobile/app/src/main/kotlin/com/examples/testros2jsbridge/data/local/database/entities/buttonPresets.kt:57: The column mappingId in the junction entity com.examples.testros2jsbridge.data.local.database.entities.PresetButtonMapCrossRef is being used to resolve a relationship but it is not covered by any index. This might cause a full table scan when resolving the relationship, it is highly advised to create an index that covers this column.
+w: [ksp] /home/dft3/Documents/Ros2BridgeMobile/app/src/main/kotlin/com/examples/testros2jsbridge/data/local/database/entities/buttonPresets.kt:55: mappingId column references a foreign key but it is not part of an index. This may trigger full table scans whenever parent table is modified so you are highly advised to create an index that covers this column.
+w: [ksp] /home/dft3/Documents/Ros2BridgeMobile/app/src/main/kotlin/com/examples/testros2jsbridge/data/local/database/entities/buttonPresets.kt:57: The column mappingId in the junction entity com.examples.testros2jsbridge.data.local.database.entities.PresetButtonMapCrossRef is being used to resolve a relationship but it is not covered by any index. This might cause a full table scan when resolving the relationship, it is highly advised to create an index that covers this column.
+w: [ksp] No dependencies reported for generated source com.examples.testros2jsbridge.RosApplication_ComponentTreeDeps.java which willprevent incremental compilation.
+Please file a bug at https://issuetracker.google.com/issues/new?component=413107.
+w: [ksp] No dependencies reported for generated source com.examples.testros2jsbridge.RosApplication_HiltComponents.java which willprevent incremental compilation.
+Please file a bug at https://issuetracker.google.com/issues/new?component=413107.
+
+> Task :app:buildCMakeRelWithDebInfo[armeabi-v7a]
+> Task :app:configureCMakeRelWithDebInfo[x86]
+
+> Task :app:buildCMakeRelWithDebInfo[x86]
+C/C++: ninja: Entering directory `/home/dft3/Documents/Ros2BridgeMobile/app/.cxx/RelWithDebInfo/s5b5b2p1/x86'
+C/C++: /home/dft3/Android/Sdk/ndk/29.0.13599879/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar: error: libyuv/CMakeFiles/yuv_common_objects.dir/source/compare.cc.o: No such file or directory
+C/C++: [50/54] Linking CXX shared library /home/dft3/Documents/Ros2BridgeMobile/app/build/intermediates/cxx/RelWithDebInfo/s5b5b2p1/obj/x86/libyuv.so
+C/C++: FAILED: /home/dft3/Documents/Ros2BridgeMobile/app/build/intermediates/cxx/RelWithDebInfo/s5b5b2p1/obj/x86/libyuv.so 
+C/C++: : && /home/dft3/Android/Sdk/ndk/29.0.13599879/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=i686-none-linux-android31 --sysroot=/home/dft3/Android/Sdk/ndk/29.0.13599879/toolchains/llvm/prebuilt/linux-x86_64/sysroot -fPIC -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -O2 -g -DNDEBUG  -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments  -Wl,--gc-sections -shared -Wl,-soname,libyuv.so -o /home/dft3/Documents/Ros2BridgeMobile/app/build/intermediates/cxx/RelWithDebInfo/s5b5b2p1/obj/x86/libyuv.so libyuv/CMakeFiles/yuv_common_objects.dir/source/compare.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_common.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_gcc.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_msa.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_win.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_argb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_from_argb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_from.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_jpeg.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_to_argb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_to_i420.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/cpu_id.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/mjpeg_decoder.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/mjpeg_validate.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/planar_functions.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_any.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_argb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_common.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_gcc.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_lsx.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_msa.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_win.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_any.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_common.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_gcc.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_lasx.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_lsx.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_msa.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_rvv.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/row_win.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_any.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_argb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_common.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_gcc.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_lsx.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_msa.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_rgb.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_rvv.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_uv.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_win.cc.o libyuv/CMakeFiles/yuv_common_objects.dir/source/video_common.cc.o  -latomic -lm && :
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/compare.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_common.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_gcc.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_msa.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/compare_win.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_argb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_from_argb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_from.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_jpeg.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_to_argb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/convert_to_i420.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/cpu_id.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/mjpeg_decoder.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/mjpeg_validate.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/planar_functions.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_any.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_argb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_common.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_gcc.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_lsx.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_msa.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/rotate_win.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_any.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_gcc.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_lasx.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_lsx.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_msa.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_rvv.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/row_win.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_any.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_argb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_common.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_gcc.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_lsx.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_msa.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_rgb.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_rvv.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_uv.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/scale_win.cc.o'
+C/C++: clang++: error: no such file or directory: 'libyuv/CMakeFiles/yuv_common_objects.dir/source/video_common.cc.o'
+C/C++: ninja: build stopped: subcommand failed.
+
+> Task :app:buildCMakeRelWithDebInfo[x86] FAILED
+
+> Task :app:compileDebugKotlin
+e: Daemon compilation failed: null
+java.lang.Exception
+	at org.jetbrains.kotlin.daemon.common.CompileService$CallResult$Error.get(CompileService.kt:69)
+	at org.jetbrains.kotlin.daemon.common.CompileService$CallResult$Error.get(CompileService.kt:65)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.compileWithDaemon(GradleKotlinCompilerWork.kt:240)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.compileWithDaemonOrFallbackImpl(GradleKotlinCompilerWork.kt:159)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:111)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:76)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:63)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:66)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:62)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:100)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:62)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:59)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:174)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+	at org.gradle.internal.Factories$1.create(Factories.java:31)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:263)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.io.FileNotFoundException: /home/dft3/Documents/Ros2BridgeMobile/app/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin (No such file or directory)
+	at java.base/java.io.FileOutputStream.open0(Native Method)
+	at java.base/java.io.FileOutputStream.open(FileOutputStream.java:293)
+	at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:235)
+	at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:184)
+	at org.jetbrains.kotlin.incremental.storage.ExternalizersKt.saveToFile(externalizers.kt:178)
+	at org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotShrinkerKt.shrinkAndSaveClasspathSnapshot(ClasspathSnapshotShrinker.kt:299)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.performWorkAfterCompilation(IncrementalJvmCompilerRunner.kt:476)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.performWorkAfterCompilation(IncrementalJvmCompilerRunner.kt:73)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileImpl(IncrementalCompilerRunner.kt:425)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileNonIncrementally(IncrementalCompilerRunner.kt:301)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compile(IncrementalCompilerRunner.kt:129)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.execIncrementalCompiler(CompileServiceImpl.kt:675)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.access$execIncrementalCompiler(CompileServiceImpl.kt:92)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1660)
+	at jdk.internal.reflect.GeneratedMethodAccessor91.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:712)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:587)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:828)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:705)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:399)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:704)
+	... 3 more
+
+Failed to compile with Kotlin daemon: java.lang.Exception
+	at org.jetbrains.kotlin.daemon.common.CompileService$CallResult$Error.get(CompileService.kt:69)
+	at org.jetbrains.kotlin.daemon.common.CompileService$CallResult$Error.get(CompileService.kt:65)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.compileWithDaemon(GradleKotlinCompilerWork.kt:240)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.compileWithDaemonOrFallbackImpl(GradleKotlinCompilerWork.kt:159)
+	at org.jetbrains.kotlin.compilerRunner.GradleKotlinCompilerWork.run(GradleKotlinCompilerWork.kt:111)
+	at org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction.execute(GradleCompilerRunnerWithWorkers.kt:76)
+	at org.gradle.workers.internal.DefaultWorkerServer.execute(DefaultWorkerServer.java:63)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:66)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1$1.create(NoIsolationWorkerFactory.java:62)
+	at org.gradle.internal.classloader.ClassLoaderUtils.executeInClassloader(ClassLoaderUtils.java:100)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.lambda$execute$0(NoIsolationWorkerFactory.java:62)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:44)
+	at org.gradle.workers.internal.AbstractWorker$1.call(AbstractWorker.java:41)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.workers.internal.AbstractWorker.executeWrappedInBuildOperation(AbstractWorker.java:41)
+	at org.gradle.workers.internal.NoIsolationWorkerFactory$1.execute(NoIsolationWorkerFactory.java:59)
+	at org.gradle.workers.internal.DefaultWorkerExecutor.lambda$submitWork$0(DefaultWorkerExecutor.java:174)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runExecution(DefaultConditionalExecutionQueue.java:194)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.access$700(DefaultConditionalExecutionQueue.java:127)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner$1.run(DefaultConditionalExecutionQueue.java:169)
+	at org.gradle.internal.Factories$1.create(Factories.java:31)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.withLocks(DefaultWorkerLeaseService.java:263)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:127)
+	at org.gradle.internal.work.DefaultWorkerLeaseService.runAsWorkerThread(DefaultWorkerLeaseService.java:132)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.runBatch(DefaultConditionalExecutionQueue.java:164)
+	at org.gradle.internal.work.DefaultConditionalExecutionQueue$ExecutionRunner.run(DefaultConditionalExecutionQueue.java:133)
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:539)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+	at java.base/java.lang.Thread.run(Thread.java:840)
+Caused by: java.io.FileNotFoundException: /home/dft3/Documents/Ros2BridgeMobile/app/build/kotlin/compileDebugKotlin/classpath-snapshot/shrunk-classpath-snapshot.bin (No such file or directory)
+	at java.base/java.io.FileOutputStream.open0(Native Method)
+	at java.base/java.io.FileOutputStream.open(FileOutputStream.java:293)
+	at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:235)
+	at java.base/java.io.FileOutputStream.<init>(FileOutputStream.java:184)
+	at org.jetbrains.kotlin.incremental.storage.ExternalizersKt.saveToFile(externalizers.kt:178)
+	at org.jetbrains.kotlin.incremental.classpathDiff.ClasspathSnapshotShrinkerKt.shrinkAndSaveClasspathSnapshot(ClasspathSnapshotShrinker.kt:299)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.performWorkAfterCompilation(IncrementalJvmCompilerRunner.kt:476)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.performWorkAfterCompilation(IncrementalJvmCompilerRunner.kt:73)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileImpl(IncrementalCompilerRunner.kt:425)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileNonIncrementally(IncrementalCompilerRunner.kt:301)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compile(IncrementalCompilerRunner.kt:129)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.execIncrementalCompiler(CompileServiceImpl.kt:675)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.access$execIncrementalCompiler(CompileServiceImpl.kt:92)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1660)
+	at jdk.internal.reflect.GeneratedMethodAccessor91.invoke(Unknown Source)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(UnicastServerRef.java:360)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:200)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Transport.java:197)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:712)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Transport.java:196)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(TCPTransport.java:587)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(TCPTransport.java:828)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(TCPTransport.java:705)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:399)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:704)
+	... 3 more
+Using fallback strategy: Compile without Kotlin daemon
+Try ./gradlew --stop if this issue persists
+If it does not look related to your configuration, please file an issue with logs to https://kotl.in/issue

@@ -53,7 +53,7 @@ class SubscriberViewModel @Inject constructor(
             subscriberDao.getAllSubscribersFlow().collect { entities ->
                 val subs = entities.map { entity ->
                     Subscriber(
-                        id = entity.id,
+                        id = entity.id.toString(),
                         topic = RosId(entity.topic),
                         type = entity.type,
                         isActive = entity.isActive,
@@ -71,7 +71,7 @@ class SubscriberViewModel @Inject constructor(
         // Observe available topics from repository
         viewModelScope.launch {
             rosTopicRepository.subscribedTopics.collect { topics ->
-                _availableTopics.value = topics.map { it.name to it.type}
+                _availableTopics.value = topics.map { "${it.name}/${it.type}" to it.type}
             }
         }
         startAutoRefreshTopics()

@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -57,6 +58,7 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
     else -> null
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ControllerOverviewScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
