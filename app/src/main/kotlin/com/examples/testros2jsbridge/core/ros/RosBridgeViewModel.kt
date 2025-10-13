@@ -95,6 +95,7 @@ class RosBridgeViewModel @Inject constructor(
     // --- Message Publishing ---
     fun publishMessage(topic: String, type: String, rawJson: String) {
         viewModelScope.launch {
+            Logger.d("RosBridgeViewModel", "Publish called: topic=$topic, type=$type, rawJson=$rawJson")
             if (!isConnected()) {
                 Logger.w("RosBridgeViewModel", "Cannot publish: Not connected.")
                 return@launch
@@ -113,7 +114,7 @@ class RosBridgeViewModel @Inject constructor(
                     Logger.d("RosBridgeViewModel", "Advertised: topic=$topic, type=$type")
                     advertisedTopics.add(key)
                 } catch (e: Exception) {
-                    Logger.e("RosBridgeViewModel", "Error advertising topic before publish", e)
+                    Logger.e("RosBridgeViewModel", "Error advertising topic: topic=$topic, type=$type", e)
                 }
             }
             try {
@@ -125,7 +126,7 @@ class RosBridgeViewModel @Inject constructor(
                 rosbridgeClient.send(msg.toString())
                 Logger.d("RosBridgeViewModel", "Published: topic=$topic, type=$type, msg=$rawJson")
             } catch (e: Exception) {
-                Logger.e("RosBridgeViewModel", "Error publishing message", e)
+                Logger.e("RosBridgeViewModel", "Error publishing message: topic=$topic, type=$type, rawJson=$rawJson", e)
             }
         }
     }
@@ -337,6 +338,8 @@ class RosBridgeViewModel @Inject constructor(
         val key = topic to type
         if (advertisedTopics.contains(key)) return
         viewModelScope.launch {
+            Logger.d("RosBridgeViewModel", "Advertise called: topic=${topic}, type=${type}")
+            Logger.d("RosBridgeViewModel", "Current advertisedTopics: $advertisedTopics")
             try {
                 val advertiseMsg = RosBridgeAdvertise(
                     op = "advertise",

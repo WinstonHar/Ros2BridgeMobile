@@ -53,7 +53,6 @@ object AppModule {
             errorListeners.forEach { it(t) }
         }
     }
-    // Removed duplicate RosDatabase and RosbridgeClient providers. These are now only in DatabaseModule and NetworkModule.
 
     @Provides
     @Singleton

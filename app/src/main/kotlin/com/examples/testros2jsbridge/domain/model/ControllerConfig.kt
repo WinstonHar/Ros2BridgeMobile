@@ -121,6 +121,7 @@ data class AppAction(
     val displayName: String,
     val topic: String,
     val type: String,
+    val msgType: String? = "Hello",
     val source: String,
     val msg: String = ""
 )

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
+import com.examples.testros2jsbridge.core.util.Logger
 
 @HiltViewModel
 class PublisherViewModel @Inject constructor(
@@ -87,7 +88,7 @@ class PublisherViewModel @Inject constructor(
                 // Prefer unique ID if available
                 (publisher.id != null && it.id == publisher.id.value) ||
                 // Fallback: match all key fields
-                (it.topic.value == publisher.topic.value &&
+                (it.topic.value == publisher.topic.formattedValue &&
                  it.type == publisher.messageType &&
                  it.content == publisher.message &&
                  it.label == publisher.label)
@@ -97,16 +98,38 @@ class PublisherViewModel @Inject constructor(
     }
 
     fun publishMessage(rosBridgeViewModel: com.examples.testros2jsbridge.core.ros.RosBridgeViewModel) {
-        val publisher = _uiState.value.selectedPublisher ?: return
-        // ADVERTISE before publish
-        rosBridgeViewModel.advertiseTopic(publisher.topic.value, publisher.messageType)
-        // Delegate to RosBridgeViewModel for actual network publish
-        rosBridgeViewModel.publishMessage(
-            topic = publisher.topic.value,
-            type = publisher.messageType,
-            rawJson = publisher.message
-        )
-        appendToMessageHistory("Published to ${publisher.topic.value}: ${publisher.message}")
+        val publisher = _uiState.value.selectedPublisher
+        if (publisher == null) {
+            showErrorDialog("No publisher selected.")
+            Logger.d("PublisherViewModel", "No publisher selected.")
+            return
+        }
+
+        if (publisher.topic.formattedValue.isBlank() || publisher.msgType.isBlank() || publisher.message.isBlank()) {
+            showErrorDialog("Publisher details are incomplete. Please check the topic, type, and message.")
+            Logger.d("PublisherViewModel", "Publisher details incomplete.")
+            return
+        }
+
+        Logger.d("PublisherViewModel", "Publisher details: topic=${publisher.topic}, msgType=${publisher.msgType}")
+
+        try {
+            // ADVERTISE before publish
+            rosBridgeViewModel.advertiseTopic(publisher.topic.formattedValue, publisher.msgType)
+
+            // Delegate to RosBridgeViewModel for actual network publish
+            rosBridgeViewModel.publishMessage(
+                topic = publisher.topic.formattedValue,
+                type = publisher.msgType,
+                rawJson = publisher.message
+            )
+
+            // Append to message history //do later
+            appendToMessageHistory("Published to ${publisher.topic.value}: ${publisher.message}")
+            Logger.d("PublisherViewModel", "Published to ${publisher.topic.formattedValue}: ${publisher.message}")
+        } catch (e: Exception) {
+            Logger.d("PublisherViewModel", "Failed to publish message: ${e.message}")
+        }
     }
 
     fun showErrorDialog(message: String) {
@@ -200,7 +223,8 @@ class PublisherViewModel @Inject constructor(
         return com.examples.testros2jsbridge.domain.model.Publisher(
             id = this.id?.let { RosId(it) },
             topic = this.topic,
-            messageType = this.type ?: "",
+            messageType = this.type ?: "", //generic type
+            msgType = this.msgType ?: "", //ros message type
             message = this.content ?: "",
             label = this.label,
             isEnabled = true,

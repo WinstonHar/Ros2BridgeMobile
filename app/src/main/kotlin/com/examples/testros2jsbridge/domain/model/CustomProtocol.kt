@@ -4,6 +4,7 @@ data class CustomProtocol(
     val name: String,
     val importPath: String,
     val type: Type,
+    val msgType: String? = null,
     val packageName: String
 ) {
     enum class Type { MSG, SRV, ACTION }

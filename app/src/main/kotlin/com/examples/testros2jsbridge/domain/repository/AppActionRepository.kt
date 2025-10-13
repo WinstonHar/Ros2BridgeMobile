@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 interface AppActionRepository {
     // Protocol-related methods
-    suspend fun saveCustomAppAction(action: AppAction, context: Context)
+    suspend fun saveCustomAppAction(action: AppAction, context: Context): Int
     suspend fun getCustomAppActions(context: Context): List<AppAction>
     suspend fun deleteCustomAppAction(actionId: String, context: Context)
     suspend fun getAvailablePackages(context: Context): List<String>

@@ -8,6 +8,7 @@ data class Publisher(
     val id: RosId? = null, // Unique ID for editing/deleting/history
     val topic: RosId,
     val messageType: String,
+    val msgType: String,
     val message: String,
     val label: String? = null, // For UI display
     val isEnabled: Boolean = true, // For UI toggling

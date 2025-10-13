@@ -4,11 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -19,6 +17,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.examples.testros2jsbridge.core.util.Logger
+
 
 @Composable
 fun PublisherScreen(
@@ -76,7 +76,7 @@ fun PublisherScreen(
                             Text("Last Published: $it", style = MaterialTheme.typography.bodySmall)
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        androidx.compose.material3.Button(onClick = { viewModel.publishMessage(rosBridgeViewModel) }, enabled = pubUi.isEnabled) {
+                        androidx.compose.material3.Button(onClick = { viewModel.publishMessage(rosBridgeViewModel); Logger.d("PublisherScreen", "Publish button clicked")}, enabled = pubUi.isEnabled) {
                             Text("Publish Message")
                         }
                     }
