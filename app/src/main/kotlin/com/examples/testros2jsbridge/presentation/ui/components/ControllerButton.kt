@@ -11,7 +11,7 @@ import com.examples.testros2jsbridge.domain.model.AppAction
 @Composable
 fun ControllerButton(
     labelText: String,
-    assignedAction: com.examples.testros2jsbridge.domain.model.AppAction?,
+    assignedAction: AppAction?,
     onPress: () -> Unit,
     onRelease: () -> Unit,
     modifier: Modifier = Modifier,
@@ -21,14 +21,6 @@ fun ControllerButton(
         onClick = onPress,
         modifier = modifier
     ) {
-        Column {
-            Text(text = labelText)
-            if (assignedAction != null) {
-                Text(
-                    text = assignedAction.displayName,
-                    textAlign = if (textAlignCenter) TextAlign.Center else TextAlign.Start
-                )
-            }
-        }
+        Text(text = labelText)
     }
 }

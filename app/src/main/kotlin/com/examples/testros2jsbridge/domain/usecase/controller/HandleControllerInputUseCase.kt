@@ -2,13 +2,15 @@ package com.examples.testros2jsbridge.domain.usecase.controller
 
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
+import com.examples.testros2jsbridge.domain.model.RosId
+import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import javax.inject.Inject
 
 class HandleControllerInputUseCase @Inject constructor(
     private val appActionRepository: AppActionRepository
 ) {
-    fun handleKeyEvent(keyCode: Int, assignments: Map<String, com.examples.testros2jsbridge.domain.model.AppAction>): com.examples.testros2jsbridge.domain.model.AppAction? {
+    fun handleKeyEvent(keyCode: Int, assignments: Map<String, AppAction>): AppAction? {
         val buttonName = com.examples.testros2jsbridge.presentation.ui.screens.controller.keyCodeToButtonName(keyCode)
         return assignments[buttonName]
     }
@@ -28,7 +30,14 @@ class HandleControllerInputUseCase @Inject constructor(
         return Pair(scaledX, scaledY)
     }
 
-    fun triggerAppAction(action: com.examples.testros2jsbridge.domain.model.AppAction) {
-        //TODO call repository to trigger action
+    fun triggerAppAction(action: AppAction) {
+        appActionRepository.publishMessage(
+            RosMessage(
+                topic = RosId(action.topic),
+                content = action.msg,
+                type = action.type,
+                op = "publish"
+            )
+        )
     }
 }

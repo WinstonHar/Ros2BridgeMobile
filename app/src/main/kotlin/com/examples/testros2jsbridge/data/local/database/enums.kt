@@ -9,5 +9,6 @@ enum class RosProtocolType {
     PUBLISHER,
     SUBSCRIBER,
     ACTION_CLIENT,
-    SERVICE_CLIENT
+    SERVICE_CLIENT,
+    INTERNAL
 }

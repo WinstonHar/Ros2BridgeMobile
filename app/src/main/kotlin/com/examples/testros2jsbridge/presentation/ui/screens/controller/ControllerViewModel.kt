@@ -258,13 +258,18 @@ class ControllerViewModel @Inject constructor(
 
         viewModelScope.launch {
             saveControllerConfigUseCase.save(configToSave)
-            controllerRepository.saveSelectedConfigName(configToSave.name)
 
-            _uiState.update { currentState ->
-                currentState.copy(config = configToSave)
+            val configExists = _uiState.value.controllerConfigs.any { it.name == configToSave.name }
+            val updatedConfigs = if (configExists) {
+                _uiState.value.controllerConfigs.map {
+                    if (it.name == configToSave.name) configToSave else it
+                }
+            } else {
+                _uiState.value.controllerConfigs + configToSave
             }
-            lastSavedConfig = configToSave.copy()
-            updateHasUnsavedChanges()
+            _uiState.update { it.copy(controllerConfigs = updatedConfigs) }
+
+            selectControllerConfig(configToSave.name)
         }
     }
 

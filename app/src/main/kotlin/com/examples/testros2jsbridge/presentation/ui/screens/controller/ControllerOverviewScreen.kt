@@ -2,6 +2,7 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,11 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -28,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -47,10 +51,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
-    android.view.KeyEvent.KEYCODE_BUTTON_A -> "A"
-    android.view.KeyEvent.KEYCODE_BUTTON_B -> "B"
-    android.view.KeyEvent.KEYCODE_BUTTON_X -> "X"
-    android.view.KeyEvent.KEYCODE_BUTTON_Y -> "Y"
+    android.view.KeyEvent.KEYCODE_BUTTON_A -> "Button A"
+    android.view.KeyEvent.KEYCODE_BUTTON_B -> "Button B"
+    android.view.KeyEvent.KEYCODE_BUTTON_X -> "Button X"
+    android.view.KeyEvent.KEYCODE_BUTTON_Y -> "Button Y"
     android.view.KeyEvent.KEYCODE_BUTTON_L1 -> "L1"
     android.view.KeyEvent.KEYCODE_BUTTON_R1 -> "R1"
     android.view.KeyEvent.KEYCODE_BUTTON_L2 -> "L2"
@@ -77,6 +81,21 @@ fun ControllerOverviewScreen(
     val showPresetsOverlay by viewModel.showPresetsOverlay.collectAsState()
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogMessage by remember { mutableStateOf("") }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Action Details") },
+            text = { Text(dialogMessage) },
+            confirmButton = {
+                TextButton({ showDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(uiState.config.buttonAssignments, selectedPreset, presets) {
         Logger.d("ControllerOverviewScreen", "buttonAssignments: ${uiState.config.buttonAssignments}")
@@ -93,183 +112,204 @@ fun ControllerOverviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
-                .pointerInteropFilter { event: android.view.InputEvent ->
-                    when (event) {
-                        is android.view.KeyEvent -> {
-                            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                                // Use existing handleKeyEvent logic from HandleControllerInputUseCase
-                                val action = viewModel.handleControllerInputUseCase.handleKeyEvent(event.keyCode, uiState.config.buttonAssignments)
-                                if (action != null) {
-                                    viewModel.triggerAppAction(action)
-                                }
-                            }
-                            true
-                        }
-                        is android.view.MotionEvent -> {
-                            if (event.source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK &&
-                                event.action == android.view.MotionEvent.ACTION_MOVE) {
-                                // For each joystick mapping, extract axes and publish
-                                uiState.config.joystickMappings.forEach { mapping ->
-                                    val device = event.device ?: return@forEach
-                                    val x = event.getAxisValue(mapping.axisX)
-                                    val y = event.getAxisValue(mapping.axisY)
-                                    val (qx, qy) = viewModel.handleControllerInputUseCase.handleJoystickInput(x, y, mapping)
-                                    val msgJson = when (mapping.type) {
-                                        "geometry_msgs/msg/Twist" ->
-                                            "{" +
-                                                "\"linear\": {\"x\": $qx, \"y\": 0.0, \"z\": 0.0}, " +
-                                                "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $qy}" +
-                                            "}"
-                                        "geometry_msgs/msg/TwistStamped" -> {
-                                            val now = System.currentTimeMillis()
-                                            val secs = now / 1000
-                                            val nsecs = (now % 1000) * 1_000_000
-                                            val twist = "{\"linear\": {\"x\": $qx, \"y\": 0.0, \"z\": 0.0}, " +
-                                                "\"angular\": {\"x\": 0.0, \"y\": 0.0, \"z\": $qy}}"
-                                            "{" +
-                                                "\"header\": {\"stamp\": {\"sec\": $secs, \"nanosec\": $nsecs}, \"frame_id\": \"\"}, " +
-                                                "\"twist\": $twist" +
-                                            "}"
-                                        }
-                                        else ->
-                                            // Fallback: just send x/y as fields
-                                            "{" +
-                                                "\"x\": $qx, \"y\": $qy" +
-                                            "}"
-                                    }
-                                    val topic = mapping.topic?.value ?: return@forEach
-                                    val type = mapping.type ?: return@forEach
-                                    val action = AppAction(
-                                        id = "joystick_${mapping.displayName}",
-                                        displayName = mapping.displayName,
-                                        topic = topic,
-                                        type = type,
-                                        source = "joystick",
-                                        msg = msgJson,
-                                        rosMessageType = type
-                                    )
-                                    viewModel.triggerAppAction(action)
-                                }
-                                true
-                            } else false
-                        }
-                        else -> false
-                    }
-                }
         ) {
-            // Use BoxWithConstraints for future layout logic if needed
-            // Background image if provided
 
-            // Main layout: triggers, joysticks, ABXY plus, select/start
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
             ) {
-                // L1/L2 (top left)
                 Column(
                     modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text("L1", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["L1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["L1"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["L1"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                     Spacer(Modifier.height(8.dp))
                     Text("L2", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["L2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["L2"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["L2"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                 }
-                // R1/R2 (top right)
                 Column(
                     modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
                     horizontalAlignment = Alignment.End
                 ) {
                     Text("R1", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["R1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["R1"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["R1"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                     Spacer(Modifier.height(8.dp))
                     Text("R2", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["R2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["R2"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["R2"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                 }
-                // Left joystick (center left)
                 Column(
                     modifier = Modifier.align(Alignment.CenterStart).padding(8.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text("Left Joystick", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["LeftJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["LeftJoystick"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["LeftJoystick"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                 }
-                // Right joystick (center right)
                 Column(
                     modifier = Modifier.align(Alignment.CenterEnd).padding(8.dp),
                     horizontalAlignment = Alignment.End
                 ) {
                     Text("Right Joystick", style = MaterialTheme.typography.bodyMedium)
-                    Text(uiState.config.buttonAssignments["RightJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["RightJoystick"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["RightJoystick"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                 }
-                // Select/Start (bottom center)
                 Row(
                     modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Select", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.width(8.dp))
-                    Text(uiState.config.buttonAssignments["Select"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["Select"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["Select"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                     Spacer(Modifier.width(24.dp))
                     Text("Start", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.width(8.dp))
-                    Text(uiState.config.buttonAssignments["Start"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = uiState.config.buttonAssignments["Start"]?.displayName ?: "<none>",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.clickable {
+                            uiState.config.buttonAssignments["Start"]?.let {
+                                dialogMessage = it.msg
+                                showDialog = true
+                            }
+                        }
+                    )
                 }
-                // ABXY plus layout (center, plus)
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(230.dp)
                         .zIndex(1f)
                 ) {
-                    // Y (top)
-                    ControllerButton(
-                        labelText = "Y",
-                        assignedAction = uiState.config.buttonAssignments["Y"],
-                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["Y"]!!) },
-                        onRelease = { },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .offset(y = (32).dp),
-                        textAlignCenter = true
-                    )
-                    // X (left)
-                    ControllerButton(
-                        labelText = "X",
-                        assignedAction = uiState.config.buttonAssignments["X"],
-                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["X"]!!) },
-                        onRelease = { },
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .offset(x = (32).dp),
-                        textAlignCenter = true
-                    )
-                    // B (right)
-                    ControllerButton(
-                        labelText = "B",
-                        assignedAction = uiState.config.buttonAssignments["B"],
-                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["B"]!!) },
-                        onRelease = { },
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .offset(x = (-32).dp),
-                        textAlignCenter = true
-                    )
-                    // A (bottom)
-                    ControllerButton(
-                        labelText = "A",
-                        assignedAction = uiState.config.buttonAssignments["A"],
-                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["A"]!!) },
-                        onRelease = { },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .offset(y = (-32).dp),
-                        textAlignCenter = true
-                    )
+                    val buttons = listOf("Y", "X", "B", "A")
+                    buttons.forEach { button ->
+                        val buttonName = "Button $button"
+                        val assignedAction = uiState.config.buttonAssignments[buttonName]
+                        ControllerButton(
+                            labelText = button,
+                            assignedAction = assignedAction,
+                            onPress = { assignedAction?.let { viewModel.triggerAppAction(it) } },
+                            onRelease = { },
+                            modifier = Modifier
+                                .align(
+                                    when (button) {
+                                        "Y" -> Alignment.TopCenter
+                                        "X" -> Alignment.CenterStart
+                                        "B" -> Alignment.CenterEnd
+                                        "A" -> Alignment.BottomCenter
+                                        else -> Alignment.Center
+                                    }
+                                )
+                                .offset(
+                                    x = when (button) {
+                                        "X" -> 32.dp
+                                        "B" -> (-32).dp
+                                        else -> 0.dp
+                                    },
+                                    y = when (button) {
+                                        "Y" -> 32.dp
+                                        "A" -> (-32).dp
+                                        else -> 0.dp
+                                    }
+                                ),
+                            textAlignCenter = true
+                        )
+                        Text(
+                            text = assignedAction?.displayName ?: "<none>",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier
+                                .align(
+                                    when (button) {
+                                        "Y" -> Alignment.TopCenter
+                                        "X" -> Alignment.CenterStart
+                                        "B" -> Alignment.CenterEnd
+                                        "A" -> Alignment.BottomCenter
+                                        else -> Alignment.Center
+                                    }
+                                )
+                                .offset(
+                                    x = when (button) {
+                                        "X" -> 32.dp
+                                        "B" -> (-32).dp
+                                        else -> 0.dp
+                                    },
+                                    y = when (button) {
+                                        "Y" -> 72.dp
+                                        "A" -> (-72).dp
+                                        else -> 0.dp
+                                    }
+                                )
+                                .clickable {
+                                    assignedAction?.let {
+                                        dialogMessage = it.msg
+                                        showDialog = true
+                                    }
+                                }
+                        )
+                    }
                 }
-                // Preset name (top center)
                 Text(
                     text = selectedPreset?.name ?: "No Preset Selected",
                     style = MaterialTheme.typography.titleLarge,
@@ -277,7 +317,6 @@ fun ControllerOverviewScreen(
                 )
             }
 
-            // Presets overlay popup (bottom anchored, only visible when swapping)
             if (showPresetsOverlay) {
                 Box(
                     modifier = Modifier
@@ -314,7 +353,6 @@ fun ControllerOverviewScreen(
                 }
             }
         }
-        // Show overlay when preset swap is triggered
 
         LaunchedEffect(showPresetsOverlay) {
             if (showPresetsOverlay) {

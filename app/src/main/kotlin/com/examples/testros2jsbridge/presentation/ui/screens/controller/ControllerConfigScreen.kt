@@ -107,7 +107,10 @@ fun ControllerConfigScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { viewModel.saveConfig() },
+                        onClick = {
+                            viewModel.saveConfig()
+                            navigator.popBackStack()
+                        },
                         enabled = hasUnsavedChanges && uiState.config.name.isNotBlank(),
                         modifier = Modifier.height(36.dp)
                     ) {

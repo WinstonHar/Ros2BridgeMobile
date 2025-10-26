@@ -62,7 +62,7 @@ class AppActionRepositoryImpl @Inject constructor(
             rosMessageType = rosMessageType, // use the new field
             messageJsonTemplate = msg,
             rosProtocolType = protocolType,
-            protocolPackageName = source,
+            protocolPackageName = source ?: "",
             protocolName = displayName
         )
     }
@@ -105,7 +105,11 @@ class AppActionRepositoryImpl @Inject constructor(
     }
 
     override fun publishMessage(message: RosMessage) {
-        // TODO: Implement message publishing via rosbridgeClient
+        if (message.type == "internal") return
+        val advertiseMsg = "{\"op\": \"advertise\", \"topic\": \"${message.topic.value}\", \"type\": \"${message.type}\"}"
+        rosbridgeClient.send(advertiseMsg)
+        val publishMsg = "{\"op\": \"publish\", \"topic\": \"${message.topic.value}\", \"msg\": ${message.content}}"
+        rosbridgeClient.send(publishMsg)
     }
 
     override fun clearCustomMessage() {
