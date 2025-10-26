@@ -3,9 +3,11 @@ package com.examples.testros2jsbridge.di
 import android.content.Context
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ControllerConfigDao
 import com.examples.testros2jsbridge.data.local.database.dao.ControllerDao
 import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.SelectedConfigDao
 import com.examples.testros2jsbridge.data.repository.AppActionRepositoryImpl
 import com.examples.testros2jsbridge.data.repository.ConfigurationRepositoryImpl
 import com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl
@@ -68,10 +70,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideControllerRepository(
-        controllerDao: ControllerDao,
-        appActionDao: AppActionDao
+        appActionDao: AppActionDao,
+        selectedConfigDao: SelectedConfigDao,
+        controllerConfigDao: ControllerConfigDao
     ): ControllerRepository = 
-        ControllerRepositoryImpl(controllerDao, appActionDao)
+        ControllerRepositoryImpl(appActionDao, selectedConfigDao, controllerConfigDao)
 
     @Provides
     @Singleton

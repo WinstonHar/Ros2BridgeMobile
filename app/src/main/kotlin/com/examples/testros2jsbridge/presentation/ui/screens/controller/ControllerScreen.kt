@@ -254,7 +254,7 @@ fun ControllerScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         uiState.controllerButtons.forEach { btn ->
                             Logger.d("ControllerScreen","Button: $btn")
-                            val action = uiState.buttonAssignments[btn]
+                            val action = uiState.config.buttonAssignments[btn]
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -459,7 +459,7 @@ fun ControllerScreen(
                         Text(text = "$btn:", modifier = Modifier.padding(end = 4.dp))
                         TopicSelector(
                             topics = uiState.appActions,
-                            selectedTopic = uiState.buttonAssignments[btn],
+                            selectedTopic = uiState.config.buttonAssignments[btn],
                             onTopicSelected = { action ->
                                 viewModel.assignAbxyButton(btn, action?.displayName ?: "", context = context)
                             },

@@ -50,6 +50,16 @@ object DatabaseModule {
     }
 
     @Provides
+    fun provideSelectedConfigDao(database: ControllerDatabase): SelectedConfigDao {
+        return database.selectedConfigDao()
+    }
+
+    @Provides
+    fun provideControllerConfigDao(database: ControllerDatabase): ControllerConfigDao {
+        return database.controllerConfigDao()
+    }
+
+    @Provides
     fun provideAppActionDao(database: AppActionDatabase): AppActionDao {
         return database.appActionDao()
     }

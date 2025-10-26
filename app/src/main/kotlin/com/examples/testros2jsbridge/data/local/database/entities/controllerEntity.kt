@@ -9,3 +9,10 @@ data class Controller(
     val controllerId: Long = 0,
     val controllerName: String // e.g., "Logitech F310"
 )
+
+@Entity(tableName = "selected_config")
+data class SelectedConfig(
+    @PrimaryKey
+    val id: Int = 1,
+    val selectedConfigName: String
+)

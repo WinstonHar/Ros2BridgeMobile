@@ -45,14 +45,10 @@ fun ControllerConfigScreen(
     uiState.selectedPreset?.name
     val joystickMappings = uiState.config.joystickMappings
     rememberScrollState()
-    val buttonAssignments by viewModel.buttonAssignments.collectAsState()
     val hasUnsavedChanges by viewModel.hasUnsavedChanges.collectAsState()
 
-    val controllerConfigs = uiState.controllerConfigs
-    LaunchedEffect(configName, controllerConfigs) {
-        if (configName.isNotBlank() && controllerConfigs.isNotEmpty()) {
-            viewModel.selectControllerConfig(configName)
-        }
+    LaunchedEffect(Unit) {
+        viewModel.selectControllerConfig(configName)
     }
 
     val buttonRows = listOf(
@@ -133,7 +129,7 @@ fun ControllerConfigScreen(
                                     )
                                     TopicSelector(
                                         topics = appActions,
-                                        selectedTopic = buttonAssignments[btn],
+                                        selectedTopic = uiState.config.buttonAssignments[btn],
                                         onTopicSelected = { action ->
                                             viewModel.assignButton(btn, action, context = context)
                                         },

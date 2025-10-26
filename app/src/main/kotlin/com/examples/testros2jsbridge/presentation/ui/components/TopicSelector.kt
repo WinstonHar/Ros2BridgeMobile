@@ -31,9 +31,8 @@ fun TopicSelector(
                     expanded = !expanded
                 }
             ) {
-                val selectedId = selectedTopic?.id
                 OutlinedTextField(
-                    value = topics.find { it.id == selectedId }?.displayName ?: "",
+                    value = selectedTopic?.displayName ?: "",
                     onValueChange = {},
                     label = { Text(label) },
                     readOnly = true,
@@ -54,7 +53,7 @@ fun TopicSelector(
                     }
                 ) {
                     topics.forEach { topic ->
-                        val isSelected = topic.id == selectedId
+                        val isSelected = topic.id == selectedTopic?.id
                         DropdownMenuItem(
                             text = { Text(topic.displayName) },
                             onClick = {

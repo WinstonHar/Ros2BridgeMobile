@@ -7,13 +7,14 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
+import com.examples.testros2jsbridge.data.local.database.entities.ControllerConfigEntity
 
 @Database(
-    entities = [AppActionEntity::class], // Only includes the AppAction entity
-    version = 1,
+    entities = [AppActionEntity::class, ControllerConfigEntity::class],
+    version = 2,
     exportSchema = false
 )
-@TypeConverters(DatabaseConverters::class) // For the RosProtocolType enum
+@TypeConverters(DatabaseConverters::class)
 abstract class AppActionDatabase : RoomDatabase() {
 
     abstract fun appActionDao(): AppActionDao

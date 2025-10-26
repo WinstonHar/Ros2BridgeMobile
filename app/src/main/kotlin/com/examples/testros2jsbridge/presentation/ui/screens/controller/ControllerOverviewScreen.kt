@@ -59,26 +59,26 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
     else -> null
 }
 
+data class ControllerOverviewScreenNavArgs(
+    val selectedConfigName: String
+)
+
 @OptIn(ExperimentalComposeUiApi::class)
-@Destination
+@Destination(navArgsDelegate = ControllerOverviewScreenNavArgs::class)
 @Composable
 fun ControllerOverviewScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
-    selectedConfigName: String,
     navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val config = uiState.controllerConfigs.find { it.name == selectedConfigName }
-    val buttonAssignments = config?.buttonAssignments ?: emptyMap()
     val selectedPreset by viewModel.selectedPreset.collectAsState()
     val presets by viewModel.presets.collectAsState()
     val showPresetsOverlay by viewModel.showPresetsOverlay.collectAsState()
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    LaunchedEffect(selectedConfigName, config, selectedPreset, presets) {
-        Logger.d("ControllerOverviewScreen", "selectedConfigName: $selectedConfigName")
-        Logger.d("ControllerOverviewScreen", "config: ${config?.name} (exists: ${config != null})")
+    LaunchedEffect(uiState.config.buttonAssignments, selectedPreset, presets) {
+        Logger.d("ControllerOverviewScreen", "buttonAssignments: ${uiState.config.buttonAssignments}")
         Logger.d("ControllerOverviewScreen", "presets: ${presets.joinToString { it.name }}")
         Logger.d("ControllerOverviewScreen", "selectedPreset: ${selectedPreset?.name}")
     }
@@ -97,7 +97,7 @@ fun ControllerOverviewScreen(
                         is android.view.KeyEvent -> {
                             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                                 // Use existing handleKeyEvent logic from HandleControllerInputUseCase
-                                val action = viewModel.handleControllerInputUseCase.handleKeyEvent(event.keyCode, buttonAssignments)
+                                val action = viewModel.handleControllerInputUseCase.handleKeyEvent(event.keyCode, uiState.config.buttonAssignments)
                                 if (action != null) {
                                     viewModel.triggerAppAction(action)
                                 }
@@ -108,7 +108,7 @@ fun ControllerOverviewScreen(
                             if (event.source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK &&
                                 event.action == android.view.MotionEvent.ACTION_MOVE) {
                                 // For each joystick mapping, extract axes and publish
-                                config?.joystickMappings?.forEach { mapping ->
+                                uiState.config.joystickMappings.forEach { mapping ->
                                     val device = event.device ?: return@forEach
                                     val x = event.getAxisValue(mapping.axisX)
                                     val y = event.getAxisValue(mapping.axisY)
@@ -170,10 +170,10 @@ fun ControllerOverviewScreen(
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text("L1", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["L1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["L1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     Text("L2", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["L2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["L2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
                 // R1/R2 (top right)
                 Column(
@@ -181,10 +181,10 @@ fun ControllerOverviewScreen(
                     horizontalAlignment = Alignment.End
                 ) {
                     Text("R1", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["R1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["R1"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.height(8.dp))
                     Text("R2", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["R2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["R2"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
                 // Left joystick (center left)
                 Column(
@@ -192,7 +192,7 @@ fun ControllerOverviewScreen(
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text("Left Joystick", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["LeftJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["LeftJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
                 // Right joystick (center right)
                 Column(
@@ -200,7 +200,7 @@ fun ControllerOverviewScreen(
                     horizontalAlignment = Alignment.End
                 ) {
                     Text("Right Joystick", style = MaterialTheme.typography.bodyMedium)
-                    Text(buttonAssignments["RightJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["RightJoystick"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
                 // Select/Start (bottom center)
                 Row(
@@ -209,11 +209,11 @@ fun ControllerOverviewScreen(
                 ) {
                     Text("Select", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.width(8.dp))
-                    Text(buttonAssignments["Select"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["Select"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.width(24.dp))
                     Text("Start", style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.width(8.dp))
-                    Text(buttonAssignments["Start"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
+                    Text(uiState.config.buttonAssignments["Start"]?.displayName ?: "<none>", style = MaterialTheme.typography.bodySmall)
                 }
                 // ABXY plus layout (center, plus)
                 Box(
@@ -225,9 +225,9 @@ fun ControllerOverviewScreen(
                     // Y (top)
                     ControllerButton(
                         labelText = "Y",
-                        assignedAction = buttonAssignments["Y"],
-                        onPress = { viewModel.triggerAppAction(buttonAssignments["Y"]!!) },
-                        onRelease = {},
+                        assignedAction = uiState.config.buttonAssignments["Y"],
+                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["Y"]!!) },
+                        onRelease = { },
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .offset(y = (32).dp),
@@ -236,9 +236,9 @@ fun ControllerOverviewScreen(
                     // X (left)
                     ControllerButton(
                         labelText = "X",
-                        assignedAction = buttonAssignments["X"],
-                        onPress = { viewModel.triggerAppAction(buttonAssignments["X"]!!) },
-                        onRelease = {},
+                        assignedAction = uiState.config.buttonAssignments["X"],
+                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["X"]!!) },
+                        onRelease = { },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .offset(x = (32).dp),
@@ -247,9 +247,9 @@ fun ControllerOverviewScreen(
                     // B (right)
                     ControllerButton(
                         labelText = "B",
-                        assignedAction = buttonAssignments["B"],
-                        onPress = { viewModel.triggerAppAction(buttonAssignments["B"]!!) },
-                        onRelease = {},
+                        assignedAction = uiState.config.buttonAssignments["B"],
+                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["B"]!!) },
+                        onRelease = { },
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .offset(x = (-32).dp),
@@ -258,9 +258,9 @@ fun ControllerOverviewScreen(
                     // A (bottom)
                     ControllerButton(
                         labelText = "A",
-                        assignedAction = buttonAssignments["A"],
-                        onPress = { viewModel.triggerAppAction(buttonAssignments["A"]!!) },
-                        onRelease = {},
+                        assignedAction = uiState.config.buttonAssignments["A"],
+                        onPress = { viewModel.triggerAppAction(uiState.config.buttonAssignments["A"]!!) },
+                        onRelease = { },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .offset(y = (-32).dp),

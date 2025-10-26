@@ -13,7 +13,6 @@ data class ControllerUiState(
     val appActions: List<AppAction> = emptyList(),
     val presets: List<ControllerPreset> = emptyList(),
     val selectedPreset: ControllerPreset? = null,
-    val buttonAssignments: Map<String, AppAction> = emptyMap(),
     val isLoading: Boolean = false,
     val showErrorDialog: Boolean = false,
     val errorMessage: String? = null,
