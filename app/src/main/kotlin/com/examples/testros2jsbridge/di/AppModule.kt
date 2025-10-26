@@ -3,6 +3,7 @@ package com.examples.testros2jsbridge.di
 import android.content.Context
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ControllerDao
 import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
 import com.examples.testros2jsbridge.data.repository.AppActionRepositoryImpl
@@ -66,8 +67,11 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideControllerRepository(app: Context): ControllerRepository =
-        ControllerRepositoryImpl(app, app.getSharedPreferences("ros2_prefs", Context.MODE_PRIVATE))
+    fun provideControllerRepository(
+        controllerDao: ControllerDao,
+        appActionDao: AppActionDao
+    ): ControllerRepository = 
+        ControllerRepositoryImpl(controllerDao, appActionDao)
 
     @Provides
     @Singleton
