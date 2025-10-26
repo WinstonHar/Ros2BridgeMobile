@@ -3,6 +3,7 @@ package com.examples.testros2jsbridge.data.mapper
 import com.examples.testros2jsbridge.data.local.database.entities.ControllerConfigEntity
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
+import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.model.RosId
 
 fun ControllerConfig.toEntity(): ControllerConfigEntity {
@@ -13,7 +14,8 @@ fun ControllerConfig.toEntity(): ControllerConfigEntity {
         invertYAxis = this.invertYAxis,
         deadZone = this.deadZone,
         joystickPublishRate = this.joystickPublishRate,
-        buttonAssignments = this.buttonAssignments.mapValues { it.value.id }
+        buttonAssignments = this.buttonAssignments.mapValues { it.value.id },
+        joystickMappings = this.joystickMappings
     )
 }
 
@@ -29,6 +31,7 @@ fun ControllerConfigEntity.toDomain(appActions: List<AppAction>): ControllerConf
         invertYAxis = this.invertYAxis,
         deadZone = this.deadZone,
         joystickPublishRate = this.joystickPublishRate,
-        buttonAssignments = buttonAssignments
+        buttonAssignments = buttonAssignments,
+        joystickMappings = this.joystickMappings
     )
 }

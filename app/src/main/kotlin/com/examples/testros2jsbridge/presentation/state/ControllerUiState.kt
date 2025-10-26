@@ -10,7 +10,7 @@ import com.examples.testros2jsbridge.domain.model.AppAction
 data class ControllerUiState(
     val config: ControllerConfig = ControllerConfig(),
     val controllerButtons: List<String> = emptyList(),
-    val appActions: List<AppAction> = emptyList(),
+    val appActions: List<com.examples.testros2jsbridge.domain.model.AppAction> = emptyList(),
     val presets: List<ControllerPreset> = emptyList(),
     val selectedPreset: ControllerPreset? = null,
     val isLoading: Boolean = false,

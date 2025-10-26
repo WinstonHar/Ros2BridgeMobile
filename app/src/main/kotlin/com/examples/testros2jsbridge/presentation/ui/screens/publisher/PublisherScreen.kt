@@ -362,16 +362,28 @@ fun PublisherScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = {
                         val id = UUID.randomUUID().toString()
-                        val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
+                        val selectedProtocol = selectedMsg ?: selectedSrv ?: selectedAct
+                        val fullType = if (selectedProtocol != null) {
+                            "${selectedProtocol.packageName}/${selectedProtocol.type.name.lowercase()}/${selectedProtocol.name}"
+                        } else {
+                            activeProtocol!!.type.name
+                        }
+                        val msgJson = viewModel.buildProtocolMsgJson(
+                            protocolFields = protocolFields,
+                            protocolFieldValues = protocolFieldValues,
+                            topicOverride = protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"],
+                            typeOverride = fullType
+                        )
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
                                 id = id,
-                                displayName = protocolFieldValues["displayName"] ?: activeProtocol!!.name,
+                                displayName = protocolFieldValues["topic"] ?: activeProtocol!!.name,
                                 topic = protocolFieldValues["topic"] ?: "",
-                                type = activeProtocol!!.type.name,
+                                type = fullType,
                                 source = activeProtocol!!.packageName,
-                                msg = msgJson
+                                msg = msgJson,
+                                rosMessageType = activeProtocol!!.type.name
                             )
                         )
                         keyboardController?.hide()
@@ -463,7 +475,6 @@ fun PublisherScreen(
                     }
                     Button(onClick = {
                         val id = editingAction?.id ?: UUID.randomUUID().toString()
-                        val msgJson = viewModel.buildProtocolMsgJson(protocolFields, protocolFieldValues, protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"])
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
@@ -472,7 +483,8 @@ fun PublisherScreen(
                                 topic = actionTopic.text,
                                 type = actionType.text,
                                 source = actionSource.text,
-                                msg = msgJson
+                                msg = actionMsg.text,
+                                rosMessageType = actionType.text // set from text field
                             )
                         )
                         viewModel.setEditingAppAction(null)

@@ -11,7 +11,7 @@ import com.examples.testros2jsbridge.data.local.database.entities.ControllerConf
 
 @Database(
     entities = [AppActionEntity::class, ControllerConfigEntity::class],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class)

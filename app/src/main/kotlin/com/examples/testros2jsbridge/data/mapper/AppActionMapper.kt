@@ -24,6 +24,7 @@ fun AppActionEntity.toDomain(): AppAction {
         topic = this.rosTopic,
         type = this.rosMessageType,
         source = "database",
-        msg = this.messageJsonTemplate
+        msg = this.messageJsonTemplate,
+        rosMessageType = this.rosProtocolType.name
     )
 }

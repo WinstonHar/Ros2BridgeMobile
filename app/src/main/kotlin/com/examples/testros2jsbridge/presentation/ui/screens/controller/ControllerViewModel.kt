@@ -88,7 +88,8 @@ class ControllerViewModel @Inject constructor(
         topic = "Controller",
         type = "internal",
         source = "internal",
-        msg = "Cycle to next preset"
+        msg = "Cycle to next preset",
+        rosMessageType = "internal"
     )
 
     private val cyclePresetBackwardAction = AppAction(
@@ -97,7 +98,8 @@ class ControllerViewModel @Inject constructor(
         topic = "Controller",
         type = "internal",
         source = "internal",
-        msg = "Cycle to previous preset"
+        msg = "Cycle to previous preset",
+        rosMessageType = "internal"
     )
 
     private var geometryActions: List<AppAction> = emptyList()
@@ -168,7 +170,8 @@ class ControllerViewModel @Inject constructor(
             topic = this.topic.value,
             type = this.type ?: "",
             source = "geometry",
-            msg = this.content ?: ""
+            msg = this.content ?: "",
+            rosMessageType = this.type ?: ""
         )
     }
 

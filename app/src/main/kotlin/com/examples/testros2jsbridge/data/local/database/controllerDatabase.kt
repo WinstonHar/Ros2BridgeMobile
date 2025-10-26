@@ -24,7 +24,7 @@ import com.examples.testros2jsbridge.data.local.database.entities.SelectedConfig
         SelectedConfig::class,
         ControllerConfigEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class) // For the InputType enum

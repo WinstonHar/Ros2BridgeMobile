@@ -59,29 +59,23 @@ class AppActionRepositoryImpl @Inject constructor(
             appActionId = id,
             displayName = displayName,
             rosTopic = topic,
-            rosMessageType = msgType ?: "",
+            rosMessageType = rosMessageType, // use the new field
             messageJsonTemplate = msg,
             rosProtocolType = protocolType,
-            protocolPackageName = source, // 'source' from AppAction maps to 'protocolPackageName'
+            protocolPackageName = source,
             protocolName = displayName
         )
     }
 
     private fun AppActionEntity.toDomain(): AppAction {
-        val domainType = when (rosProtocolType) {
-            RosProtocolType.PUBLISHER -> "MSG"
-            RosProtocolType.SUBSCRIBER -> "MSG" // Also mapping SUBSCRIBER to MSG for the UI
-            RosProtocolType.SERVICE_CLIENT -> "SRV"
-            RosProtocolType.ACTION_CLIENT -> "ACTION"
-        }
         return AppAction(
             id = appActionId,
             displayName = displayName,
             topic = rosTopic,
-            type = domainType,
-            msgType = rosMessageType,
+            type = rosMessageType,
             source = protocolPackageName ?: "",
-            msg = messageJsonTemplate
+            msg = messageJsonTemplate,
+            rosMessageType = rosProtocolType.name // set from the entity
         )
     }
 
@@ -200,13 +194,11 @@ class AppActionRepositoryImpl @Inject constructor(
             for (file in files) {
                 if (file.endsWith(extension)) {
                     val filePath = "$filesPath/$file"
-                    val msgType = readFileContent(assetManager, filePath)
                     protocols.add(
                         CustomProtocol(
                             name = file.removeSuffix(extension),
                             importPath = filePath,
                             type = type,
-                            msgType = msgType,
                             packageName = packageName
                         )
                     )

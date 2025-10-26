@@ -86,9 +86,9 @@ class ProtocolViewModel @Inject constructor(
         val actions = allActions.filter { it.packageName == packageName }
 
         _uiState.value = _uiState.value.copy(
-            availableMessages = messages.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.MSG) },
-            availableServices = services.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.SRV) },
-            availableActions = actions.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.ACTION) }
+            availableMessages = messages.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.MSG, it.packageName) },
+            availableServices = services.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.SRV, it.packageName) },
+            availableActions = actions.map { ProtocolUiState.ProtocolFile(it.name, it.importPath, ProtocolUiState.ProtocolType.ACTION, it.packageName) }
         )
     }
 
@@ -228,13 +228,14 @@ class ProtocolViewModel @Inject constructor(
     fun buildProtocolMsgJson(
         protocolFields: List<ProtocolField>,
         protocolFieldValues: Map<String, String>,
-        topicOverride: String? = null
+        topicOverride: String? = null,
+        typeOverride: String? = null // Add this
     ): String {
         fun cleanFieldName(name: String): String = name.split("#")[0].trim()
 
         val protocolType = activeProtocol.value?.type
         val resolvedTopic = topicOverride ?: protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "/"
-        val resolvedTypeString = activeProtocol.value?.typeString ?: ""
+        val resolvedTypeString = typeOverride ?: activeProtocol.value?.typeString ?: ""
         when (protocolType) {
             CustomProtocol.Type.MSG -> rosBridgeViewModel?.advertiseTopic(resolvedTopic, resolvedTypeString)
             CustomProtocol.Type.SRV -> rosBridgeViewModel?.advertiseService(resolvedTopic, resolvedTypeString)
@@ -273,6 +274,7 @@ class ProtocolViewModel @Inject constructor(
         val envelope = "{" +
             "\"op\": \"publish\"," +
             "\"topic\": \"$resolvedTopic\"," +
+            "\"type\": \"$resolvedTypeString\"," +
             "\"msg\": $msgJson" +
             "}"
         return envelope

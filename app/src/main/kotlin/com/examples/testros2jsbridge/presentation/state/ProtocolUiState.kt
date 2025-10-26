@@ -14,7 +14,8 @@ data class ProtocolUiState(
     data class ProtocolFile(
         val name: String,
         val importPath: String,
-        val type: ProtocolType
+        val type: ProtocolType,
+        val packageName: String // Add this line
     )
 
     enum class ProtocolType { MSG, SRV, ACTION }

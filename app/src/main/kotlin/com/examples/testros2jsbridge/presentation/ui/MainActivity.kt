@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.presentation.ui.screens.NavGraphs
+import com.examples.testros2jsbridge.presentation.ui.screens.destinations.ControllerOverviewScreenDestination
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel
 import com.examples.testros2jsbridge.presentation.ui.theme.Ros2BridgeTheme
 import com.ramcosta.composedestinations.DestinationsNavHost
@@ -152,7 +153,10 @@ class MainActivity : ComponentActivity() {
                             DestinationsNavHost(
                                 navController = navController,
                                 navGraph = NavGraphs.root,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
+                                dependenciesContainerBuilder = {
+                                    dependency(ControllerOverviewScreenDestination) { controllerViewModel }
+                                }
                             )
                         }
                     }

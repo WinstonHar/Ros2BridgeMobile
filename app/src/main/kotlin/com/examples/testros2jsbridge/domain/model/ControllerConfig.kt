@@ -1,7 +1,5 @@
 package com.examples.testros2jsbridge.domain.model
 
-import kotlinx.serialization.Serializable
-
 import org.yaml.snakeyaml.Yaml
 import java.io.StringWriter
 
@@ -95,33 +93,3 @@ fun ControllerConfig.Companion.fromMap(map: Map<String, Any?>): ControllerConfig
             name = map["name"] as? String ?: "Unnamed Config"
         )
     }
-
-// These should be in their own files, but for reference:
-data class JoystickMapping(
-    val displayName: String = "",
-    val topic: RosId? = null,
-    val type: String? = "",
-    val axisX: Int = 0,
-    val axisY: Int = 1,
-    val max: Float? = 1.0f,
-    val step: Float? = 0.2f,
-    val deadzone: Float? = 0.1f
-)
-
-data class ControllerPreset(
-    val name: String = "Preset",
-    val topic: RosId? = null,
-    val buttonAssignments: Map<String, AppAction> = emptyMap(),
-    val joystickMappings: List<JoystickMapping> = emptyList()
-)
-
-@Serializable
-data class AppAction(
-    val id: String, // Unique identifier for persistence
-    val displayName: String,
-    val topic: String,
-    val type: String,
-    val msgType: String? = "Hello",
-    val source: String,
-    val msg: String = ""
-)

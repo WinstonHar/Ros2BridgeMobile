@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
@@ -138,13 +139,14 @@ fun ControllerOverviewScreen(
                                     }
                                     val topic = mapping.topic?.value ?: return@forEach
                                     val type = mapping.type ?: return@forEach
-                                    val action = com.examples.testros2jsbridge.domain.model.AppAction(
+                                    val action = AppAction(
                                         id = "joystick_${mapping.displayName}",
                                         displayName = mapping.displayName,
                                         topic = topic,
                                         type = type,
                                         source = "joystick",
-                                        msg = msgJson
+                                        msg = msgJson,
+                                        rosMessageType = type
                                     )
                                     viewModel.triggerAppAction(action)
                                 }

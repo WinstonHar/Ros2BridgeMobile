@@ -13,9 +13,9 @@ import com.examples.testros2jsbridge.domain.model.AppAction
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopicSelector(
-    topics: List<AppAction>,
-    selectedTopic: AppAction?,
-    onTopicSelected: (AppAction?) -> Unit,
+    topics: List<com.examples.testros2jsbridge.domain.model.AppAction>,
+    selectedTopic: com.examples.testros2jsbridge.domain.model.AppAction?,
+    onTopicSelected: (com.examples.testros2jsbridge.domain.model.AppAction?) -> Unit,
     label: String = "Select Topic"
 ) {
     var expanded by remember { mutableStateOf(false) }
