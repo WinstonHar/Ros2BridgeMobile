@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 
 @Entity(tableName = "app_action")
-data class AppAction(
+data class AppActionEntity(
     @PrimaryKey(autoGenerate = true)
     val appActionId: Long = 0,
     val displayName: String,

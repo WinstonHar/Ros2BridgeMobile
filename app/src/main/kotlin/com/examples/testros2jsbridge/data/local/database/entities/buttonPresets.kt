@@ -50,7 +50,8 @@ data class ButtonPresets(
             childColumns = ["mappingId"],
             onDelete = ForeignKey.CASCADE
         )
-    ]
+    ],
+    indices = [Index("mappingId")]
 )
 data class PresetButtonMapCrossRef(
     val configId: Long,

@@ -6,10 +6,10 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
-import com.examples.testros2jsbridge.data.local.database.entities.AppAction
+import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
 
 @Database(
-    entities = [AppAction::class], // Only includes the AppAction entity
+    entities = [AppActionEntity::class], // Only includes the AppAction entity
     version = 1,
     exportSchema = false
 )
