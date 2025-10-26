@@ -94,9 +94,7 @@ fun CustomProtocolScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.loadPackageNames(context)
-        viewModel.loadProtocols(context)
-        viewModel.loadCustomAppActions(context)
+        viewModel.initialLoad(context)
     }
 
     // For hiding keyboard
@@ -111,7 +109,7 @@ fun CustomProtocolScreen(
             modifier = Modifier
                 .fillMaxSize()
         ) {
-        
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -119,8 +117,8 @@ fun CustomProtocolScreen(
                 Text(text = "Create App Action", style = MaterialTheme.typography.titleLarge)
             }
             Spacer(modifier = Modifier.height(8.dp))
-        
-        
+
+
             // Dropdown for dynamically loaded package names
             ExposedDropdownMenuBox(
                 expanded = isDropdownExpanded,
@@ -144,16 +142,16 @@ fun CustomProtocolScreen(
                             onClick = {
                                 isDropdownExpanded = false
                                 selectedPackageName = packageName
-                                viewModel.loadAvailableProtocols(context, packageName)
+                                viewModel.onPackageSelected(packageName)
                             }
                         )
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-        
+
             // Dropdowns for each protocol type
-        
+
             var expandedMsg by remember { mutableStateOf(false) }
             var expandedSrv by remember { mutableStateOf(false) }
             var expandedAct by remember { mutableStateOf(false) }
@@ -191,7 +189,6 @@ fun CustomProtocolScreen(
                                 coroutineScope.launch {
                                     viewModel.loadProtocolFields(
                                         context,
-                                        packageName = selectedPackageName,
                                         selectedProtocol = proto
                                     )
                                 }
@@ -232,7 +229,6 @@ fun CustomProtocolScreen(
                                 coroutineScope.launch {
                                     viewModel.loadProtocolFields(
                                         context,
-                                        packageName = selectedPackageName,
                                         selectedProtocol = proto
                                     )
                                 }
@@ -273,7 +269,6 @@ fun CustomProtocolScreen(
                                 coroutineScope.launch {
                                     viewModel.loadProtocolFields(
                                         context,
-                                        packageName = selectedPackageName,
                                         selectedProtocol = proto
                                     )
                                 }
@@ -282,7 +277,7 @@ fun CustomProtocolScreen(
                     }
                 }
             }
-        
+
             // Dynamic protocol fields for selected protocol
             if (activeProtocol != null && protocolFields.isNotEmpty()) {
 
@@ -377,10 +372,10 @@ fun CustomProtocolScreen(
                     Text("Save as App Action")
                 }
             }
-        
+
             Spacer(modifier = Modifier.height(24.dp))
-        
-        
+
+
             // App Action Editor with IME navigation (Next/Done)
             Text(
                 text = if (editingAction == null) "Create Custom App Action" else "Edit Custom App Action",
@@ -483,9 +478,9 @@ fun CustomProtocolScreen(
                     Text(if (editingAction == null) "Save App Action" else "Update App Action")
                 }
             }
-        
+
             Spacer(modifier = Modifier.height(24.dp))
-        
+
             // List of saved custom app actions (Legacy moved to publisher list screen)
             /*
             Text(text = "Custom App Actions", style = MaterialTheme.typography.titleMedium)
@@ -538,11 +533,11 @@ fun CustomProtocolScreen(
                 }
             }
              */
-        
+
             if (uiState.isImporting) {
                 CircularProgressIndicator(modifier = Modifier.padding(8.dp))
             }
-        
+
             if (uiState.showErrorDialog && uiState.errorMessage != null) {
                 AlertDialog(
                     onDismissRequest = viewModel::dismissErrorDialog,

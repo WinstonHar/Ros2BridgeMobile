@@ -1,6 +1,8 @@
 package com.examples.testros2jsbridge.data.repository
 
 import android.content.Context
+import android.content.res.AssetManager
+import androidx.core.content.edit
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
 import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
@@ -11,9 +13,10 @@ import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,7 +49,7 @@ class AppActionRepositoryImpl @Inject constructor(
         }
 
         val actionsJson = json.encodeToString(actions)
-        sharedPreferences.edit().putString("custom_actions", actionsJson).apply()
+        sharedPreferences.edit { putString("custom_actions", actionsJson) }
 
         return if (existingIndex >= 0) existingIndex else actions.size - 1
     }
@@ -65,12 +68,15 @@ class AppActionRepositoryImpl @Inject constructor(
         actions.removeAll { it.id == actionId }
 
         val actionsJson = json.encodeToString(actions)
-        sharedPreferences.edit().putString("custom_actions", actionsJson).apply()
+        sharedPreferences.edit { putString("custom_actions", actionsJson) }
     }
 
     override suspend fun getAvailablePackages(context: Context): List<String> {
-        // TODO: Implement package discovery logic
-        return listOf("std_msgs", "geometry_msgs", "sensor_msgs", "nav_msgs")
+        return try {
+            context.assets.list("msgs")?.toList() ?: emptyList()
+        } catch (e: IOException) {
+            emptyList()
+        }
     }
 
     override suspend fun saveMessage(message: RosMessageDto) {
@@ -106,22 +112,102 @@ class AppActionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMessageFiles(context: Context): List<CustomProtocol> {
-        // TODO: Implement message file discovery from assets or filesystem
-        return emptyList()
+        return discoverFiles(context, ".msg", CustomProtocol.Type.MSG)
     }
 
     override suspend fun getServiceFiles(context: Context): List<CustomProtocol> {
-        // TODO: Implement service file discovery from assets or filesystem
-        return emptyList()
+        return discoverFiles(context, ".srv", CustomProtocol.Type.SRV)
     }
 
     override suspend fun getActionFiles(context: Context): List<CustomProtocol> {
-        // TODO: Implement action file discovery from assets or filesystem
-        return emptyList()
+        return discoverFiles(context, ".action", CustomProtocol.Type.ACTION)
     }
 
     override suspend fun importProtocols(context: Context, selected: Set<String>): List<CustomProtocol> {
-        // TODO: Implement protocol import logic
-        return emptyList()
+        val protocols = mutableListOf<CustomProtocol>()
+        selected.forEach { packageName ->
+            protocols.addAll(discoverAndReadFiles(context, packageName, ".msg", CustomProtocol.Type.MSG))
+            protocols.addAll(discoverAndReadFiles(context, packageName, ".srv", CustomProtocol.Type.SRV))
+            protocols.addAll(discoverAndReadFiles(context, packageName, ".action", CustomProtocol.Type.ACTION))
+        }
+        return protocols
+    }
+
+    private fun discoverFiles(context: Context, extension: String, type: CustomProtocol.Type): List<CustomProtocol> {
+        val protocols = mutableListOf<CustomProtocol>()
+        val assetManager = context.assets
+        val basePath = "msgs"
+        try {
+            val packages = assetManager.list(basePath) ?: return emptyList()
+            for (pkg in packages) {
+                val protocolDir = when (type) {
+                    CustomProtocol.Type.MSG -> "msg"
+                    CustomProtocol.Type.SRV -> "srv"
+                    CustomProtocol.Type.ACTION -> "action"
+                }
+                val filesPath = "$basePath/$pkg/$protocolDir"
+                try {
+                    val files = assetManager.list(filesPath) ?: continue
+                    for (file in files) {
+                        if (file.endsWith(extension)) {
+                            protocols.add(
+                                CustomProtocol(
+                                    name = file.removeSuffix(extension),
+                                    importPath = "$filesPath/$file",
+                                    type = type,
+                                    packageName = pkg
+                                )
+                            )
+                        }
+                    }
+                } catch (e: IOException) {
+                    // Directory does not exist, which is fine.
+                }
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        return protocols
+    }
+
+    private fun discoverAndReadFiles(context: Context, packageName: String, extension: String, type: CustomProtocol.Type): List<CustomProtocol> {
+        val protocols = mutableListOf<CustomProtocol>()
+        val assetManager = context.assets
+        val basePath = "msgs"
+        val protocolDir = when (type) {
+            CustomProtocol.Type.MSG -> "msg"
+            CustomProtocol.Type.SRV -> "srv"
+            CustomProtocol.Type.ACTION -> "action"
+        }
+        val filesPath = "$basePath/$packageName/$protocolDir"
+        try {
+            val files = assetManager.list(filesPath) ?: return emptyList()
+            for (file in files) {
+                if (file.endsWith(extension)) {
+                    val filePath = "$filesPath/$file"
+                    val msgType = readFileContent(assetManager, filePath)
+                    protocols.add(
+                        CustomProtocol(
+                            name = file.removeSuffix(extension),
+                            importPath = filePath,
+                            type = type,
+                            msgType = msgType,
+                            packageName = packageName
+                        )
+                    )
+                }
+            }
+        } catch (e: IOException) {
+            // Directory does not exist, which is fine.
+        }
+        return protocols
+    }
+
+    private fun readFileContent(assetManager: AssetManager, path: String): String {
+        return try {
+            assetManager.open(path).bufferedReader().use { it.readText() }
+        } catch (e: IOException) {
+            ""
+        }
     }
 }
