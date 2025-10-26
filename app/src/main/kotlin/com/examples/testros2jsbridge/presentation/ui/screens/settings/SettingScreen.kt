@@ -25,9 +25,12 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 
+@Destination
 @Composable
-fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), onBack: () -> Unit) {
+fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), navigator: DestinationsNavigator) {
     val uiState by viewModel.uiState.collectAsState()
 
     Surface(
@@ -45,7 +48,7 @@ fun SettingScreen(viewModel: SettingsViewModel = hiltViewModel(), onBack: () -> 
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
                 ) {
                     Text(text = "App Settings", style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = onBack) { Text("Back") }
+                    Button(onClick = { navigator.popBackStack() }) { Text("Back") }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 // Theme selection

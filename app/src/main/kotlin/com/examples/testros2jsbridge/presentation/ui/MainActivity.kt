@@ -28,10 +28,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.examples.testros2jsbridge.core.util.Logger
-import com.examples.testros2jsbridge.presentation.ui.navigation.Destinations
-import com.examples.testros2jsbridge.presentation.ui.navigation.setupNavigation
+import com.examples.testros2jsbridge.presentation.ui.screens.NavGraphs
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel
 import com.examples.testros2jsbridge.presentation.ui.theme.Ros2BridgeTheme
+import com.ramcosta.composedestinations.DestinationsNavHost
+import com.ramcosta.composedestinations.navigation.dependency
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -53,19 +54,19 @@ class MainActivity : ComponentActivity() {
                 "Connection", "Controller", "Controller Overview", "Publisher", "Subscriber", "Settings"
             )
             val destinations = listOf(
-                Destinations.CONNECTION_SCREEN,
-                Destinations.CONTROLLER_SCREEN,
-                Destinations.CONTROLLER_OVERVIEW_SCREEN, // Only base route
-                Destinations.PUBLISHER_SCREEN,
-                Destinations.SUBSCRIBER_SCREEN,
-                Destinations.SETTINGS_SCREEN
+                "connection_screen",
+                "controller_screen",
+                "controller_overview_screen", // Only base route
+                "publisher_screen",
+                "subscriber_screen",
+                "setting_screen"
             )
             var selectedTab by rememberSaveable { mutableIntStateOf(0) }
             val tabHistory = androidx.compose.runtime.remember { mutableListOf<Int>() }
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = navBackStackEntry?.destination?.route
             val tabIndex = destinations.indexOf(
-                if (currentRoute?.startsWith(Destinations.CONTROLLER_OVERVIEW_SCREEN) == true) Destinations.CONTROLLER_OVERVIEW_SCREEN else currentRoute
+                if (currentRoute?.startsWith("controller_overview_screen") == true) "controller_overview_screen" else currentRoute
             )
             if (tabIndex != -1 && tabIndex != selectedTab) {
                 selectedTab = tabIndex
@@ -117,7 +118,7 @@ class MainActivity : ComponentActivity() {
                                                 if (selectedConfigName != "New Config" && configNames.contains(selectedConfigName)) {
                                                     tabHistory.add(selectedTab)
                                                     selectedTab = idx
-                                                    navController.navigate("${Destinations.CONTROLLER_OVERVIEW_SCREEN}/$selectedConfigName") {
+                                                    navController.navigate("${destinations[idx]}/$selectedConfigName") {
                                                         launchSingleTop = true
                                                         restoreState = true
                                                     }
@@ -148,13 +149,11 @@ class MainActivity : ComponentActivity() {
                                 .weight(1f)
                                 .fillMaxWidth()
                         ) {
-                            NavHost(
+                            DestinationsNavHost(
                                 navController = navController,
-                                startDestination = Destinations.CONNECTION_SCREEN,
+                                navGraph = NavGraphs.root,
                                 modifier = Modifier.fillMaxSize()
-                            ) {
-                                setupNavigation(navController)
-                            }
+                            )
                         }
                     }
                 }
@@ -162,4 +161,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

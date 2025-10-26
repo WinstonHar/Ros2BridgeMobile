@@ -35,20 +35,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
+import com.examples.testros2jsbridge.presentation.ui.screens.destinations.ControllerConfigScreenDestination
 import com.examples.testros2jsbridge.util.sanitizeConfigName
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.delay
 
 
 @OptIn(ExperimentalMaterial3Api::class)
+@Destination
 @Composable
 fun ControllerScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
-    navController: NavController,
-    onBack: () -> Unit
+    navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val appActions by viewModel.appActions.collectAsState()
@@ -96,7 +98,7 @@ fun ControllerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(text = "Controllers", style = MaterialTheme.typography.titleLarge)
-                    Button(onClick = onBack) { Text("Back") }
+                    Button(onClick = { navigator.popBackStack() }) { Text("Back") }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -233,7 +235,7 @@ fun ControllerScreen(
                                     "ControllerScreen",
                                     "Leaving ControllerScreen, selected config: $sanitizedName"
                                 )
-                                navController.navigate("controller_config_screen/$sanitizedName")
+                                navigator.navigate(ControllerConfigScreenDestination(sanitizedName))
                             }
                         },
                         enabled = !isNewConfig,

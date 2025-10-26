@@ -2,9 +2,11 @@ package com.examples.testros2jsbridge.data.repository
 
 import android.content.Context
 import android.content.res.AssetManager
-import androidx.core.content.edit
+import com.examples.testros2jsbridge.data.local.database.RosProtocolType
+import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
 import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
+import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.domain.model.AppAction
@@ -12,10 +14,9 @@ import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,51 +26,65 @@ class AppActionRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
     private val connectionDao: ConnectionDao,
     private val geometryMessageDao: GeometryMessageDao,
+    private val appActionDao: AppActionDao,
     private val context: Context
 ) : AppActionRepository {
 
-    override val messages = MutableStateFlow<List<RosMessageDto>>(emptyList())
-
-    private val json = Json {
-        prettyPrint = true
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
-
-    private val sharedPreferences = context.getSharedPreferences("app_actions_prefs", Context.MODE_PRIVATE)
+    override val messages = kotlinx.coroutines.flow.MutableStateFlow<List<RosMessageDto>>(emptyList())
 
     override suspend fun saveCustomAppAction(action: AppAction, context: Context): Int {
-        val actions = getCustomAppActions(context).toMutableList()
-        val existingIndex = actions.indexOfFirst { it.id == action.id }
-
-        if (existingIndex >= 0) {
-            actions[existingIndex] = action
-        } else {
-            actions.add(action)
-        }
-
-        val actionsJson = json.encodeToString(actions)
-        sharedPreferences.edit { putString("custom_actions", actionsJson) }
-
-        return if (existingIndex >= 0) existingIndex else actions.size - 1
+        val entity = action.toEntity()
+        appActionDao.insertAppAction(entity)
+        return appActionDao.getAllAppActions().first().indexOfFirst { it.appActionId == action.id }
     }
 
-    override suspend fun getCustomAppActions(context: Context): List<AppAction> {
-        val actionsJson = sharedPreferences.getString("custom_actions", null) ?: return emptyList()
-        return try {
-            json.decodeFromString<List<AppAction>>(actionsJson)
-        } catch (e: Exception) {
-            emptyList()
-        }
+    override fun getCustomAppActions(context: Context): Flow<List<AppAction>> {
+        return appActionDao.getAllAppActions().map { list -> list.map { it.toDomain() } }
     }
 
     override suspend fun deleteCustomAppAction(actionId: String, context: Context) {
-        val actions = getCustomAppActions(context).toMutableList()
-        actions.removeAll { it.id == actionId }
-
-        val actionsJson = json.encodeToString(actions)
-        sharedPreferences.edit { putString("custom_actions", actionsJson) }
+        val actionToDelete = appActionDao.getAppActionById(actionId).first()
+        actionToDelete?.let { appActionDao.deleteAppAction(it) }
     }
+
+    private fun AppAction.toEntity(): AppActionEntity {
+        val protocolType = when (type.uppercase()) {
+            "MSG" -> RosProtocolType.PUBLISHER
+            "SRV" -> RosProtocolType.SERVICE_CLIENT
+            "ACTION" -> RosProtocolType.ACTION_CLIENT
+            else -> RosProtocolType.PUBLISHER // Default case
+        }
+
+        return AppActionEntity(
+            appActionId = id,
+            displayName = displayName,
+            rosTopic = topic,
+            rosMessageType = msgType ?: "",
+            messageJsonTemplate = msg,
+            rosProtocolType = protocolType,
+            protocolPackageName = source, // 'source' from AppAction maps to 'protocolPackageName'
+            protocolName = displayName
+        )
+    }
+
+    private fun AppActionEntity.toDomain(): AppAction {
+        val domainType = when (rosProtocolType) {
+            RosProtocolType.PUBLISHER -> "MSG"
+            RosProtocolType.SUBSCRIBER -> "MSG" // Also mapping SUBSCRIBER to MSG for the UI
+            RosProtocolType.SERVICE_CLIENT -> "SRV"
+            RosProtocolType.ACTION_CLIENT -> "ACTION"
+        }
+        return AppAction(
+            id = appActionId,
+            displayName = displayName,
+            topic = rosTopic,
+            type = domainType,
+            msgType = rosMessageType,
+            source = protocolPackageName ?: "",
+            msg = messageJsonTemplate
+        )
+    }
+
 
     override suspend fun getAvailablePackages(context: Context): List<String> {
         return try {

@@ -1,24 +1,25 @@
 package com.examples.testros2jsbridge.di
 
 import android.content.Context
-import androidx.room.Room
-import com.examples.testros2jsbridge.data.local.database.RosDatabase
-import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
-import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
-import com.examples.testros2jsbridge.data.repository.*
-import com.examples.testros2jsbridge.domain.repository.*
-import com.examples.testros2jsbridge.core.error.ErrorHandler
-import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
 import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
+import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.repository.AppActionRepositoryImpl
+import com.examples.testros2jsbridge.data.repository.ConfigurationRepositoryImpl
+import com.examples.testros2jsbridge.data.repository.ControllerRepositoryImpl
+import com.examples.testros2jsbridge.data.repository.PublisherRepositoryImpl
+import com.examples.testros2jsbridge.domain.repository.AppActionRepository
+import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
+import com.examples.testros2jsbridge.domain.repository.ControllerRepository
+import com.examples.testros2jsbridge.domain.repository.PublisherRepository
+import com.examples.testros2jsbridge.core.error.ErrorHandler
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Singleton
 
 @Module
@@ -79,12 +80,14 @@ object AppModule {
         rosbridgeClient: RosbridgeClient,
         connectionDao: ConnectionDao,
         geometryMessageDao: GeometryMessageDao,
+        appActionDao: AppActionDao, // Added this line
         @ApplicationContext context: Context
     ): AppActionRepository {
         return AppActionRepositoryImpl(
             rosbridgeClient = rosbridgeClient,
             connectionDao = connectionDao,
             geometryMessageDao = geometryMessageDao,
+            appActionDao = appActionDao, // And this line
             context = context
         )
     }

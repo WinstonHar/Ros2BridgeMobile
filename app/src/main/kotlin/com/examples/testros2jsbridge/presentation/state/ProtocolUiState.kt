@@ -1,22 +1,21 @@
 package com.examples.testros2jsbridge.presentation.state
 
-/**
- * UI state for custom protocol management (.msg, .srv, .action files).
- */
 data class ProtocolUiState(
-    val packageNames: List<String> = emptyList(),               // list of package names avaliable
-    val availableMessages: List<ProtocolFile> = emptyList(),   // .msg files
-    val availableServices: List<ProtocolFile> = emptyList(),   // .srv files
-    val availableActions: List<ProtocolFile> = emptyList(),    // .action files
-    val selectedProtocols: Set<String> = emptySet(),           // Selected import paths
-    val isImporting: Boolean = false,                          // Show loading indicator during import
-    val showErrorDialog: Boolean = false,                      // Show error dialog
-    val errorMessage: String? = null                           // Error message to display
+    val packageNames: List<String> = emptyList(),
+    val availableMessages: List<ProtocolFile> = emptyList(),
+    val availableServices: List<ProtocolFile> = emptyList(),
+    val availableActions: List<ProtocolFile> = emptyList(),
+    val selectedProtocols: Set<String> = emptySet(),
+    val isImporting: Boolean = false,
+    val showErrorDialog: Boolean = false,
+    val errorMessage: String? = null,
+    val actionSaved: Boolean = false
 ) {
     data class ProtocolFile(
         val name: String,
         val importPath: String,
         val type: ProtocolType
     )
+
     enum class ProtocolType { MSG, SRV, ACTION }
 }

@@ -28,12 +28,14 @@ import androidx.compose.ui.platform.rememberNestedScrollInteropConnection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.presentation.ui.components.CollapsibleMessageHistoryList
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 
+@Destination
 @Composable
 fun SubscriberScreen(
     viewModel: SubscriberViewModel = hiltViewModel(),
-    onBack: () -> Unit,
-    onRestoreTab: (() -> Unit)? = null
+    navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val subscribers = uiState.subscribers
@@ -56,10 +58,7 @@ fun SubscriberScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(text = "Subscribers", style = MaterialTheme.typography.titleLarge)
-                Button(onClick = {
-                    onRestoreTab?.invoke()
-                    onBack()
-                }) { Text("Back") }
+                Button(onClick = { navigator.popBackStack() }) { Text("Back") }
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(onClick = { viewModel.showAddSubscriberDialog(true) }) {

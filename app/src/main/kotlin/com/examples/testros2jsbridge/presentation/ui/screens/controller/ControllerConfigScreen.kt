@@ -29,12 +29,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.presentation.ui.components.TopicSelector
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 
+@Destination
 @Composable
 fun ControllerConfigScreen(
     configName: String,
     viewModel: ControllerViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val appActions by viewModel.appActions.collectAsState()
@@ -291,7 +294,7 @@ fun ControllerConfigScreen(
                     }
                 }
                 Button(
-                    onClick = { onBack() },
+                    onClick = { navigator.popBackStack() },
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Back")

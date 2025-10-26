@@ -6,8 +6,8 @@ import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 
 @Entity(tableName = "app_action")
 data class AppActionEntity(
-    @PrimaryKey(autoGenerate = true)
-    val appActionId: Long = 0,
+    @PrimaryKey
+    val appActionId: String,
     val displayName: String,
     val rosTopic: String,
     val rosMessageType: String,

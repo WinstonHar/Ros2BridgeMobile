@@ -15,11 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.presentation.ui.components.RosConnectionCard
+import com.ramcosta.composedestinations.annotation.Destination
 
+@Destination(start = true)
 @Composable
 fun ConnectionScreen(
-    viewModel: ConnectionViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    viewModel: ConnectionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     Surface(

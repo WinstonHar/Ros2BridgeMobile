@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 @HiltViewModel
@@ -52,12 +53,15 @@ class ProtocolViewModel @Inject constructor(
     private val _customAppActions = MutableStateFlow<List<AppAction>>(emptyList())
     val customAppActions: StateFlow<List<AppAction>> = _customAppActions.asStateFlow()
 
-    // Cache for all discovered protocols
     private var allMessages: List<CustomProtocol> = emptyList()
     private var allServices: List<CustomProtocol> = emptyList()
     private var allActions: List<CustomProtocol> = emptyList()
 
-    fun initialLoad(context: Context) {
+    private val isInitialized = AtomicBoolean(false)
+
+    fun initialize(context: Context) {
+        if (isInitialized.getAndSet(true)) return
+
         viewModelScope.launch {
             try {
                 val packages = appActionRepository.getAvailablePackages(context)
@@ -67,7 +71,9 @@ class ProtocolViewModel @Inject constructor(
                 allServices = appActionRepository.getServiceFiles(context)
                 allActions = appActionRepository.getActionFiles(context)
 
-                loadCustomAppActions(context)
+                appActionRepository.getCustomAppActions(context).collect { actions ->
+                    _customAppActions.value = actions
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(showErrorDialog = true, errorMessage = e.message)
             }
@@ -157,7 +163,12 @@ class ProtocolViewModel @Inject constructor(
         if (action != null) {
             val protocol = findProtocolForAppAction(action)
             if (protocol != null && context != null) {
-                val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, ProtocolUiState.ProtocolType.valueOf(protocol.type.name))
+                val uiProtocolType = when (protocol.type) {
+                    CustomProtocol.Type.MSG -> ProtocolUiState.ProtocolType.MSG
+                    CustomProtocol.Type.SRV -> ProtocolUiState.ProtocolType.SRV
+                    CustomProtocol.Type.ACTION -> ProtocolUiState.ProtocolType.ACTION
+                }
+                val fields = parseProtocolFieldsFromAssets(context, protocol.importPath, uiProtocolType)
                 _activeProtocol.value = protocol
                 _protocolFields.value = fields
                 val msgMap = parseMsgJsonToFieldMap(action.msg)
@@ -168,7 +179,7 @@ class ProtocolViewModel @Inject constructor(
 
     private fun findProtocolForAppAction(action: AppAction): CustomProtocol? {
         val allProtocols = allMessages + allServices + allActions
-        return allProtocols.find { it.name == action.type || it.name == action.displayName }
+        return allProtocols.find { it.name == action.displayName && it.type.name == action.type }
     }
 
     private fun parseMsgJsonToFieldMap(msg: String): Map<String, String> {
@@ -181,23 +192,20 @@ class ProtocolViewModel @Inject constructor(
         }
     }
 
-    fun loadCustomAppActions(context: Context) {
-        viewModelScope.launch {
-            _customAppActions.value = appActionRepository.getCustomAppActions(context)
-        }
-    }
-
     fun saveCustomAppAction(context: Context, action: AppAction) {
         viewModelScope.launch {
             appActionRepository.saveCustomAppAction(action, context)
-            loadCustomAppActions(context)
+            _uiState.value = _uiState.value.copy(actionSaved = true)
         }
+    }
+
+    fun onActionSaved() {
+        _uiState.value = _uiState.value.copy(actionSaved = false)
     }
 
     fun deleteCustomAppAction(context: Context, actionId: String) {
         viewModelScope.launch {
             appActionRepository.deleteCustomAppAction(actionId, context)
-            loadCustomAppActions(context)
         }
     }
 

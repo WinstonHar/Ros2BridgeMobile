@@ -38,8 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.examples.testros2jsbridge.core.util.Logger
-import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -59,19 +60,18 @@ fun keyCodeToButtonName(keyCode: Int): String? = when (keyCode) {
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
+@Destination
 @Composable
 fun ControllerOverviewScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
     selectedConfigName: String,
-    backgroundImageRes: Int? = null,
-    onAbxyButtonClick: (String) -> Unit = {},
-    onPresetSwap: (ControllerPreset) -> Unit = {}
+    navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val config = uiState.controllerConfigs.find { it.name == selectedConfigName }
     val buttonAssignments = config?.buttonAssignments ?: emptyMap()
-    val selectedPreset: ControllerPreset? by viewModel.selectedPreset.collectAsState()
-    val presets: List<ControllerPreset> by viewModel.presets.collectAsState()
+    val selectedPreset by viewModel.selectedPreset.collectAsState()
+    val presets by viewModel.presets.collectAsState()
     val showPresetsOverlay by viewModel.showPresetsOverlay.collectAsState()
     val overlayHideJob = remember { mutableStateOf<Job?>(null) }
     val coroutineScope = rememberCoroutineScope()
@@ -157,14 +157,7 @@ fun ControllerOverviewScreen(
         ) {
             // Use BoxWithConstraints for future layout logic if needed
             // Background image if provided
-            backgroundImageRes?.let {
-                Image(
-                    painter = painterResource(id = it),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    alignment = Alignment.Center
-                )
-            }
+
             // Main layout: triggers, joysticks, ABXY plus, select/start
             Box(
                 modifier = Modifier
@@ -233,7 +226,7 @@ fun ControllerOverviewScreen(
                     ControllerButton(
                         labelText = "Y",
                         assignedAction = buttonAssignments["Y"],
-                        onPress = { onAbxyButtonClick("Y") },
+                        onPress = { viewModel.triggerAppAction(buttonAssignments["Y"]!!) },
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.TopCenter)
@@ -244,7 +237,7 @@ fun ControllerOverviewScreen(
                     ControllerButton(
                         labelText = "X",
                         assignedAction = buttonAssignments["X"],
-                        onPress = { onAbxyButtonClick("X") },
+                        onPress = { viewModel.triggerAppAction(buttonAssignments["X"]!!) },
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.CenterStart)
@@ -255,7 +248,7 @@ fun ControllerOverviewScreen(
                     ControllerButton(
                         labelText = "B",
                         assignedAction = buttonAssignments["B"],
-                        onPress = { onAbxyButtonClick("B") },
+                        onPress = { viewModel.triggerAppAction(buttonAssignments["B"]!!) },
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
@@ -266,19 +259,13 @@ fun ControllerOverviewScreen(
                     ControllerButton(
                         labelText = "A",
                         assignedAction = buttonAssignments["A"],
-                        onPress = { onAbxyButtonClick("A") },
+                        onPress = { viewModel.triggerAppAction(buttonAssignments["A"]!!) },
                         onRelease = {},
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .offset(y = (-32).dp),
                         textAlignCenter = true
                     )
-                    // Center label (optional, for visual reference)
-                    /*Text(
-                        text = "",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.align(Alignment.Center)
-                    )*/
                 }
                 // Preset name (top center)
                 Text(
@@ -287,7 +274,7 @@ fun ControllerOverviewScreen(
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 8.dp).zIndex(2f)
                 )
             }
-            
+
             // Presets overlay popup (bottom anchored, only visible when swapping)
             if (showPresetsOverlay) {
                 Box(
@@ -308,7 +295,7 @@ fun ControllerOverviewScreen(
                             val isSelected = preset.name == selectedPreset?.name
                             Button(
                                 onClick = {
-                                    onPresetSwap(preset)
+                                    viewModel.selectPreset(preset.name)
                                     overlayHideJob.value?.cancel()
                                     viewModel.hidePresetsOverlay()
                                 },
@@ -326,7 +313,7 @@ fun ControllerOverviewScreen(
             }
         }
         // Show overlay when preset swap is triggered
-    //
+
         LaunchedEffect(showPresetsOverlay) {
             if (showPresetsOverlay) {
                 overlayHideJob.value?.cancel()

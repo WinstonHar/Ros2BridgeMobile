@@ -114,7 +114,7 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.6.2")
 
     implementation("androidx.compose.ui:ui-viewbinding")
-    implementation("androidx.compose.material:material-icons-extended:<latest_version>")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.4.0")
@@ -129,4 +129,11 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation("org.yaml:snakeyaml:2.2")
+
+    // Accompanist
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+
+    // Compose Destinations
+    implementation("io.github.raamcosta.compose-destinations:core:1.10.2")
+    ksp("io.github.raamcosta.compose-destinations:ksp:1.10.2")
 }

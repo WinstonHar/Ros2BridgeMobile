@@ -40,7 +40,7 @@ interface AppActionDao {
      * @return A Flow emitting the AppAction, or null if not found.
      */
     @Query("SELECT * FROM app_action WHERE appActionId = :actionId")
-    fun getAppActionById(actionId: Long): Flow<AppActionEntity?>
+    fun getAppActionById(actionId: String): Flow<AppActionEntity?>
 
     /**
      * Retrieves all AppActions from the database, ordered by their display name.
