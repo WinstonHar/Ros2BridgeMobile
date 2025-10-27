@@ -5,15 +5,15 @@ data class CustomProtocol(
     val importPath: String,
     val type: Type,
     val msgType: String? = null,
-    val packageName: String
+    val packageName: String,
+    val content: String = ""
 ) {
     enum class Type { MSG, SRV, ACTION }
 }
 
 val CustomProtocol.typeString: String
     get() = when (type) {
-        CustomProtocol.Type.MSG -> "ryan_msgs/msg/$name"
-        CustomProtocol.Type.SRV -> "ryan_msgs/srv/$name"
-        CustomProtocol.Type.ACTION -> "ryan_msgs/action/$name"
+        CustomProtocol.Type.MSG -> "$packageName/msg/$name"
+        CustomProtocol.Type.SRV -> "$packageName/srv/$name"
+        CustomProtocol.Type.ACTION -> "$packageName/action/$name"
     }
-

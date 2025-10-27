@@ -340,7 +340,7 @@ class ControllerViewModel @Inject constructor(
         val newConfig = ControllerConfig(name = sanitizedName)
         val updatedConfigs = _uiState.value.controllerConfigs + newConfig
         _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs, config = newConfig)
-        _selectedConfigName.value = sanitizedName
+        selectControllerConfig(sanitizedName)
         updateHasUnsavedChanges()
     }
 

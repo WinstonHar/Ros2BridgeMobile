@@ -33,6 +33,7 @@ class AppActionRepositoryImpl @Inject constructor(
     override val messages = kotlinx.coroutines.flow.MutableStateFlow<List<RosMessageDto>>(emptyList())
 
     override suspend fun saveCustomAppAction(action: AppAction, context: Context): Int {
+        if (action.source == "internal") return -1
         val entity = action.toEntity()
         appActionDao.insertAppAction(entity)
         return appActionDao.getAllAppActions().first().indexOfFirst { it.appActionId == action.id }
@@ -163,12 +164,15 @@ class AppActionRepositoryImpl @Inject constructor(
                     val files = assetManager.list(filesPath) ?: continue
                     for (file in files) {
                         if (file.endsWith(extension)) {
+                            val filePath = "$filesPath/$file"
+                            val content = readFileContent(assetManager, filePath)
                             protocols.add(
                                 CustomProtocol(
                                     name = file.removeSuffix(extension),
-                                    importPath = "$filesPath/$file",
+                                    importPath = filePath,
                                     type = type,
-                                    packageName = pkg
+                                    packageName = pkg,
+                                    content = content
                                 )
                             )
                         }
@@ -183,7 +187,12 @@ class AppActionRepositoryImpl @Inject constructor(
         return protocols
     }
 
-    private fun discoverAndReadFiles(context: Context, packageName: String, extension: String, type: CustomProtocol.Type): List<CustomProtocol> {
+    private fun discoverAndReadFiles(
+        context: Context,
+        packageName: String,
+        extension: String,
+        type: CustomProtocol.Type
+    ): List<CustomProtocol> {
         val protocols = mutableListOf<CustomProtocol>()
         val assetManager = context.assets
         val basePath = "msgs"
@@ -198,12 +207,14 @@ class AppActionRepositoryImpl @Inject constructor(
             for (file in files) {
                 if (file.endsWith(extension)) {
                     val filePath = "$filesPath/$file"
+                    val content = readFileContent(assetManager, filePath)
                     protocols.add(
                         CustomProtocol(
                             name = file.removeSuffix(extension),
                             importPath = filePath,
                             type = type,
-                            packageName = packageName
+                            packageName = packageName,
+                            content = content
                         )
                     )
                 }
