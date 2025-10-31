@@ -123,5 +123,7 @@ class ControllerRepositoryImpl @Inject constructor(
         // TODO: This should probably be stored in a different way
     }
 
-    override suspend fun deletePresetsForController(controllerId: Int) {}
+    override suspend fun deletePresetsForController(controllerId: Int) {
+        controllerDao.deletePresetsForController(controllerId)
+    }
 }

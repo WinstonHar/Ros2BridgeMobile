@@ -52,6 +52,9 @@ interface ControllerDao {
     @Query("SELECT * FROM controllers")
     fun getAllControllers(): Flow<List<ControllerEntity>>
 
+    @Query("DELETE FROM button_presets WHERE controllerOwnerId = :controllerId")
+    suspend fun deletePresetsForController(controllerId: Int)
+
     @Transaction
     suspend fun addPresetToControllerTransactional(controllerId: Int, presetName: String): Long {
         val presetId = insertPreset(ButtonPresetsEntity(name = presetName, controllerOwnerId = controllerId))

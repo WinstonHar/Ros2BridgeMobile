@@ -20,11 +20,11 @@ class ConnectionManager(
 
     // Setup WebSocket event forwarding
     private val wsListener = com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener(
-        onOpen = { _, _ -> listeners.forEach { it.onConnected() } },
-        onMessage = { msg: String -> listeners.forEach { it.onMessage(msg) } },
-        onFailure = { t: Throwable -> listeners.forEach { it.onError(t.message ?: "Unknown error") } },
-        onClosing = { listeners.forEach { it.onDisconnected() } },
-        onClosed = { listeners.forEach { it.onDisconnected() } }
+        _onOpen = { _, _ -> listeners.forEach { it.onConnected() } },
+        _onMessage = { msg: String -> listeners.forEach { it.onMessage(msg) } },
+        _onFailure = { t: Throwable -> listeners.forEach { it.onError(t.message ?: "Unknown error") } },
+        _onClosing = { listeners.forEach { it.onDisconnected() } },
+        _onClosed = { listeners.forEach { it.onDisconnected() } }
     )
 
     interface Listener {

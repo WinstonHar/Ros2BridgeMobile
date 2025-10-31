@@ -16,7 +16,6 @@ import com.examples.testros2jsbridge.domain.usecase.controller.HandleControllerI
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadAllControllerConfigsUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.SaveControllerConfigUseCase
-import com.examples.testros2jsbridge.presentation.mapper.ControllerUiMapper
 import com.examples.testros2jsbridge.presentation.state.ControllerUiState
 import com.examples.testros2jsbridge.util.sanitizeConfigName
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -124,6 +123,7 @@ class ControllerViewModel @Inject constructor(
         viewModelScope.launch {
             val config = loadControllerConfigUseCase.load()
             if (config != null) {
+                _presets.value = config.controllerPresets
                 _uiState.update { it.copy(config = config, presets = config.controllerPresets) }
                 _selectedPreset.value = config.controllerPresets.firstOrNull()
                 lastSavedConfig = config.copy()
@@ -181,26 +181,27 @@ class ControllerViewModel @Inject constructor(
             topic = null,
             buttonAssignments = _uiState.value.config.buttonAssignments
         )
-        val updatedPresets = _presets.value + newPreset
-        _presets.value = updatedPresets
-        saveConfigWithPresets(updatedPresets)
+        val updatedPresets = _uiState.value.config.controllerPresets + newPreset
+        val updatedConfig = _uiState.value.config.copy(controllerPresets = updatedPresets)
+        updateAndSaveConfig(updatedConfig)
+        _selectedPreset.value = newPreset
     }
 
     fun removePreset(context: Context) {
         val selected = _selectedPreset.value ?: return
-        val updated = _presets.value.filter { it.name != selected.name }
-        _presets.value = updated
-        saveConfigWithPresets(updated)
+        val updatedPresets = _uiState.value.config.controllerPresets.filter { it.name != selected.name }
+        val updatedConfig = _uiState.value.config.copy(controllerPresets = updatedPresets)
+        updateAndSaveConfig(updatedConfig)
         selectPreset("New Preset")
     }
 
     fun savePreset(name: String) {
         val selected = _selectedPreset.value ?: return
         val updatedPreset = selected.copy(name = name, buttonAssignments = _uiState.value.config.buttonAssignments)
-        val updated = _presets.value.map { if (it.name == selected.name) updatedPreset else it }
-        _presets.value = updated
-        saveConfigWithPresets(updated)
+        val updatedPresets = _uiState.value.config.controllerPresets.map { if (it.name == selected.name) updatedPreset else it }
         _selectedPreset.value = updatedPreset
+        val updatedConfig = _uiState.value.config.copy(controllerPresets = updatedPresets)
+        updateAndSaveConfig(updatedConfig)
     }
 
     fun assignButton(button: String, action: AppAction?, context: Context) {
@@ -243,43 +244,34 @@ class ControllerViewModel @Inject constructor(
         val configToSave = _uiState.value.config.copy(
             name = _selectedConfigName.value ?: _uiState.value.config.name
         )
-
-        viewModelScope.launch {
-            saveControllerConfigUseCase.save(configToSave, appContext)
-
-            val configExists = _uiState.value.controllerConfigs.any { it.name == configToSave.name }
-            val updatedConfigs = if (configExists) {
-                _uiState.value.controllerConfigs.map {
-                    if (it.name == configToSave.name) configToSave else it
-                }
-            } else {
-                _uiState.value.controllerConfigs + configToSave
-            }
-            _uiState.update { it.copy(controllerConfigs = updatedConfigs) }
-
-        }
+        updateAndSaveConfig(configToSave)
     }
 
     private fun updateHasUnsavedChanges() {
         _hasUnsavedChanges.value = lastSavedConfig != _uiState.value.config
     }
 
-    private fun saveConfigWithPresets(presets: List<ControllerPreset>) {
-        val uiState = _uiState.value.copy(presets = presets)
-        val config = ControllerUiMapper.toDomainConfig(uiState)
+    private fun updateAndSaveConfig(configToSave: ControllerConfig) {
         viewModelScope.launch {
-            saveControllerConfigUseCase.save(config, appContext)
-            _uiState.update { it.copy(presets = presets) }
-        }
-    }
+            saveControllerConfigUseCase.save(configToSave, appContext)
 
-    private fun saveConfigWithAssignments(assignments: Map<String, AppAction>) {
-        val configWithAssignments = _uiState.value.config.copy(buttonAssignments = assignments)
-        _uiState.update { it.copy(config = configWithAssignments) }
-        val config = ControllerUiMapper.toDomainConfig(_uiState.value)
-        viewModelScope.launch {
-            saveControllerConfigUseCase.save(config, appContext)
-            _uiState.update { it.copy(config = configWithAssignments) }
+            val configIndex = _uiState.value.controllerConfigs.indexOfFirst { it.name == configToSave.name }
+            val updatedConfigs = if (configIndex != -1) {
+                _uiState.value.controllerConfigs.toMutableList().apply { set(configIndex, configToSave) }
+            } else {
+                _uiState.value.controllerConfigs + configToSave
+            }
+
+            _uiState.update {
+                it.copy(
+                    controllerConfigs = updatedConfigs,
+                    config = configToSave,
+                    presets = configToSave.controllerPresets
+                )
+            }
+            _presets.value = configToSave.controllerPresets
+            lastSavedConfig = configToSave.copy()
+            updateHasUnsavedChanges()
         }
     }
 
@@ -294,9 +286,11 @@ class ControllerViewModel @Inject constructor(
                 }
             }
             val buttonNames = config.buttonAssignments.keys.toList()
+            _presets.value = config.controllerPresets
             _uiState.update { currentState ->
                 currentState.copy(
                     config = config,
+                    presets = config.controllerPresets,
                     selectedConfigName = config.name,
                     controllerButtons = buttonNames
                 )
