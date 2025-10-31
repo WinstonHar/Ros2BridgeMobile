@@ -19,8 +19,6 @@ interface ControllerRepository {
 
     suspend fun addFixedButtonMapToController(controllerId: Int, buttonMapId: Int)
 
-    suspend fun getAllControllerConfigs(): List<com.examples.testros2jsbridge.domain.model.ControllerConfig>
-
     suspend fun getSelectedConfigName(id: String): String?
 
     suspend fun saveSelectedConfigName(name: String)

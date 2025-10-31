@@ -13,6 +13,7 @@ import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
 import com.examples.testros2jsbridge.domain.usecase.controller.HandleControllerInputUseCase
+import com.examples.testros2jsbridge.domain.usecase.controller.LoadAllControllerConfigsUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.SaveControllerConfigUseCase
 import com.examples.testros2jsbridge.presentation.mapper.ControllerUiMapper
@@ -35,6 +36,7 @@ class ControllerViewModel @Inject constructor(
     val handleControllerInputUseCase: HandleControllerInputUseCase,
     private val loadControllerConfigUseCase: LoadControllerConfigUseCase,
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
+    private val loadAllControllerConfigsUseCase: LoadAllControllerConfigsUseCase,
     private val appActionRepository: AppActionRepository,
     private val controllerRepository: ControllerRepository,
     @ApplicationContext private val appContext: Context
@@ -121,10 +123,17 @@ class ControllerViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val config = loadControllerConfigUseCase.load()
-            _uiState.update { it.copy(config = config, presets = config.controllerPresets) }
-            _selectedPreset.value = config.controllerPresets.firstOrNull()
-            lastSavedConfig = config.copy()
-            updateHasUnsavedChanges()
+            if (config != null) {
+                _uiState.update { it.copy(config = config, presets = config.controllerPresets) }
+                _selectedPreset.value = config.controllerPresets.firstOrNull()
+                lastSavedConfig = config.copy()
+                updateHasUnsavedChanges()
+            }
+        }
+
+        viewModelScope.launch {
+            val allConfigs = loadAllControllerConfigsUseCase.load()
+            _uiState.update { it.copy(controllerConfigs = allConfigs) }
         }
 
         viewModelScope.launch {
@@ -317,8 +326,12 @@ class ControllerViewModel @Inject constructor(
         val sanitizedName = sanitizeConfigName(name)
         val newConfig = ControllerConfig(name = sanitizedName)
         val updatedConfigs = _uiState.value.controllerConfigs + newConfig
-        _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs, config = newConfig)
-        updateHasUnsavedChanges()
+        _uiState.update { it.copy(controllerConfigs = updatedConfigs, config = newConfig) }
+        viewModelScope.launch {
+            saveControllerConfigUseCase.save(newConfig, appContext)
+            lastSavedConfig = newConfig.copy()
+            updateHasUnsavedChanges()
+        }
     }
 
     fun removeControllerConfig(name: String, context: Context) {

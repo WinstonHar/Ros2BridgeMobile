@@ -114,9 +114,7 @@ class MainActivity : ComponentActivity() {
                                         if (selectedTab != idx) {
                                             if (idx == 2) {
                                                 val selectedConfigName = controllerViewModel.uiState.value.selectedConfigName
-                                                val configNames = controllerViewModel.uiState.value.controllerConfigs.map { it.name }
-                                                Logger.d("MainActivity","selectedConfigName: ${selectedConfigName}, configNames: ${configNames}")
-                                                if (selectedConfigName != "New Config" && configNames.contains(selectedConfigName)) {
+                                                if (!selectedConfigName.isNullOrEmpty()) {
                                                     tabHistory.add(selectedTab)
                                                     selectedTab = idx
                                                     navController.navigate("${destinations[idx]}/$selectedConfigName") {

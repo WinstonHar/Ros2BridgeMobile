@@ -15,12 +15,11 @@ class SaveControllerConfigUseCase @Inject constructor(
 ) {
     suspend fun save(config: ControllerConfig, context: Context) {
         withContext(Dispatchers.IO) {
-            val controllerId = 1 // Assuming a single controller for now
-
-            // Ensure the controller exists
-            val controller = controllerRepository.getController(controllerId).firstOrNull()
-            if (controller == null) {
-                controllerRepository.addController("Default Controller")
+            val controller = controllerRepository.getControllers().firstOrNull()?.find { it.name == config.name }
+            val controllerId = if (controller == null) {
+                controllerRepository.addController(config.name)
+            } else {
+                controller.controllerId.toLong()
             }
 
             // Save all actions first to avoid foreign key constraints
@@ -29,9 +28,11 @@ class SaveControllerConfigUseCase @Inject constructor(
                 appActionRepository.saveCustomAppAction(action, context)
             }
 
+            controllerRepository.deletePresetsForController(controllerId.toInt())
+
             // Save presets and button maps
             config.controllerPresets.forEach { preset ->
-                val presetId = controllerRepository.addPresetToController(controllerId, preset.name)
+                val presetId = controllerRepository.addPresetToController(controllerId.toInt(), preset.name)
                 preset.buttonAssignments.forEach { (button, action) ->
                     val buttonMapId = controllerRepository.addButtonMapToAction(
                         actionId = action.id,
@@ -51,7 +52,7 @@ class SaveControllerConfigUseCase @Inject constructor(
                     deadzone = null,
                     sensitivity = null
                 )
-                controllerRepository.addFixedButtonMapToController(controllerId, buttonMapId.toInt())
+                controllerRepository.addFixedButtonMapToController(controllerId.toInt(), buttonMapId.toInt())
             }
         }
     }

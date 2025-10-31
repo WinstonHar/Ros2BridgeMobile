@@ -9,50 +9,78 @@ import com.examples.testros2jsbridge.data.local.database.entities.PresetButtonMa
 import com.examples.testros2jsbridge.domain.model.ButtonMap
 import com.examples.testros2jsbridge.domain.model.ButtonPreset
 import com.examples.testros2jsbridge.domain.model.Controller
-import com.examples.testros2jsbridge.domain.model.ControllerConfig
-import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class ControllerRepositoryImpl @Inject constructor(
-    private val controllerDao: ControllerDao,
-    private val configurationRepository: ConfigurationRepository
+    private val controllerDao: ControllerDao
 ) : ControllerRepository {
 
     override fun getControllers(): Flow<List<Controller>> {
-        TODO("Not yet implemented")
+        return controllerDao.getAllControllersWithDetails().map { controllersWithDetails ->
+            controllersWithDetails.map { controllerWithDetails ->
+                Controller(
+                    controllerId = controllerWithDetails.controller.controllerId,
+                    name = controllerWithDetails.controller.name,
+                    presets = controllerWithDetails.presets.map { presetWithButtonMaps ->
+                        ButtonPreset(
+                            presetId = presetWithButtonMaps.preset.presetId,
+                            name = presetWithButtonMaps.preset.name,
+                            buttonMaps = presetWithButtonMaps.buttonMaps.map { buttonMapEntity ->
+                                ButtonMap(
+                                    buttonMapId = buttonMapEntity.buttonMapId,
+                                    inputType = buttonMapEntity.inputType,
+                                    mappedActionId = buttonMapEntity.mappedActionId,
+                                    joystickDeadzone = buttonMapEntity.joystickDeadzone,
+                                    joystickSensitivity = buttonMapEntity.joystickSensitivity
+                                )
+                            }
+                        )
+                    },
+                    fixedButtonMaps = controllerWithDetails.fixedButtonMaps.map { buttonMapEntity ->
+                        ButtonMap(
+                            buttonMapId = buttonMapEntity.buttonMapId,
+                            inputType = buttonMapEntity.inputType,
+                            mappedActionId = buttonMapEntity.mappedActionId,
+                            joystickDeadzone = buttonMapEntity.joystickDeadzone,
+                            joystickSensitivity = buttonMapEntity.joystickSensitivity
+                        )
+                    }
+                )
+            }
+        }
     }
 
     override suspend fun getController(controllerId: Int): Flow<Controller> {
-        return controllerDao.getControllerWithDetails(controllerId).filterNotNull().map {
+        return controllerDao.getControllerWithDetails(controllerId).map { controllerWithDetails ->
             Controller(
-                controllerId = it.controller.controllerId,
-                name = it.controller.name,
-                presets = it.presets.map {
+                controllerId = controllerWithDetails.controller.controllerId,
+                name = controllerWithDetails.controller.name,
+                presets = controllerWithDetails.presets.map { presetWithButtonMaps ->
                     ButtonPreset(
-                        presetId = it.preset.presetId,
-                        name = it.preset.name,
-                        buttonMaps = it.buttonMaps.map {
+                        presetId = presetWithButtonMaps.preset.presetId,
+                        name = presetWithButtonMaps.preset.name,
+                        buttonMaps = presetWithButtonMaps.buttonMaps.map { buttonMapEntity ->
                             ButtonMap(
-                                buttonMapId = it.buttonMapId,
-                                inputType = it.inputType,
-                                mappedActionId = it.mappedActionId,
-                                joystickDeadzone = it.joystickDeadzone,
-                                joystickSensitivity = it.joystickSensitivity
+                                buttonMapId = buttonMapEntity.buttonMapId,
+                                inputType = buttonMapEntity.inputType,
+                                mappedActionId = buttonMapEntity.mappedActionId,
+                                joystickDeadzone = buttonMapEntity.joystickDeadzone,
+                                joystickSensitivity = buttonMapEntity.joystickSensitivity
                             )
                         }
                     )
                 },
-                fixedButtonMaps = it.fixedButtonMaps.map {
+                fixedButtonMaps = controllerWithDetails.fixedButtonMaps.map { buttonMapEntity ->
                     ButtonMap(
-                        buttonMapId = it.buttonMapId,
-                        inputType = it.inputType,
-                        mappedActionId = it.mappedActionId,
-                        joystickDeadzone = it.joystickDeadzone,
-                        joystickSensitivity = it.joystickSensitivity
+                        buttonMapId = buttonMapEntity.buttonMapId,
+                        inputType = buttonMapEntity.inputType,
+                        mappedActionId = buttonMapEntity.mappedActionId,
+                        joystickDeadzone = buttonMapEntity.joystickDeadzone,
+                        joystickSensitivity = buttonMapEntity.joystickSensitivity
                     )
                 }
             )
@@ -64,12 +92,14 @@ class ControllerRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addButtonMapToAction(actionId: String, inputType: String, deadzone: Float?, sensitivity: Float?): Long {
-        return controllerDao.insertButtonMap(ButtonMapEntity(
-            mappedActionId = actionId,
-            inputType = inputType,
-            joystickDeadzone = deadzone,
-            joystickSensitivity = sensitivity
-        ))
+        return controllerDao.insertButtonMap(
+            ButtonMapEntity(
+                mappedActionId = actionId,
+                inputType = inputType,
+                joystickDeadzone = deadzone,
+                joystickSensitivity = sensitivity
+            )
+        )
     }
 
     override suspend fun addPresetToController(controllerId: Int, presetName: String): Long {
@@ -84,19 +114,14 @@ class ControllerRepositoryImpl @Inject constructor(
         controllerDao.insertControllerButtonFixedMapJunction(ControllerButtonFixedMapJunction(controllerId, buttonMapId))
     }
 
-    override suspend fun getAllControllerConfigs(): List<ControllerConfig> {
-        return configurationRepository.getAllControllerConfigs()
-    }
-
     override suspend fun getSelectedConfigName(id: String): String? {
-        return configurationRepository.getSelectedConfigName(id)
+        // TODO: This should probably be stored in a different way
+        return null
     }
 
     override suspend fun saveSelectedConfigName(name: String) {
-        configurationRepository.saveSelectedConfigName(name)
+        // TODO: This should probably be stored in a different way
     }
 
-    override suspend fun deletePresetsForController(controllerId: Int) {
-        // This is now handled by cascading deletes in the database
-    }
+    override suspend fun deletePresetsForController(controllerId: Int) {}
 }

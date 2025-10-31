@@ -6,34 +6,30 @@ import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class LoadControllerConfigUseCase @Inject constructor(
+class LoadAllControllerConfigsUseCase @Inject constructor(
     private val controllerRepository: ControllerRepository,
     private val appActionRepository: AppActionRepository,
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) {
-    suspend fun load(): ControllerConfig? {
+    suspend fun load(): List<ControllerConfig> {
         return withContext(Dispatchers.IO) {
+            val controllers = controllerRepository.getControllers().first()
             val allActions = appActionRepository.getCustomAppActions(context).first()
+
             fun getActionById(id: String): AppAction? {
                 return allActions.find { it.id == id }
             }
 
-            val selectedConfigName = controllerRepository.getSelectedConfigName("selected_config")
-            val controller = if (selectedConfigName != null) {
-                controllerRepository.getControllers().first().find { it.name == selectedConfigName }
-            } else {
-                controllerRepository.getControllers().first().firstOrNull()
-            }
-
-            controller?.let {
+            controllers.map { controller ->
                 ControllerConfig(
-                    name = it.name,
-                    controllerPresets = it.presets.map {
+                    name = controller.name,
+                    controllerPresets = controller.presets.map {
                         ControllerPreset(
                             name = it.name,
                             topic = null,
@@ -45,7 +41,7 @@ class LoadControllerConfigUseCase @Inject constructor(
                             joystickMappings = emptyList()
                         )
                     },
-                    buttonAssignments = it.fixedButtonMaps.mapNotNull { buttonMap ->
+                    buttonAssignments = controller.fixedButtonMaps.mapNotNull { buttonMap ->
                         getActionById(buttonMap.mappedActionId)?.let {
                             buttonMap.inputType to it
                         }

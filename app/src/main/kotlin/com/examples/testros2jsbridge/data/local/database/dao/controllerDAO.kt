@@ -45,6 +45,14 @@ interface ControllerDao {
     fun getControllerWithDetails(controllerId: Int): Flow<ControllerWithDetails>
 
     @Transaction
+    @Query("SELECT * FROM controllers")
+    fun getAllControllersWithDetails(): Flow<List<ControllerWithDetails>>
+
+    @Transaction
+    @Query("SELECT * FROM controllers")
+    fun getAllControllers(): Flow<List<ControllerEntity>>
+
+    @Transaction
     suspend fun addPresetToControllerTransactional(controllerId: Int, presetName: String): Long {
         val presetId = insertPreset(ButtonPresetsEntity(name = presetName, controllerOwnerId = controllerId))
         return presetId
