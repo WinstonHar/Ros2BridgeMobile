@@ -56,11 +56,6 @@ fun ControllerScreen(
     val appActions by viewModel.appActions.collectAsState()
     val context = LocalContext.current
 
-    // Ensure custom protocol actions are loaded and merged
-    LaunchedEffect(context) {
-        viewModel.loadCustomAppActions(context)
-    }
-
     // SAF launchers for export/import
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/x-yaml"),
@@ -118,7 +113,7 @@ fun ControllerScreen(
                     }
                 ) {
                     OutlinedTextField(
-                        value = uiState.selectedConfigName,
+                        value = uiState.selectedConfigName ?: "",
                         onValueChange = {},
                         label = { Text("Select Config") },
                         readOnly = true,
@@ -213,7 +208,7 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName)
+                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName ?: "")
                             viewModel.removeControllerConfig(sanitizedName, context = context)
                             viewModel.selectControllerConfig("New Config")
                         },
@@ -225,7 +220,7 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName)
+                            val sanitizedName = sanitizeConfigName(uiState.selectedConfigName ?: "")
                             if (uiState.selectedConfigName == "New Config") {
                                 Logger.d("ControllerScreen", "Navigation blocked: selectedConfigName is 'New Config'.")
                                 // Optionally show a Snackbar or Toast here

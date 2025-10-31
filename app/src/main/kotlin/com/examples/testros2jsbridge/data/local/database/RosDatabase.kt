@@ -12,9 +12,15 @@ import com.examples.testros2jsbridge.data.local.database.entities.*
         SubscriberEntity::class,
         PublisherEntity::class,
         ConnectionEntity::class,
-        GeometryMessageEntity::class
+        GeometryMessageEntity::class,
+        AppActionEntity::class,
+        ButtonMapEntity::class,
+        ButtonPresetsEntity::class,
+        ControllerEntity::class,
+        PresetButtonMapJunction::class,
+        ControllerButtonFixedMapJunction::class
     ],
-    version = 1,
+    version = 5,
     exportSchema = false
 )
 abstract class RosDatabase : RoomDatabase() {
@@ -23,6 +29,8 @@ abstract class RosDatabase : RoomDatabase() {
     abstract fun publisherDao(): PublisherDao
     abstract fun connectionDao(): ConnectionDao
     abstract fun geometryMessageDao(): GeometryMessageDao
+    abstract fun appActionDao(): AppActionDao
+    abstract fun controllerDao(): ControllerDao
 
     companion object {
         @Volatile

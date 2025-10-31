@@ -4,8 +4,6 @@ import android.content.Context
 import android.content.res.AssetManager
 import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
-import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
-import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
 import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
@@ -24,8 +22,6 @@ import javax.inject.Singleton
 @Singleton
 class AppActionRepositoryImpl @Inject constructor(
     private val rosbridgeClient: RosbridgeClient,
-    private val connectionDao: ConnectionDao,
-    private val geometryMessageDao: GeometryMessageDao,
     private val appActionDao: AppActionDao,
     private val context: Context
 ) : AppActionRepository {
@@ -33,7 +29,6 @@ class AppActionRepositoryImpl @Inject constructor(
     override val messages = kotlinx.coroutines.flow.MutableStateFlow<List<RosMessageDto>>(emptyList())
 
     override suspend fun saveCustomAppAction(action: AppAction, context: Context): Int {
-        if (action.source == "internal") return -1
         val entity = action.toEntity()
         appActionDao.insertAppAction(entity)
         return appActionDao.getAllAppActions().first().indexOfFirst { it.appActionId == action.id }
@@ -63,7 +58,7 @@ class AppActionRepositoryImpl @Inject constructor(
             rosMessageType = rosMessageType, // use the new field
             messageJsonTemplate = msg,
             rosProtocolType = protocolType,
-            protocolPackageName = source ?: "",
+            protocolPackageName = source,
             protocolName = displayName
         )
     }

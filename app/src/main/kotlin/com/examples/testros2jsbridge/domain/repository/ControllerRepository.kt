@@ -1,18 +1,29 @@
 package com.examples.testros2jsbridge.domain.repository
 
-/*
-Controller logic interface
- */
-
-import com.examples.testros2jsbridge.domain.model.*
+import com.examples.testros2jsbridge.domain.model.Controller
 import kotlinx.coroutines.flow.Flow
 
 interface ControllerRepository {
-    val controller: Flow<ControllerConfig>
 
-    suspend fun saveController(controller: ControllerConfig)
-    suspend fun getController(): ControllerConfig
-    suspend fun getAllControllerConfigs(): List<ControllerConfig>
-    suspend fun getSelectedConfigName(selectedConfigKey: String): String?
-    suspend fun saveSelectedConfigName(configName: String)
+    fun getControllers(): Flow<List<Controller>>
+
+    suspend fun getController(controllerId: Int): Flow<Controller>
+
+    suspend fun addController(name: String): Long
+
+    suspend fun addButtonMapToAction(actionId: String, inputType: String, deadzone: Float?, sensitivity: Float?): Long
+
+    suspend fun addPresetToController(controllerId: Int, presetName: String): Long
+
+    suspend fun addButtonMapToPreset(presetId: Int, buttonMapId: Int)
+
+    suspend fun addFixedButtonMapToController(controllerId: Int, buttonMapId: Int)
+
+    suspend fun getAllControllerConfigs(): List<com.examples.testros2jsbridge.domain.model.ControllerConfig>
+
+    suspend fun getSelectedConfigName(id: String): String?
+
+    suspend fun saveSelectedConfigName(name: String)
+
+    suspend fun deletePresetsForController(controllerId: Int)
 }

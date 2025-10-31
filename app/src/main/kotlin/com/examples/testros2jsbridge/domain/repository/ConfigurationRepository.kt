@@ -14,4 +14,10 @@ interface ConfigurationRepository {
 
     fun exportConfigToStream(out: OutputStream)
     fun importConfigFromStream(inp: InputStream)
+
+    suspend fun getAllControllerConfigs(): List<ControllerConfig>
+
+    suspend fun getSelectedConfigName(id: String): String?
+
+    suspend fun saveSelectedConfigName(name: String)
 }

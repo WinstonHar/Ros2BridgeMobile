@@ -3,10 +3,13 @@ package com.examples.testros2jsbridge.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.examples.testros2jsbridge.domain.model.AppConfiguration
+import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.fromMap
 import com.examples.testros2jsbridge.domain.model.toMap
 import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.InputStream
@@ -106,5 +109,23 @@ class ConfigurationRepositoryImpl @Inject constructor(
         val map = yaml.load<Map<String, Any?>>(yamlString)
         val config = AppConfiguration.fromMap(map)
         _config.value = config
+    }
+
+    override suspend fun getAllControllerConfigs(): List<ControllerConfig> {
+        val json = sharedPreferences.getString("controller_configs", null)
+        return if (json != null) {
+            val type = object : TypeToken<List<ControllerConfig>>() {}.type
+            Gson().fromJson(json, type)
+        } else {
+            emptyList()
+        }
+    }
+
+    override suspend fun getSelectedConfigName(id: String): String? {
+        return sharedPreferences.getString("selected_config_$id", null)
+    }
+
+    override suspend fun saveSelectedConfigName(name: String) {
+        sharedPreferences.edit().putString("selected_config_name", name).apply()
     }
 }

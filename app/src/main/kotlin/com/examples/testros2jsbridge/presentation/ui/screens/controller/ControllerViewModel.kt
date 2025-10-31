@@ -12,7 +12,6 @@ import com.examples.testros2jsbridge.domain.model.ControllerPreset
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.ControllerRepository
-import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 import com.examples.testros2jsbridge.domain.usecase.controller.HandleControllerInputUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.LoadControllerConfigUseCase
 import com.examples.testros2jsbridge.domain.usecase.controller.SaveControllerConfigUseCase
@@ -36,9 +35,8 @@ class ControllerViewModel @Inject constructor(
     val handleControllerInputUseCase: HandleControllerInputUseCase,
     private val loadControllerConfigUseCase: LoadControllerConfigUseCase,
     private val saveControllerConfigUseCase: SaveControllerConfigUseCase,
-    val controllerRepository: ControllerRepository,
-    private val rosMessageRepository: RosMessageRepository,
     private val appActionRepository: AppActionRepository,
+    private val controllerRepository: ControllerRepository,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private var lastSavedConfig: ControllerConfig? = null
@@ -103,7 +101,6 @@ class ControllerViewModel @Inject constructor(
     )
 
     private var geometryActions: List<AppAction> = emptyList()
-    private var customActions: List<AppAction> = emptyList()
     private val _selectedPreset = MutableStateFlow<ControllerPreset?>(null)
     val selectedPreset: StateFlow<ControllerPreset?> = _selectedPreset
     private val _presets = MutableStateFlow<List<ControllerPreset>>(emptyList())
@@ -123,41 +120,23 @@ class ControllerViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val configs = controllerRepository.getAllControllerConfigs()
-            _uiState.update { it.copy(controllerConfigs = configs) }
+            val config = loadControllerConfigUseCase.load()
+            _uiState.update { it.copy(config = config, presets = config.controllerPresets) }
+            _selectedPreset.value = config.controllerPresets.firstOrNull()
+            lastSavedConfig = config.copy()
+            updateHasUnsavedChanges()
+        }
 
-            loadCustomAppActions(appContext)
-
-            val configName = controllerRepository.getSelectedConfigName("selected_config")
-            if (configName != null) {
-                selectControllerConfig(configName, persist = false)
-            } else {
-                val config = loadControllerConfigUseCase.load()
-                _uiState.update { it.copy(config = config, presets = config.controllerPresets) }
-                _selectedPreset.value = config.controllerPresets.firstOrNull()
-                lastSavedConfig = config.copy()
-                updateHasUnsavedChanges()
+        viewModelScope.launch {
+            appActionRepository.getCustomAppActions(appContext).collect { customActions ->
+                mergeAndEmitAppActions(customActions)
             }
         }
 
         refreshControllerButtons()
-
-        viewModelScope.launch {
-            Logger.d("ControllerViewModel", "Collecting messages from rosMessageRepository")
-            rosMessageRepository.messages.collect { messageList ->
-                Logger.d("ControllerViewModel", "Messages collected: $messageList")
-                geometryActions = messageList.mapNotNull { it.toAppAction() }
-                mergeAndEmitAppActions()
-            }
-        }
     }
 
-    suspend fun loadCustomAppActions(context: Context) {
-        customActions = appActionRepository.getCustomAppActions(context).first()
-        mergeAndEmitAppActions()
-    }
-
-    private fun mergeAndEmitAppActions() {
+    private fun mergeAndEmitAppActions(customActions: List<AppAction>) {
         val merged = (geometryActions + customActions + listOf(cyclePresetForwardAction, cyclePresetBackwardAction)).distinctBy { it.id }
         _appActions.value = merged
         _uiState.update { it.copy(appActions = merged) }
@@ -257,7 +236,7 @@ class ControllerViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            saveControllerConfigUseCase.save(configToSave)
+            saveControllerConfigUseCase.save(configToSave, appContext)
 
             val configExists = _uiState.value.controllerConfigs.any { it.name == configToSave.name }
             val updatedConfigs = if (configExists) {
@@ -269,7 +248,6 @@ class ControllerViewModel @Inject constructor(
             }
             _uiState.update { it.copy(controllerConfigs = updatedConfigs) }
 
-            selectControllerConfig(configToSave.name)
         }
     }
 
@@ -281,7 +259,7 @@ class ControllerViewModel @Inject constructor(
         val uiState = _uiState.value.copy(presets = presets)
         val config = ControllerUiMapper.toDomainConfig(uiState)
         viewModelScope.launch {
-            saveControllerConfigUseCase.save(config)
+            saveControllerConfigUseCase.save(config, appContext)
             _uiState.update { it.copy(presets = presets) }
         }
     }
@@ -291,7 +269,7 @@ class ControllerViewModel @Inject constructor(
         _uiState.update { it.copy(config = configWithAssignments) }
         val config = ControllerUiMapper.toDomainConfig(_uiState.value)
         viewModelScope.launch {
-            saveControllerConfigUseCase.save(config)
+            saveControllerConfigUseCase.save(config, appContext)
             _uiState.update { it.copy(config = configWithAssignments) }
         }
     }
@@ -340,7 +318,6 @@ class ControllerViewModel @Inject constructor(
         val newConfig = ControllerConfig(name = sanitizedName)
         val updatedConfigs = _uiState.value.controllerConfigs + newConfig
         _uiState.value = _uiState.value.copy(controllerConfigs = updatedConfigs, config = newConfig)
-        selectControllerConfig(sanitizedName)
         updateHasUnsavedChanges()
     }
 

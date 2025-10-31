@@ -9,10 +9,11 @@ import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
 import com.examples.testros2jsbridge.domain.model.Subscriber
 import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import com.examples.testros2jsbridge.domain.model.RosId
-import com.examples.testros2jsbridge.domain.repository.RosActionRepository
+import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 import com.examples.testros2jsbridge.domain.repository.RosServiceRepository
 import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
+import com.examples.testros2jsbridge.domain.repository.SubscriberRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -34,9 +35,9 @@ class SubscriberViewModel @Inject constructor(
     private val rosMessageRepository: RosMessageRepository,
     private val rosTopicRepository: RosTopicRepository,
     private val rosServiceRepository: RosServiceRepository,
-    private val rosActionRepository: RosActionRepository,
+    private val appActionRepository: AppActionRepository,
     private val connectionManager: ConnectionManager,
-    private val subscriberRepository: com.examples.testros2jsbridge.domain.repository.SubscriberRepository,
+    private val subscriberRepository: SubscriberRepository,
     private val errorHandler: ErrorHandler
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SubscriberUiState())

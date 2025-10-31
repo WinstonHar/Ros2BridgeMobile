@@ -48,10 +48,6 @@ fun ControllerConfigScreen(
     rememberScrollState()
     val hasUnsavedChanges by viewModel.hasUnsavedChanges.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.selectControllerConfig(configName)
-    }
-
     val buttonRows = listOf(
         listOf("Button A", "Button B", "Button X", "Button Y"),
         listOf("L1", "R1", "L2", "R2"),
