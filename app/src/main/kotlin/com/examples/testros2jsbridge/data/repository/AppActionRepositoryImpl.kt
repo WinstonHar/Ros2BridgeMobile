@@ -2,6 +2,7 @@ package com.examples.testros2jsbridge.data.repository
 
 import android.content.Context
 import android.content.res.AssetManager
+import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
 import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
@@ -15,6 +16,7 @@ import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.json.JSONObject
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,6 +29,7 @@ class AppActionRepositoryImpl @Inject constructor(
 ) : AppActionRepository {
 
     override val messages = kotlinx.coroutines.flow.MutableStateFlow<List<RosMessageDto>>(emptyList())
+    private val advertisedTopics = mutableSetOf<String>()
 
     override suspend fun saveCustomAppAction(action: AppAction, context: Context): Int {
         val entity = action.toEntity()
@@ -68,10 +71,10 @@ class AppActionRepositoryImpl @Inject constructor(
             id = appActionId,
             displayName = displayName,
             topic = rosTopic,
-            type = rosMessageType,
+            type = rosMessageType, // from entity.rosMessageType
             source = protocolPackageName ?: "",
             msg = messageJsonTemplate,
-            rosMessageType = rosProtocolType.name // set from the entity
+            rosMessageType = rosProtocolType.name // from entity.rosProtocolType.name
         )
     }
 
@@ -102,10 +105,41 @@ class AppActionRepositoryImpl @Inject constructor(
 
     override fun publishMessage(message: RosMessage) {
         if (message.type == "internal") return
-        val advertiseMsg = "{\"op\": \"advertise\", \"topic\": \"${message.topic.value}\", \"type\": \"${message.type}\"}"
-        rosbridgeClient.send(advertiseMsg)
-        val publishMsg = "{\"op\": \"publish\", \"topic\": \"${message.topic.value}\", \"msg\": ${message.content}}"
-        rosbridgeClient.send(publishMsg)
+
+        var topic = message.topic.value
+        var type = message.type
+        var msgContent = message.content
+
+        try {
+            val jsonContent = JSONObject(message.content)
+            if (jsonContent.has("op") && jsonContent.getString("op") == "publish") {
+                topic = jsonContent.getString("topic")
+                type = jsonContent.getString("type").removePrefix("/")
+                msgContent = jsonContent.getJSONObject("msg").toString()
+            }
+        } catch (e: org.json.JSONException) {
+            Logger.w("AppActionRepositoryImpl", "Could not parse message content as a nested publish op. Using raw content.", e)
+        }
+
+        if (!advertisedTopics.contains(topic)) {
+            val advertiseMsg = JSONObject()
+            advertiseMsg.put("op", "advertise")
+            advertiseMsg.put("topic", topic)
+            advertiseMsg.put("type", type)
+            val advertiseString = advertiseMsg.toString().replace("\\/", "/")
+            Logger.d("AppActionRepositoryImpl", "Advertising: $advertiseString")
+            rosbridgeClient.send(advertiseString)
+            advertisedTopics.add(topic)
+        }
+
+        val publishMsg = JSONObject()
+        publishMsg.put("op", "publish")
+        publishMsg.put("topic", topic)
+        publishMsg.put("type", type)
+        publishMsg.put("msg", JSONObject(msgContent))
+        val publishString = publishMsg.toString().replace("\\/", "/")
+        Logger.d("AppActionRepositoryImpl", "Publishing: $publishString")
+        rosbridgeClient.send(publishString)
     }
 
     override fun clearCustomMessage() {

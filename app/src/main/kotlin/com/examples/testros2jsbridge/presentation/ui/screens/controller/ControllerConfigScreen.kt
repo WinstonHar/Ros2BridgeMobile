@@ -112,6 +112,13 @@ fun ControllerConfigScreen(
                     ) {
                         Text("Save")
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { navigator.popBackStack() },
+                        modifier = Modifier.height(36.dp)
+                    ) {
+                        Text("Back")
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -288,12 +295,6 @@ fun ControllerConfigScreen(
                             }
                         }
                     }
-                }
-                Button(
-                    onClick = { navigator.popBackStack() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Back")
                 }
             }
         }

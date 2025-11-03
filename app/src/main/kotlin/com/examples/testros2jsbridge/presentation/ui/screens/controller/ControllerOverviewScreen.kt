@@ -3,6 +3,7 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +36,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -102,11 +106,20 @@ fun ControllerOverviewScreen(
         Logger.d("ControllerOverviewScreen", "presets: ${presets.joinToString { it.name }}")
         Logger.d("ControllerOverviewScreen", "selectedPreset: ${selectedPreset?.name}")
     }
-
+    val focusRequester = remember { FocusRequester() }
     Surface(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { keyEvent ->
+                viewModel.handleControllerInputUseCase.handleKeyEvent(keyEvent.nativeKeyEvent.keyCode, uiState.config.buttonAssignments)?.let {
+                    viewModel.triggerAppAction(it)
+                }
+                true
+            }
     ) {
         Box(
             modifier = Modifier
@@ -352,6 +365,10 @@ fun ControllerOverviewScreen(
                     }
                 }
             }
+        }
+
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
         }
 
         LaunchedEffect(showPresetsOverlay) {

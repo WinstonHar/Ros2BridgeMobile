@@ -18,6 +18,9 @@ import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketLis
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    @Provides
+    @Singleton
+    fun provideRosbridgeClient(): RosbridgeClient = RosbridgeClient()
 
     @Provides
     @Singleton

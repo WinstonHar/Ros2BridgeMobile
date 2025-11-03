@@ -3,6 +3,7 @@ package com.examples.testros2jsbridge.presentation.ui.screens.controller
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,6 +59,7 @@ fun ControllerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val appActions by viewModel.appActions.collectAsState()
     val context = LocalContext.current
+    val focusRequester = remember { FocusRequester() }
 
     // SAF launchers for export/import
     val exportLauncher = rememberLauncherForActivityResult(
@@ -81,7 +86,16 @@ fun ControllerScreen(
     Surface(
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { keyEvent ->
+                viewModel.handleControllerInputUseCase.handleKeyEvent(keyEvent.nativeKeyEvent.keyCode, uiState.config.buttonAssignments)?.let {
+                    viewModel.triggerAppAction(it)
+                }
+                true
+            }
     ) {
         LazyColumn(
             modifier = Modifier
@@ -114,7 +128,7 @@ fun ControllerScreen(
                 ) {
                     OutlinedTextField(
                         value = uiState.selectedConfigName ?: "",
-                        onValueChange = {},
+                        onValueChange = { },
                         label = { Text("Select Config") },
                         readOnly = true,
                         modifier = Modifier
@@ -189,7 +203,9 @@ fun ControllerScreen(
                                 viewModel.selectControllerConfig(sanitizedName)
                             },
                             enabled = isNewConfig && newConfigName.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
                         ) {
                             Text("Add")
                         }
@@ -251,7 +267,9 @@ fun ControllerScreen(
                             Logger.d("ControllerScreen","Button: $btn")
                             val action = uiState.config.buttonAssignments[btn]
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(text = btn, modifier = Modifier.weight(0.3f), style = MaterialTheme.typography.bodyMedium)
@@ -293,7 +311,9 @@ fun ControllerScreen(
                         )
                         // Show info for selected action
                         selectedAction?.let { action ->
-                            Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                            Column(modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp)) {
                                 Text(
                                     text = "Selected App Action Details",
                                     style = MaterialTheme.typography.titleMedium
@@ -334,7 +354,7 @@ fun ControllerScreen(
                 ) {
                     OutlinedTextField(
                         value = selectedPresetName,
-                        onValueChange = {},
+                        onValueChange = { },
                         label = { Text("Select Preset") },
                         readOnly = true,
                         modifier = Modifier
@@ -389,7 +409,9 @@ fun ControllerScreen(
                                 selectedPresetName = presetName
                             },
                             enabled = isNewPreset && presetName.isNotBlank() && uiState.presets.none { it.name == presetName },
-                            modifier = Modifier.fillMaxWidth().height(40.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp)
                         ) {
                             Text("Add")
                         }
@@ -494,7 +516,8 @@ fun ControllerScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
+        }
     }
 }
-
-
