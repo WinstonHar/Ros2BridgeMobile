@@ -362,6 +362,11 @@ fun PublisherScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = {
+                        viewModel.triggerProtocol()
+                    }) {
+                        Text("Trigger Protocol")
+                    }
+                    Button(onClick = {
                         val id = UUID.randomUUID().toString()
                         val selectedProtocol = selectedMsg ?: selectedSrv ?: selectedAct
                         val fullType = if (selectedProtocol != null) {
@@ -372,22 +377,21 @@ fun PublisherScreen(
                         } else {
                             activeProtocol!!.type.name
                         }
-                        val msgJson = viewModel.buildProtocolMsgJson(
-                            protocolFields = protocolFields,
-                            protocolFieldValues = protocolFieldValues,
-                            topicOverride = protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"],
-                            typeOverride = fullType
-                        )
+                        val msgJson = viewModel.buildMsgArgsJson()
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
                                 id = id,
-                                displayName = protocolFieldValues["topic"] ?: activeProtocol!!.name,
-                                topic = protocolFieldValues["topic"] ?: "",
+                                displayName = protocolFieldValues["__topic__"] ?: activeProtocol!!.name,
+                                topic = protocolFieldValues["__topic__"] ?: "",
                                 type = fullType,
                                 source = activeProtocol!!.packageName,
                                 msg = msgJson,
-                                rosMessageType = activeProtocol!!.type.name
+                                rosMessageType = when {
+                                    selectedSrv != null -> RosProtocolType.SERVICE_CLIENT.name
+                                    selectedAct != null -> RosProtocolType.ACTION_CLIENT.name
+                                    else -> RosProtocolType.PUBLISHER.name
+                                }
                             )
                         )
                         keyboardController?.hide()

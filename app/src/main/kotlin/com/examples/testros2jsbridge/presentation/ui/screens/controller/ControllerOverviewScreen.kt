@@ -40,13 +40,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.pointer.pointerInteropFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
 import com.examples.testros2jsbridge.core.util.Logger
-import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.ui.components.ControllerButton
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
@@ -77,6 +76,7 @@ data class ControllerOverviewScreenNavArgs(
 @Composable
 fun ControllerOverviewScreen(
     viewModel: ControllerViewModel = hiltViewModel(),
+    rosBridgeViewModel: RosBridgeViewModel = hiltViewModel(),
     navigator: DestinationsNavigator
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -116,7 +116,7 @@ fun ControllerOverviewScreen(
             .focusable()
             .onKeyEvent { keyEvent ->
                 viewModel.handleControllerInputUseCase.handleKeyEvent(keyEvent.nativeKeyEvent.keyCode, uiState.config.buttonAssignments)?.let {
-                    viewModel.triggerAppAction(it)
+                    viewModel.triggerAppAction(it, rosBridgeViewModel)
                 }
                 true
             }
@@ -263,7 +263,7 @@ fun ControllerOverviewScreen(
                         ControllerButton(
                             labelText = button,
                             assignedAction = assignedAction,
-                            onPress = { assignedAction?.let { viewModel.triggerAppAction(it) } },
+                            onPress = { assignedAction?.let { viewModel.triggerAppAction(it, rosBridgeViewModel) } },
                             onRelease = { },
                             modifier = Modifier
                                 .align(

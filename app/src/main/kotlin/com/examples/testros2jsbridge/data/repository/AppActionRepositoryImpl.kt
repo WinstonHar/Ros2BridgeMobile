@@ -142,6 +142,14 @@ class AppActionRepositoryImpl @Inject constructor(
         rosbridgeClient.send(publishString)
     }
 
+    override fun sendOrQueueServiceRequest(message: RosMessage) {
+        // Handled in ViewModel
+    }
+
+    override fun sendOrQueueActionGoal(message: RosMessage) {
+        // Handled in ViewModel
+    }
+
     override fun clearCustomMessage() {
         // TODO: Implement custom message clearing
     }
@@ -257,7 +265,8 @@ class AppActionRepositoryImpl @Inject constructor(
     private fun readFileContent(assetManager: AssetManager, path: String): String {
         return try {
             assetManager.open(path).bufferedReader().use { it.readText() }
-        } catch (e: IOException) {
+        }
+        catch (e: IOException) {
             ""
         }
     }

@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
@@ -92,7 +94,7 @@ class ProtocolViewModel @Inject constructor(
         )
     }
 
-    suspend fun loadProtocolFields(context: Context, selectedProtocol: ProtocolUiState.ProtocolFile) {
+    fun loadProtocolFields(context: Context, selectedProtocol: ProtocolUiState.ProtocolFile) {
         try {
             val packageName = selectedProtocol.importPath.substringBefore('/')
             val customProtocol = CustomProtocol(
@@ -128,13 +130,7 @@ class ProtocolViewModel @Inject constructor(
                         continue
                     }
                     if ((type == ProtocolUiState.ProtocolType.SRV || type == ProtocolUiState.ProtocolType.ACTION) && trimmed == "---") {
-                        if (type == ProtocolUiState.ProtocolType.ACTION) {
-                            currentSection = when (currentSection) {
-                                "Goal" -> "Result"
-                                "Result" -> "Feedback"
-                                else -> currentSection
-                            }
-                        }
+                        currentSection = if (type == ProtocolUiState.ProtocolType.SRV) "Response" else "Result"
                         continue
                     }
                     val parts = trimmed.split(" ", limit = 2)
@@ -225,58 +221,74 @@ class ProtocolViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(showErrorDialog = false, errorMessage = null)
     }
 
-    fun buildProtocolMsgJson(
-        protocolFields: List<ProtocolField>,
-        protocolFieldValues: Map<String, String>,
-        topicOverride: String? = null,
-        typeOverride: String? = null // Add this
-    ): String {
+    fun buildMsgArgsJson(): String {
         fun cleanFieldName(name: String): String = name.split("#")[0].trim()
 
-        val protocolType = activeProtocol.value?.type
-        val resolvedTopic = topicOverride ?: protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: "/"
-        val resolvedTypeString = typeOverride ?: activeProtocol.value?.typeString ?: ""
-        when (protocolType) {
-            CustomProtocol.Type.MSG -> rosBridgeViewModel?.advertiseTopic(resolvedTopic, resolvedTypeString)
-            CustomProtocol.Type.SRV -> rosBridgeViewModel?.advertiseService(resolvedTopic, resolvedTypeString)
-            CustomProtocol.Type.ACTION -> rosBridgeViewModel?.advertiseAction(resolvedTopic, resolvedTypeString)
-            else -> {}
-        }
+        val protocolType = _activeProtocol.value?.type
+        val fields = _protocolFields.value
+        val values = _protocolFieldValues.value
 
-        val msgEntries = protocolFields
+        val msgEntries = fields
             .filter { field ->
                 if (field.isConstant) return@filter false
                 val fieldName = cleanFieldName(field.name)
-                if (fieldName in setOf("displayName", "topic", "type", "source", "msg")) return@filter false
+                if (fieldName in setOf("displayName", "topic", "__topic__", "type", "source", "msg")) return@filter false
 
                 when (protocolType) {
-                    CustomProtocol.Type.ACTION -> field.section == "Goal"
-                    CustomProtocol.Type.SRV -> field.section == "Goal"
-                    CustomProtocol.Type.MSG -> fieldName == fieldName.lowercase()
+                    CustomProtocol.Type.SRV, CustomProtocol.Type.ACTION -> field.section == "Goal"
+                    CustomProtocol.Type.MSG -> true
                     else -> true
                 }
             }
-            .map { field ->
+            .mapNotNull { field ->
                 val fieldName = cleanFieldName(field.name)
-                val value = protocolFieldValues[field.name] ?: ""
-                val asLong = value.toLongOrNull()
-                val asDouble = value.toDoubleOrNull()
-                val isBool = value.equals("true", true) || value.equals("false", true)
-                val jsonValue = when {
-                    isBool -> value.toBoolean().toString()
-                    asLong != null && value == asLong.toString() -> asLong.toString()
-                    asDouble != null && value == asDouble.toString() -> asDouble.toString()
-                    else -> "\"" + value.replace("\"", "\\\"") + "\""
+                val valueStr = values[field.name]
+
+                if (valueStr != null) {
+                    val jsonElement = try {
+                        Json.parseToJsonElement(valueStr)
+                    } catch (_: Exception) {
+                        JsonPrimitive(valueStr)
+                    }
+                    fieldName to jsonElement
+                } else {
+                    null
                 }
-                "\"$fieldName\": $jsonValue"
             }
-        val msgJson = "{" + msgEntries.joinToString(", ") + "}"
-        val envelope = "{" +
-            "\"op\": \"publish\"," +
-            "\"topic\": \"$resolvedTopic\"," +
-            "\"type\": \"$resolvedTypeString\"," +
-            "\"msg\": $msgJson" +
-            "}"
-        return envelope
+        return JsonObject(msgEntries.toMap()).toString()
+    }
+
+    fun triggerProtocol() {
+        val protocol = _activeProtocol.value ?: return
+        val topicOrServiceName = _protocolFieldValues.value["__topic__"] ?: protocol.name
+        val typeString = protocol.typeString
+        val msgArgsJson = buildMsgArgsJson()
+
+        Logger.d("ProtocolViewModel", "Triggering protocol: Type=${protocol.type}, Name=$topicOrServiceName, TypeString=$typeString, MsgArgs=$msgArgsJson")
+
+        val ros = rosBridgeViewModel ?: run {
+            Logger.e("ProtocolViewModel", "RosBridgeViewModel is not attached!")
+            return
+        }
+
+        when (protocol.type) {
+            CustomProtocol.Type.MSG -> {
+                ros.publishMessage(topicOrServiceName, typeString, msgArgsJson)
+            }
+            CustomProtocol.Type.SRV -> {
+                ros.sendOrQueueServiceRequest(topicOrServiceName, typeString, msgArgsJson) { result ->
+                    Logger.d("ProtocolViewModel", "Service result for '$topicOrServiceName': $result")
+                }
+            }
+            CustomProtocol.Type.ACTION -> {
+                ros.sendOrQueueActionGoal(
+                    actionName = topicOrServiceName,
+                    actionType = typeString,
+                    goalFields = Json.parseToJsonElement(msgArgsJson).jsonObject
+                ) { result ->
+                    Logger.d("ProtocolViewModel", "Action result for '$topicOrServiceName': $result")
+                }
+            }
+        }
     }
 }

@@ -2,8 +2,6 @@ package com.examples.testros2jsbridge.domain.usecase.controller
 
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.JoystickMapping
-import com.examples.testros2jsbridge.domain.model.RosId
-import com.examples.testros2jsbridge.domain.model.RosMessage
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import javax.inject.Inject
 
@@ -28,16 +26,5 @@ class HandleControllerInputUseCase @Inject constructor(
         val scaledY = (effectiveY * sensitivity / step).toInt() * step
 
         return Pair(scaledX, scaledY)
-    }
-
-    fun triggerAppAction(action: AppAction) {
-        appActionRepository.publishMessage(
-            RosMessage(
-                topic = RosId(action.topic),
-                content = action.msg,
-                type = action.type,
-                op = "publish"
-            )
-        )
     }
 }

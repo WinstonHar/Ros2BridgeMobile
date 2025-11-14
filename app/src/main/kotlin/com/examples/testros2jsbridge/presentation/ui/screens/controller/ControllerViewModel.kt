@@ -4,7 +4,9 @@ import android.content.Context
 import android.view.InputDevice
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.examples.testros2jsbridge.core.ros.RosBridgeViewModel
 import com.examples.testros2jsbridge.core.util.Logger
+import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
@@ -26,6 +28,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
@@ -70,11 +74,31 @@ class ControllerViewModel @Inject constructor(
         _detectedControllerButtons.value = buttonNames.toList().sorted()
     }
 
-    fun triggerAppAction(action: AppAction) {
-        when (action.id) {
-            "__cycle_preset_forward__" -> cyclePresetForward()
-            "__cycle_preset_backward__" -> cyclePresetBackward()
-            else -> handleControllerInputUseCase.triggerAppAction(action)
+    fun triggerAppAction(action: AppAction, rosBridgeViewModel: RosBridgeViewModel) {
+        when (action.rosMessageType) {
+            RosProtocolType.PUBLISHER.name -> {
+                rosBridgeViewModel.publishMessage(action.topic, action.type, action.msg)
+            }
+            RosProtocolType.SERVICE_CLIENT.name -> {
+                rosBridgeViewModel.sendOrQueueServiceRequest(action.topic, action.type, action.msg) { result ->
+                    Logger.d("ControllerViewModel", "Service result for '${action.topic}': $result")
+                }
+            }
+            RosProtocolType.ACTION_CLIENT.name -> {
+                rosBridgeViewModel.sendOrQueueActionGoal(
+                    actionName = action.topic,
+                    actionType = action.type,
+                    goalFields = Json.parseToJsonElement(action.msg).jsonObject
+                ) { result ->
+                    Logger.d("ControllerViewModel", "Action result for '${action.topic}': $result")
+                }
+            }
+            "internal" -> {
+                when (action.id) {
+                    "__cycle_preset_forward__" -> cyclePresetForward()
+                    "__cycle_preset_backward__" -> cyclePresetBackward()
+                }
+            }
         }
     }
 

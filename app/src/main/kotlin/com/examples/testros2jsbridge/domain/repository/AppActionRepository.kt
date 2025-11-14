@@ -19,6 +19,8 @@ interface AppActionRepository {
     suspend fun getMessage(messageId: String): RosMessageDto?
     suspend fun getMessagesByTopic(topic: RosId): List<RosMessageDto>
     fun publishMessage(message: RosMessage)
+    fun sendOrQueueServiceRequest(message: RosMessage)
+    fun sendOrQueueActionGoal(message: RosMessage)
     fun clearCustomMessage()
     fun onCustomMessageChange(newMessage: String)
     fun updateConnectionStatus(status: String)
