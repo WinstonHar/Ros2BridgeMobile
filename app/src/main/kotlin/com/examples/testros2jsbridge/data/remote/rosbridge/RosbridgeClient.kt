@@ -16,6 +16,7 @@ class RosbridgeClient @Inject constructor() {
     private var webSocket: WebSocket? = null
     private var url: String = ""
     private var baseListener: WebSocketListener? = null
+    var onMessageListener: ((String) -> Unit)? = null
     private val messageQueue = ConcurrentLinkedQueue<String>()
 
     private val client = OkHttpClient.Builder()
@@ -33,10 +34,6 @@ class RosbridgeClient @Inject constructor() {
     fun connect() {
         if (url.isEmpty()) {
             Logger.e("RosbridgeClient", "Cannot connect: URL not set")
-            return
-        }
-        if (baseListener == null) {
-            Logger.e("RosbridgeClient", "Cannot connect: Listener not set")
             return
         }
 
@@ -58,6 +55,7 @@ class RosbridgeClient @Inject constructor() {
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 baseListener?.onMessage(webSocket, text)
+                onMessageListener?.invoke(text)
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {

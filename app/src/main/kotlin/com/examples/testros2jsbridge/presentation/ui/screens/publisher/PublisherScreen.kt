@@ -49,6 +49,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.examples.testros2jsbridge.data.local.database.RosProtocolType
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import com.ramcosta.composedestinations.annotation.Destination
@@ -364,7 +365,10 @@ fun PublisherScreen(
                         val id = UUID.randomUUID().toString()
                         val selectedProtocol = selectedMsg ?: selectedSrv ?: selectedAct
                         val fullType = if (selectedProtocol != null) {
-                            "${selectedProtocol.packageName}/${selectedProtocol.type.name.lowercase()}/${selectedProtocol.name}"
+                            when (selectedProtocol.type) {
+                                ProtocolUiState.ProtocolType.MSG -> "${selectedProtocol.packageName}/${selectedProtocol.name}"
+                                else -> "${selectedProtocol.packageName}/${selectedProtocol.type.name.lowercase()}/${selectedProtocol.name}"
+                            }
                         } else {
                             activeProtocol!!.type.name
                         }
@@ -475,16 +479,28 @@ fun PublisherScreen(
                     }
                     Button(onClick = {
                         val id = editingAction?.id ?: UUID.randomUUID().toString()
+                        val typeText = actionType.text
+                        val protocolType = when {
+                            typeText.contains("/srv/") -> RosProtocolType.SERVICE_CLIENT
+                            typeText.contains("/action/") -> RosProtocolType.ACTION_CLIENT
+                            else -> RosProtocolType.PUBLISHER // or SUBSCRIBER, default to PUBLISHER
+                        }
+                        val finalType = if (protocolType == RosProtocolType.PUBLISHER) {
+                            typeText.replace("/msg/", "/")
+                        } else {
+                            typeText
+                        }
+
                         viewModel.saveCustomAppAction(
                             context,
                             AppAction(
                                 id = id,
                                 displayName = actionDisplayName.text,
                                 topic = actionTopic.text,
-                                type = actionType.text,
+                                type = finalType,
                                 source = actionSource.text,
                                 msg = actionMsg.text,
-                                rosMessageType = actionType.text // set from text field
+                                rosMessageType = protocolType.name
                             )
                         )
                         viewModel.setEditingAppAction(null)

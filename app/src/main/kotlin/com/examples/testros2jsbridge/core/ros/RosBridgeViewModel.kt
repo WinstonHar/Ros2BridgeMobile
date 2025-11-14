@@ -20,6 +20,13 @@ import javax.inject.Inject
 class RosBridgeViewModel @Inject constructor(
     private val rosbridgeClient: RosbridgeClient
 ) : ViewModel() {
+
+    init {
+        rosbridgeClient.onMessageListener = {
+            handleRosbridgeMessage(it)
+        }
+    }
+
     private val advertisedTopics: MutableSet<Pair<String, String>> = mutableSetOf()
     private val advertisedServices: MutableSet<Pair<String, String>> = mutableSetOf()
     private val advertisedActions: MutableSet<Pair<String, String>> = mutableSetOf()
@@ -192,7 +199,7 @@ class RosBridgeViewModel @Inject constructor(
     private val lastServiceBusyMap = mutableMapOf<String, Boolean>()
     private val pendingServiceRequestMap = mutableMapOf<String, Triple<String, String, (String) -> Unit>>()
 
-    fun callService(serviceName: String, serviceType: String, requestJson: String, onResult: (String) -> Unit) {
+    fun sendOrQueueServiceRequest(serviceName: String, serviceType: String, requestJson: String, onResult: (String) -> Unit) {
         val busy = lastServiceBusyMap[serviceName] ?: false
         if (busy) {
             pendingServiceRequestMap[serviceName] = Triple(serviceType, requestJson, onResult)
@@ -207,7 +214,7 @@ class RosBridgeViewModel @Inject constructor(
             onResult(response)
             if (pendingServiceRequestMap.containsKey(serviceName)) {
                 val (nextType, nextJson, nextCb) = pendingServiceRequestMap.remove(serviceName)!!
-                callService(serviceName, nextType, nextJson, nextCb)
+                sendOrQueueServiceRequest(serviceName, nextType, nextJson, nextCb)
             }
         }
         viewModelScope.launch {
@@ -218,9 +225,10 @@ class RosBridgeViewModel @Inject constructor(
             try {
                 val msg = buildJsonObject {
                     put("op", JsonPrimitive("call_service"))
-                    put("service", JsonPrimitive(serviceName))
-                    put("args", Json.parseToJsonElement(requestJson))
                     put("id", JsonPrimitive(id))
+                    put("service", JsonPrimitive(serviceName))
+                    put("type", JsonPrimitive(serviceType))
+                    put("args", Json.parseToJsonElement(requestJson))
                 }
                 rosbridgeClient.send(msg.toString())
                 Logger.d("RosBridgeViewModel", "ServiceCall: service=$serviceName, type=$serviceType, req=$requestJson")
@@ -240,7 +248,7 @@ class RosBridgeViewModel @Inject constructor(
     private val lastGoalStatusMap = mutableMapOf<String, String>()
     private val pendingGoalMap = mutableMapOf<String, Triple<String, String, JsonObject>>()
 
-    fun sendActionGoal(
+    fun sendOrQueueActionGoal(
         actionName: String,
         actionType: String,
         goalFields: JsonObject,
@@ -266,24 +274,34 @@ class RosBridgeViewModel @Inject constructor(
         if (onResult != null) {
             topicHandlers[id] = onResult
         }
-        viewModelScope.launch {
-            if (!isConnected()) {
-                Logger.w("RosBridgeViewModel", "Cannot send action goal: Not connected.")
-                return@launch
-            }
-            try {
-                val msg = buildJsonObject {
-                    put("op", JsonPrimitive("call_service"))
-                    put("service", JsonPrimitive(names.sendGoalService))
-                    put("args", sendGoalMsg)
-                    put("id", JsonPrimitive(id))
-                }
-                rosbridgeClient.send(msg.toString())
-                Logger.d("RosBridgeViewModel", "SendActionGoal: action=$actionName, type=$actionType, uuid=$goalUuid, fields=$goalFields")
-            } catch (e: Exception) {
-                Logger.e("RosBridgeViewModel", "Error sending action goal", e)
-            }
+
+        sendOrQueueServiceRequest(names.sendGoalService, names.sendGoalType, sendGoalMsg.toString()) { response ->
+            Logger.d("RosBridgeViewModel", "Sent action goal for $actionName. Response: $response")
+            subscribeToActionStatus(actionName, actionType)
         }
+    }
+
+    private fun getActionResult(actionName: String, actionType: String, goalUuid: String, onResult: (String) -> Unit) {
+        val names = getActionNames(actionName, actionType) ?: return
+        val uuidBytes = uuidToByteArrayString(goalUuid)
+        val getResultMsg = buildJsonObject {
+            put("goal_id", buildJsonObject { put("uuid", Json.parseToJsonElement(uuidBytes)) })
+        }
+        sendOrQueueServiceRequest(names.getResultService, names.getResultType, getResultMsg.toString(), onResult)
+    }
+
+    private fun subscribeToActionStatus(actionName: String, actionType: String) {
+        val names = getActionNames(actionName, actionType) ?: return
+        val key = names.statusTopic to "action_msgs/msg/GoalStatusArray"
+        if (advertisedTopics.contains(key)) return
+
+        val msg = buildJsonObject {
+            put("op", "subscribe")
+            put("topic", names.statusTopic)
+            put("type", "action_msgs/msg/GoalStatusArray")
+        }
+        rosbridgeClient.send(msg.toString())
+        advertisedTopics.add(key)
     }
 
     private fun cancelActionGoal(actionName: String, actionType: String, uuid: String) {
@@ -303,33 +321,82 @@ class RosBridgeViewModel @Inject constructor(
                 put("uuid", Json.parseToJsonElement(uuidBytes))
             })
         }
-        viewModelScope.launch {
-            if (!isConnected()) {
-                Logger.w("RosBridgeViewModel", "Cannot cancel action goal: Not connected.")
-                return@launch
+        publishMessage(cancelTopic, cancelType, cancelMsgJson.toString())
+    }
+
+    private fun handleStatusUpdate(actionName: String, actionType: String, statusList: JsonArray) {
+        val goalId = lastGoalIdMap[actionName] ?: return
+        val currentStatus = statusList.firstOrNull {
+            it.jsonObject["goal_info"]?.jsonObject?.get("goal_id")?.jsonObject?.get("uuid")?.jsonArray?.let { uuidArray ->
+                val uuidString = uuidArray.map { it.jsonPrimitive.int }.joinToString(",", prefix = "[", postfix = "]")
+                uuidToByteArrayString(goalId) == uuidString
+            } ?: false
+        }?.jsonObject?.get("status")?.jsonPrimitive?.int ?: -1
+
+        val statusStr = when(currentStatus) {
+            1 -> "PENDING"
+            2 -> "ACTIVE"
+            3 -> "SUCCEEDED"
+            4 -> "ABORTED"
+            5 -> "CANCELED"
+            else -> "UNKNOWN"
+        }
+
+        lastGoalStatusMap[actionName] = statusStr
+
+        if (statusStr in setOf("SUCCEEDED", "ABORTED", "CANCELED")) {
+            val onResult = topicHandlers.remove("action_goal_${actionName}")
+            if (onResult != null) {
+                getActionResult(actionName, actionType, goalId, onResult)
             }
-            try {
-                val msg = buildJsonObject {
-                    put("op", JsonPrimitive("publish"))
-                    put("topic", JsonPrimitive(cancelTopic))
-                    put("msg", cancelMsgJson)
-                }
-                rosbridgeClient.send(msg.toString())
-                Logger.d("RosBridgeViewModel", "CancelActionGoal: topic=$cancelTopic, type=$cancelType, msg=$cancelMsgJson")
-            } catch (e: Exception) {
-                Logger.e("RosBridgeViewModel", "Error cancelling action goal", e)
+
+            if (pendingGoalMap.containsKey(actionName)) {
+                val (nextType, nextUuid, nextGoal) = pendingGoalMap.remove(actionName)!!
+                sendOrQueueActionGoal(actionName, nextType, nextGoal, nextUuid, onResult)
             }
         }
     }
 
     // Make isConnected a private member function
     private fun isConnected(): Boolean {
-        return try {
-            val webSocketField = rosbridgeClient.javaClass.getDeclaredField("webSocket")
-            webSocketField.isAccessible = true
-            webSocketField.get(rosbridgeClient) != null
+        return rosbridgeClient.isConnected()
+    }
+
+    private fun handleRosbridgeMessage(message: String) {
+        try {
+            val json = Json.parseToJsonElement(message).jsonObject
+            when (json["op"]?.jsonPrimitive?.content) {
+                "service_response" -> handleServiceResponse(json)
+                "publish" -> {
+                    val topic = json["topic"]?.jsonPrimitive?.content ?: return
+                    if (topic.endsWith("/status")) {
+                        val actionName = topic.removeSuffix("/status")
+                        val actionType = advertisedActions.firstOrNull { it.first == actionName }?.second ?: return
+                        val statusList = json["msg"]?.jsonObject?.get("status_list")?.jsonArray ?: return
+                        handleStatusUpdate(actionName, actionType, statusList)
+                    }
+                }
+            }
         } catch (e: Exception) {
-            false
+            Logger.e("RosBridgeViewModel", "Error handling rosbridge message", e)
+        }
+    }
+
+    private fun handleServiceResponse(json: JsonObject) {
+        val service = json["service"]?.jsonPrimitive?.content ?: return
+        val id = json["id"]?.jsonPrimitive?.content ?: return
+        val values = json["values"]?.toString() ?: "{}"
+
+        val handler = topicHandlers.remove(id)
+        if (handler != null) {
+            handler(values)
+        } else {
+            Logger.w("RosBridgeViewModel", "No handler for service response: $service, id=$id")
+        }
+
+        if (pendingServiceRequestMap.containsKey(service)) {
+            val (nextType, nextJson, nextCb) = pendingServiceRequestMap.remove(service)!!
+            sendOrQueueServiceRequest(service, nextType, nextJson, nextCb)
         }
     }
 

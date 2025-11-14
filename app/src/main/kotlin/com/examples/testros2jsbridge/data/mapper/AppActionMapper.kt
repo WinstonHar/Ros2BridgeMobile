@@ -5,15 +5,37 @@ import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntit
 import com.examples.testros2jsbridge.domain.model.AppAction
 
 fun AppAction.toEntity(): AppActionEntity {
+    val (protocolPackageName, protocolName) = this.type.split("/").let {
+        val protocolName = it.getOrNull(2) ?: ""
+        val protocolPackageName = it.getOrNull(0) ?: ""
+        Pair(protocolPackageName, protocolName)
+    }
+
+    val finalRosMessageType = when (RosProtocolType.valueOf(this.rosMessageType)) {
+        RosProtocolType.SUBSCRIBER, RosProtocolType.PUBLISHER -> {
+            "${protocolPackageName}/${protocolName}"
+        }
+        RosProtocolType.ACTION_CLIENT -> {
+            "${protocolPackageName}/action/${protocolName}"
+        }
+        RosProtocolType.SERVICE_CLIENT -> {
+            "${protocolPackageName}/srv/${protocolName}"
+        }
+        RosProtocolType.INTERNAL -> {
+             this.type
+        }
+        else -> this.type
+    }
+
     return AppActionEntity(
         appActionId = this.id,
         displayName = this.displayName,
         rosTopic = this.topic,
-        rosMessageType = this.type,
+        rosMessageType = finalRosMessageType,
         messageJsonTemplate = this.msg,
-        rosProtocolType = RosProtocolType.ACTION_CLIENT,
-        protocolPackageName = null,
-        protocolName = null
+        rosProtocolType = RosProtocolType.valueOf(this.rosMessageType),
+        protocolPackageName = protocolPackageName,
+        protocolName = protocolName
     )
 }
 
