@@ -2,15 +2,9 @@ package com.examples.testros2jsbridge.di
 
 import android.content.Context
 import com.examples.testros2jsbridge.core.error.ErrorHandler
-import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
-import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
-import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
 import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
-import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-import com.examples.testros2jsbridge.data.repository.AppActionRepositoryImpl
 import com.examples.testros2jsbridge.data.repository.ConfigurationRepositoryImpl
 import com.examples.testros2jsbridge.data.repository.PublisherRepositoryImpl
-import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
 import com.examples.testros2jsbridge.domain.repository.PublisherRepository
 import dagger.Module

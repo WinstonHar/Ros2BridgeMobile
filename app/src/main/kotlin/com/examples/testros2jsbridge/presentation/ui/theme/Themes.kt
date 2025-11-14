@@ -1,11 +1,8 @@
 package com.examples.testros2jsbridge.presentation.ui.theme
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.Composable
-import androidx.compose.foundation.isSystemInDarkTheme
-
 // Import color schemes and typography from Color.kt
-import com.examples.testros2jsbridge.presentation.ui.theme.*
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.Composable
 
 /**
  * Consistent Compose theme for the app, supporting dark and light mode.

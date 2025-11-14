@@ -4,9 +4,9 @@ package com.examples.testros2jsbridge.domain.repository
 Message handling contract
  */
 
-import com.examples.testros2jsbridge.domain.model.*
-
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
+import com.examples.testros2jsbridge.domain.model.RosId
+import com.examples.testros2jsbridge.domain.model.RosMessage
 import kotlinx.coroutines.flow.MutableStateFlow
 
 interface RosMessageRepository{

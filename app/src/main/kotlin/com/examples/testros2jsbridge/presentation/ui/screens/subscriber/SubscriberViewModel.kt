@@ -5,22 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.examples.testros2jsbridge.core.error.ErrorHandler
 import com.examples.testros2jsbridge.core.network.ConnectionManager
 import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
-import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
-import com.examples.testros2jsbridge.domain.model.Subscriber
 import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import com.examples.testros2jsbridge.domain.model.RosId
+import com.examples.testros2jsbridge.domain.model.Subscriber
 import com.examples.testros2jsbridge.domain.repository.AppActionRepository
 import com.examples.testros2jsbridge.domain.repository.RosMessageRepository
 import com.examples.testros2jsbridge.domain.repository.RosServiceRepository
 import com.examples.testros2jsbridge.domain.repository.RosTopicRepository
 import com.examples.testros2jsbridge.domain.repository.SubscriberRepository
+import com.examples.testros2jsbridge.presentation.state.SubscriberUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /**

@@ -4,15 +4,12 @@ package com.examples.testros2jsbridge.di
 Removes hardcoded OkHttpClient creation in RosbridgeConnectionManager:64
  */
 
-import android.content.Context
+import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeClient
-import com.examples.testros2jsbridge.data.remote.rosbridge.RosbridgeWebSocketListener
 
 @Module
 @InstallIn(SingletonComponent::class)

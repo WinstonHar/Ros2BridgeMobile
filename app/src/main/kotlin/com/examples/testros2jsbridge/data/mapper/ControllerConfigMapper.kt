@@ -3,7 +3,6 @@ package com.examples.testros2jsbridge.data.mapper
 import com.examples.testros2jsbridge.data.local.database.entities.ControllerConfigEntity
 import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
-import com.examples.testros2jsbridge.domain.model.JoystickMapping
 import com.examples.testros2jsbridge.domain.model.RosId
 
 fun ControllerConfig.toEntity(): ControllerConfigEntity {

@@ -2,13 +2,13 @@ package com.examples.testros2jsbridge.presentation.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.examples.testros2jsbridge.domain.model.AppConfiguration
+import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
 import com.examples.testros2jsbridge.presentation.state.SettingUiState
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.examples.testros2jsbridge.domain.repository.ConfigurationRepository
-import com.examples.testros2jsbridge.domain.model.AppConfiguration
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
 @HiltViewModel

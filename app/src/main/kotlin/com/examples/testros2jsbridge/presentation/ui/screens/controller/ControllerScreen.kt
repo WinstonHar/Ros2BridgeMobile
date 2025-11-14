@@ -1,5 +1,6 @@
 package com.examples.testros2jsbridge.presentation.ui.screens.controller
 
+import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -93,8 +94,10 @@ fun ControllerScreen(
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { keyEvent ->
-                viewModel.handleControllerInputUseCase.handleKeyEvent(keyEvent.nativeKeyEvent.keyCode, uiState.config.buttonAssignments)?.let {
-                    viewModel.triggerAppAction(it, rosBridgeViewModel)
+                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                    viewModel.handleControllerInputUseCase.handleKeyEvent(keyEvent.nativeKeyEvent.keyCode, uiState.config.buttonAssignments)?.let {
+                        viewModel.triggerAppAction(it, rosBridgeViewModel)
+                    }
                 }
                 true
             }
@@ -149,7 +152,10 @@ fun ControllerScreen(
                                 text = { Text(config.name) },
                                 onClick = {
                                     configExpanded = false
-                                    Logger.d("ControllerScreen", "Dropdown selected: ${config.name}")
+                                    Logger.d(
+                                        "ControllerScreen",
+                                        "Dropdown selected: ${config.name}"
+                                    )
                                     viewModel.selectControllerConfig(config.name)
                                 }
                             )
@@ -168,7 +174,9 @@ fun ControllerScreen(
                 var configNameError by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = newConfigName,
-                    onValueChange = { if (uiState.selectedConfigName == "New Config") newConfigName = it },
+                    onValueChange = {
+                        if (uiState.selectedConfigName == "New Config") newConfigName = it
+                    },
                     label = { Text("New Config Name") },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = uiState.selectedConfigName == "New Config",
@@ -240,7 +248,10 @@ fun ControllerScreen(
                         onClick = {
                             val sanitizedName = sanitizeConfigName(uiState.selectedConfigName ?: "")
                             if (uiState.selectedConfigName == "New Config") {
-                                Logger.d("ControllerScreen", "Navigation blocked: selectedConfigName is 'New Config'.")
+                                Logger.d(
+                                    "ControllerScreen",
+                                    "Navigation blocked: selectedConfigName is 'New Config'."
+                                )
                                 // Optionally show a Snackbar or Toast here
                             } else {
                                 viewModel.selectControllerConfig(sanitizedName)
@@ -266,7 +277,7 @@ fun ControllerScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Column(modifier = Modifier.fillMaxWidth()) {
                         uiState.controllerButtons.forEach { btn ->
-                            Logger.d("ControllerScreen","Button: $btn")
+                            Logger.d("ControllerScreen", "Button: $btn")
                             val action = uiState.config.buttonAssignments[btn]
                             Row(
                                 modifier = Modifier
@@ -274,8 +285,16 @@ fun ControllerScreen(
                                     .padding(vertical = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = btn, modifier = Modifier.weight(0.3f), style = MaterialTheme.typography.bodyMedium)
-                                Text(text = action?.displayName ?: "(none)", modifier = Modifier.weight(0.7f), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    text = btn,
+                                    modifier = Modifier.weight(0.3f),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = action?.displayName ?: "(none)",
+                                    modifier = Modifier.weight(0.7f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }
@@ -308,14 +327,16 @@ fun ControllerScreen(
                                         context = context
                                     )
                                 }
-                             },
+                            },
                             label = "Select Action"
                         )
                         // Show info for selected action
                         selectedAction?.let { action ->
-                            Column(modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp)
+                            ) {
                                 Text(
                                     text = "Selected App Action Details",
                                     style = MaterialTheme.typography.titleMedium
@@ -480,7 +501,11 @@ fun ControllerScreen(
                             topics = uiState.appActions,
                             selectedTopic = uiState.config.buttonAssignments[btn],
                             onTopicSelected = { action ->
-                                viewModel.assignAbxyButton(btn, action?.displayName ?: "", context = context)
+                                viewModel.assignAbxyButton(
+                                    btn,
+                                    action?.displayName ?: "",
+                                    context = context
+                                )
                             },
                             label = "$btn Button Action"
                         )

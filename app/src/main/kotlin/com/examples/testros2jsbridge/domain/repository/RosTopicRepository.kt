@@ -4,9 +4,8 @@ package com.examples.testros2jsbridge.domain.repository
 Topic management interface
  */
 
-import com.examples.testros2jsbridge.domain.model.*
-
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosTopicDto
+import com.examples.testros2jsbridge.domain.model.RosTopic
 import kotlinx.coroutines.flow.StateFlow
 
 interface RosTopicRepository {

@@ -4,10 +4,8 @@ package com.examples.testros2jsbridge.domain.repository
 Service call interface
  */
 
-import com.examples.testros2jsbridge.domain.model.*
-import kotlinx.coroutines.flow.Flow
-
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosServiceDto
+import com.examples.testros2jsbridge.domain.model.RosService
 import kotlinx.coroutines.flow.StateFlow
 
 interface RosServiceRepository {

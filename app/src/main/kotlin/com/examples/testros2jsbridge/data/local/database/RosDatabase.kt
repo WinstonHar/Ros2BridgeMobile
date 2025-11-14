@@ -4,8 +4,22 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.examples.testros2jsbridge.data.local.database.dao.*
-import com.examples.testros2jsbridge.data.local.database.entities.*
+import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ControllerDao
+import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
+import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
+import com.examples.testros2jsbridge.data.local.database.entities.AppActionEntity
+import com.examples.testros2jsbridge.data.local.database.entities.ButtonMapEntity
+import com.examples.testros2jsbridge.data.local.database.entities.ButtonPresetsEntity
+import com.examples.testros2jsbridge.data.local.database.entities.ConnectionEntity
+import com.examples.testros2jsbridge.data.local.database.entities.ControllerButtonFixedMapJunction
+import com.examples.testros2jsbridge.data.local.database.entities.ControllerEntity
+import com.examples.testros2jsbridge.data.local.database.entities.GeometryMessageEntity
+import com.examples.testros2jsbridge.data.local.database.entities.PresetButtonMapJunction
+import com.examples.testros2jsbridge.data.local.database.entities.PublisherEntity
+import com.examples.testros2jsbridge.data.local.database.entities.SubscriberEntity
 
 @Database(
     entities = [

@@ -1,6 +1,6 @@
 package com.examples.testros2jsbridge.presentation.mapper
 
-import com.examples.testros2jsbridge.domain.model.*
+import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.presentation.state.ControllerUiState
 
 object ControllerUiMapper {

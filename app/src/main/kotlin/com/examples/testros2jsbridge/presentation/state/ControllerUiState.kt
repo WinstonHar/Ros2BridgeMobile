@@ -2,7 +2,6 @@ package com.examples.testros2jsbridge.presentation.state
 
 import com.examples.testros2jsbridge.domain.model.ControllerConfig
 import com.examples.testros2jsbridge.domain.model.ControllerPreset
-import com.examples.testros2jsbridge.domain.model.AppAction
 
 /**
  * UI state for controller configuration, wrapping ControllerConfig and adding UI flags/fields.

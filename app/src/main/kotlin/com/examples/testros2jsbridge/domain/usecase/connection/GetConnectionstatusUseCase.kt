@@ -1,7 +1,6 @@
 package com.examples.testros2jsbridge.domain.usecase.connection
 
 import com.examples.testros2jsbridge.domain.repository.RosConnectionRepository
-import com.examples.testros2jsbridge.domain.model.RosConnection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject

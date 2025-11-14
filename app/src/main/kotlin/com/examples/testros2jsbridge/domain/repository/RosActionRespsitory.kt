@@ -4,12 +4,12 @@ package com.examples.testros2jsbridge.domain.repository
 Action handling interface
  */
 
-import com.examples.testros2jsbridge.domain.model.*
-import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosActionDto
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.ActionFieldValue
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.Flow
+import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosActionDto
+import com.examples.testros2jsbridge.domain.model.RosAction
+import com.examples.testros2jsbridge.domain.model.RosId
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 
 interface RosActionRepository {
     val actions: MutableStateFlow<List<RosAction>>

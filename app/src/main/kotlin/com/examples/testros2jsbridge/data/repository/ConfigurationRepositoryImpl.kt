@@ -12,9 +12,9 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.yaml.snakeyaml.Yaml
 import java.io.InputStream
 import java.io.OutputStream
-import org.yaml.snakeyaml.Yaml
 import javax.inject.Inject
 import javax.inject.Singleton
 

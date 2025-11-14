@@ -18,16 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.examples.testros2jsbridge.core.util.Logger
 import com.examples.testros2jsbridge.presentation.ui.screens.NavGraphs
 import com.examples.testros2jsbridge.presentation.ui.screens.destinations.ControllerOverviewScreenDestination
 import com.examples.testros2jsbridge.presentation.ui.screens.settings.SettingsViewModel

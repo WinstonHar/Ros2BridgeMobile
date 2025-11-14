@@ -1,7 +1,6 @@
 package com.examples.testros2jsbridge.core.util
 
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 object JsonUtils {

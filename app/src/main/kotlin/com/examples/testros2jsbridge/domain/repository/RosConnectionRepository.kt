@@ -4,7 +4,8 @@ package com.examples.testros2jsbridge.domain.repository
 Interface for connection abstraction
  */
 
-import com.examples.testros2jsbridge.domain.model.*
+import com.examples.testros2jsbridge.domain.model.RosConnection
+import com.examples.testros2jsbridge.domain.model.RosId
 import kotlinx.coroutines.flow.StateFlow
 
 interface RosConnectionRepository {

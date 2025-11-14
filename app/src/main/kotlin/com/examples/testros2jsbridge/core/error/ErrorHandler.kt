@@ -1,6 +1,5 @@
 package com.examples.testros2jsbridge.core.error
 
-import com.examples.testros2jsbridge.domain.model.RosId
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 

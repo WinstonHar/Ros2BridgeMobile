@@ -2,7 +2,6 @@ package com.examples.testros2jsbridge.domain.repository
 
 import android.content.Context
 import com.examples.testros2jsbridge.data.remote.rosbridge.dto.RosMessageDto
-import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 import com.examples.testros2jsbridge.domain.model.RosId
 import com.examples.testros2jsbridge.domain.model.RosMessage

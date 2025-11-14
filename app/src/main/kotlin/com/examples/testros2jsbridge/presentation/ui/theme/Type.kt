@@ -1,16 +1,11 @@
 package com.examples.testros2jsbridge.presentation.ui.theme
 
+// Import colors from Color.kt
 import androidx.compose.material3.Typography
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
-
-// Import colors from Color.kt
-import com.examples.testros2jsbridge.presentation.ui.theme.LightOnSurface
-import com.examples.testros2jsbridge.presentation.ui.theme.DarkOnSurface
 
 val DefaultTypography = Typography(
     displayLarge = TextStyle(

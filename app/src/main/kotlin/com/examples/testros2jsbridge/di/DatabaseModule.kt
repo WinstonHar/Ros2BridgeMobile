@@ -3,7 +3,12 @@ package com.examples.testros2jsbridge.di
 import android.content.Context
 import androidx.room.Room
 import com.examples.testros2jsbridge.data.local.database.RosDatabase
-import com.examples.testros2jsbridge.data.local.database.dao.*
+import com.examples.testros2jsbridge.data.local.database.dao.AppActionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ConnectionDao
+import com.examples.testros2jsbridge.data.local.database.dao.ControllerDao
+import com.examples.testros2jsbridge.data.local.database.dao.GeometryMessageDao
+import com.examples.testros2jsbridge.data.local.database.dao.PublisherDao
+import com.examples.testros2jsbridge.data.local.database.dao.SubscriberDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

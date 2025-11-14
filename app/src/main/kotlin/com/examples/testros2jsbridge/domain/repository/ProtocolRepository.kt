@@ -1,7 +1,6 @@
 package com.examples.testros2jsbridge.domain.repository
 
 import android.content.Context
-import com.examples.testros2jsbridge.domain.model.AppAction
 import com.examples.testros2jsbridge.domain.model.CustomProtocol
 
 interface ProtocolRepository {

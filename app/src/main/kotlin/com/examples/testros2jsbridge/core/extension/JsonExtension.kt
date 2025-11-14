@@ -1,7 +1,7 @@
 package com.examples.testros2jsbridge.core.extension
 
-import kotlinx.serialization.*
 import com.examples.testros2jsbridge.domain.model.Publisher
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 object JsonExtension {
