@@ -18,7 +18,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
@@ -219,6 +221,21 @@ class ProtocolViewModel @Inject constructor(
 
     fun dismissErrorDialog() {
         _uiState.value = _uiState.value.copy(showErrorDialog = false, errorMessage = null)
+    }
+    
+    fun buildProtocolMsgJson(
+        protocolFields: List<ProtocolField>,
+        protocolFieldValues: Map<String, String>,
+        topicOverride: String?,
+        typeOverride: String
+    ): String {
+        val msgArgs = buildMsgArgsJson()
+        return buildJsonObject {
+            put("op", "publish")
+            put("topic", topicOverride ?: "")
+            put("type", typeOverride)
+            put("msg", Json.parseToJsonElement(msgArgs))
+        }.toString()
     }
 
     fun buildMsgArgsJson(): String {

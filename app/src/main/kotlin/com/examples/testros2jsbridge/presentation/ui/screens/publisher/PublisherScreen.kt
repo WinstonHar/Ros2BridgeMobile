@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -55,6 +56,8 @@ import com.examples.testros2jsbridge.presentation.state.ProtocolUiState
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,6 +87,9 @@ fun PublisherScreen(
     var selectedMsg by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
     var selectedSrv by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
     var selectedAct by remember { mutableStateOf<ProtocolUiState.ProtocolFile?>(null) }
+
+    var showJsonErrorDialog by remember { mutableStateOf(false) }
+    var jsonErrorMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(editingAction) {
         val action = editingAction
@@ -121,6 +127,20 @@ fun PublisherScreen(
     }
 
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    if (showJsonErrorDialog) {
+        AlertDialog(
+            onDismissRequest = { showJsonErrorDialog = false },
+            title = { Text("Invalid JSON") },
+            text = { Text(jsonErrorMessage) },
+            confirmButton = {
+                Button(onClick = { showJsonErrorDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -352,7 +372,7 @@ fun PublisherScreen(
                             OutlinedTextField(
                                 value = protocolFieldValues[field.name] ?: "",
                                 onValueChange = {},
-                                label = { Text(field.name + " (" + field.type + ")" + if (field.isConstant) " [CONST]" else " [${field.section}]" ) },
+                                label = { Text(field.name + " (" + field.type + ")" + if (field.isConstant) " [CONST]" else " [${field.section}]") },
                                 modifier = Modifier.fillMaxWidth(),
                                 readOnly = true,
                                 enabled = false
@@ -362,39 +382,40 @@ fun PublisherScreen(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = {
-                        viewModel.triggerProtocol()
-                    }) {
-                        Text("Trigger Protocol")
-                    }
-                    Button(onClick = {
-                        val id = UUID.randomUUID().toString()
                         val selectedProtocol = selectedMsg ?: selectedSrv ?: selectedAct
-                        val fullType = if (selectedProtocol != null) {
-                            when (selectedProtocol.type) {
+                        if (selectedProtocol != null) {
+                            val id = UUID.randomUUID().toString()
+                            val fullType = when (selectedProtocol.type) {
                                 ProtocolUiState.ProtocolType.MSG -> "${selectedProtocol.packageName}/${selectedProtocol.name}"
                                 else -> "${selectedProtocol.packageName}/${selectedProtocol.type.name.lowercase()}/${selectedProtocol.name}"
                             }
-                        } else {
-                            activeProtocol!!.type.name
-                        }
-                        val msgJson = viewModel.buildMsgArgsJson()
-                        viewModel.saveCustomAppAction(
-                            context,
-                            AppAction(
-                                id = id,
-                                displayName = protocolFieldValues["__topic__"] ?: activeProtocol!!.name,
-                                topic = protocolFieldValues["__topic__"] ?: "",
-                                type = fullType,
-                                source = activeProtocol!!.packageName,
-                                msg = msgJson,
-                                rosMessageType = when {
-                                    selectedSrv != null -> RosProtocolType.SERVICE_CLIENT.name
-                                    selectedAct != null -> RosProtocolType.ACTION_CLIENT.name
-                                    else -> RosProtocolType.PUBLISHER.name
-                                }
+                            val msgJson = viewModel.buildProtocolMsgJson(
+                                protocolFields = protocolFields,
+                                protocolFieldValues = protocolFieldValues,
+                                topicOverride = protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"],
+                                typeOverride = fullType
                             )
-                        )
-                        keyboardController?.hide()
+                            val rosMessageType = when (selectedProtocol.type) {
+                                ProtocolUiState.ProtocolType.MSG -> RosProtocolType.PUBLISHER.name
+                                ProtocolUiState.ProtocolType.SRV -> RosProtocolType.SERVICE_CLIENT.name
+                                ProtocolUiState.ProtocolType.ACTION -> RosProtocolType.ACTION_CLIENT.name
+                            }
+                            val topic = protocolFieldValues["topic"] ?: protocolFieldValues["__topic__"] ?: ""
+
+                            viewModel.saveCustomAppAction(
+                                context,
+                                AppAction(
+                                    id = id,
+                                    displayName = topic.ifBlank { activeProtocol!!.name },
+                                    topic = topic,
+                                    type = fullType,
+                                    source = activeProtocol!!.packageName,
+                                    msg = msgJson.ifBlank { "{}" },
+                                    rosMessageType = rosMessageType
+                                )
+                            )
+                            keyboardController?.hide()
+                        }
                     }) {
                         Text("Save as App Action")
                     }
@@ -477,37 +498,50 @@ fun PublisherScreen(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (editingAction != null) {
                         Button(onClick = {
+                            focusManager.clearFocus()
                             viewModel.setEditingAppAction(null)
                         }) { Text("Cancel") }
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Button(onClick = {
-                        val id = editingAction?.id ?: UUID.randomUUID().toString()
-                        val typeText = actionType.text
-                        val protocolType = when {
-                            typeText.contains("/srv/") -> RosProtocolType.SERVICE_CLIENT
-                            typeText.contains("/action/") -> RosProtocolType.ACTION_CLIENT
-                            else -> RosProtocolType.PUBLISHER // or SUBSCRIBER, default to PUBLISHER
-                        }
-                        val finalType = if (protocolType == RosProtocolType.PUBLISHER) {
-                            typeText.replace("/msg/", "/")
-                        } else {
-                            typeText
-                        }
+                        focusManager.clearFocus()
+                        try {
+                            val sanitizedJson = if (actionMsg.text.isBlank()) {
+                                "{}"
+                            } else {
+                                Json.encodeToString(JsonElement.serializer(), Json.parseToJsonElement(actionMsg.text))
+                            }
 
-                        viewModel.saveCustomAppAction(
-                            context,
-                            AppAction(
-                                id = id,
-                                displayName = actionDisplayName.text,
-                                topic = actionTopic.text,
-                                type = finalType,
-                                source = actionSource.text,
-                                msg = actionMsg.text,
-                                rosMessageType = protocolType.name
+                            val id = editingAction?.id ?: UUID.randomUUID().toString()
+                            val typeText = actionType.text
+                            val protocolType = when {
+                                typeText.contains("/srv/") -> RosProtocolType.SERVICE_CLIENT
+                                typeText.contains("/action/") -> RosProtocolType.ACTION_CLIENT
+                                else -> RosProtocolType.PUBLISHER // or SUBSCRIBER, default to PUBLISHER
+                            }
+                            val finalType = if (protocolType == RosProtocolType.PUBLISHER) {
+                                typeText.replace("/msg/", "/")
+                            } else {
+                                typeText
+                            }
+
+                            viewModel.saveCustomAppAction(
+                                context,
+                                AppAction(
+                                    id = id,
+                                    displayName = actionDisplayName.text,
+                                    topic = actionTopic.text,
+                                    type = finalType,
+                                    source = actionSource.text,
+                                    msg = sanitizedJson,
+                                    rosMessageType = protocolType.name
+                                )
                             )
-                        )
-                        viewModel.setEditingAppAction(null)
+                            viewModel.setEditingAppAction(null)
+                        } catch (e: Exception) {
+                            jsonErrorMessage = "Failed to parse JSON: ${e.message}"
+                            showJsonErrorDialog = true
+                        }
                     }) {
                         Text(if (editingAction == null) "Save App Action" else "Update App Action")
                     }
@@ -545,7 +579,7 @@ fun PublisherScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 4.dp)
-                                .clickable { viewModel.setEditingAppAction(action) }
+                                .clickable { viewModel.setEditingAppAction(action, context) }
                         ) {
                             Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column(modifier = Modifier.weight(1f)) {
@@ -558,7 +592,7 @@ fun PublisherScreen(
                                 }
                                 Row {
                                     IconButton(onClick = {
-                                        viewModel.setEditingAppAction(action)
+                                        viewModel.setEditingAppAction(action, context)
                                     }) {
                                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                                     }
