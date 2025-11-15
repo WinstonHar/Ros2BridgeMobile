@@ -1,4 +1,243 @@
+# Ros2BridgeMobile App Architecture & Overview
 
+---
+
+## Project Overview
+Ros2BridgeMobile is an Android application written in Kotlin that enables seamless communication with ROS 2 robots via the rosbridge protocol. The app allows users to send and receive ROS 2 messages, including custom and standard message types, geometry messages, and controller/gamepad input for robot control. It is designed for both manual and automated robot interaction, supporting advanced workflows such as custom protocol import and dynamic topic/type handling.
+
+## Architecture
+The project follows a modular, layered architecture:
+- **Fragments & UI:** The main user interface is organized into fragments, each responsible for a specific feature (controller support, custom protocol import, etc.). Fragments manage their own RecyclerView adapters and persist user settings using SharedPreferences.
+- **App Actions:** All user-triggered events (button presses, joystick movement, etc.) are represented as AppAction data classes, which encapsulate the topic, type, and message JSON for ROS 2 publishing.
+- **ViewModel Layer:** The RosViewModel (and related ViewModels) handle ROS 2 network communication, topic advertisement, and message publishing, using OkHttp for networking and kotlinx.serialization for message handling.
+- **Repository & Data Layer:** Repositories manage local data (Room database) and remote communication (rosbridge). Mappers convert between domain models and database entities, ensuring correct ROS 2 conventions for topic and type formatting.
+- **Dependency Injection:** Dagger Hilt is used for dependency injection, providing singletons for DAOs, repositories, and network clients throughout the app.
+
+## File Hierarchy & Relationships
+```
+RosApplication.kt
+├── di/
+│   ├── AppModule.kt
+│   ├── DatabaseModule.kt
+│   ├── NetworkModule.kt
+│   ├── RepositoryModule.kt
+│   └── ViewModelModule.kt
+├── core/
+│   ├── base/
+│   │   ├── BaseRepository.kt
+│   │   ├── BaseUseCase.kt
+│   │   └── BaseViewModel.kt
+│   ├── error/
+│   │   ├── ErrorHandler.kt
+│   │   ├── ErrorMapper.kt
+│   │   └── RosException.kt
+│   ├── extension/
+│   │   ├── FlowExtension.kt
+│   │   ├── JsonExtension.kt
+│   │   └── StringExtension.kt
+│   ├── network/
+│   │   ├── ConnectionManager.kt
+│   │   ├── NetworkResult.kt
+│   │   └── RetryPolicy.kt
+│   ├── ros/
+│   │   └── RosBridgeViewModel.kt
+│   └── util/
+│       ├── Constants.kt
+│       ├── JsonUtils.kt
+│       ├── Logger.kt
+│       ├── UuidUtils.kt
+│       └── ValidationUtils.kt
+├── data/
+│   ├── mapper/
+│   │   ├── AppActionMapper.kt
+│   │   └── ControllerConfigMapper.kt
+│   ├── repository/
+│   │   ├── AppActionRepositoryImpl.kt
+│   │   ├── ConfigurationRepositoryImpl.kt
+│   │   ├── ControllerRepositoryImpl.kt
+│   │   ├── ProtocolRepositoryImpl.kt
+│   │   ├── PublisherRepositoryImpl.kt
+│   │   ├── RosConnectionRepositoryImpl.kt
+│   │   ├── RosMessageRepositoryImpl.kt
+│   │   ├── RosServiceRepositoryImpl.kt
+│   │   ├── RosTopicRepositoryImpl.kt
+│   │   └── SubscriberRepositoryImpl.kt
+│   ├── local/database/
+│   │   ├── dao/
+│   │   │   ├── appActionDAO.kt
+│   │   │   ├── ConnectionDao.kt
+│   │   │   ├── ControllerConfigDao.kt
+│   │   │   ├── controllerDAO.kt
+│   │   │   ├── GeometryMessageDao.kt
+│   │   │   ├── PublisherDao.kt
+│   │   │   └── SubscriberDao.kt
+│   │   ├── entities/
+│   │   │   ├── appActionEntity.kt
+│   │   │   ├── buttonMapEntity.kt
+│   │   │   ├── ButtonPresetsEntity.kt
+│   │   │   ├── ConnectionEntity.kt
+│   │   │   ├── ControllerButtonFixedMapJunction.kt
+│   │   │   ├── ControllerButtonPresetJunction.kt
+│   │   │   ├── ControllerConfigEntity.kt
+│   │   │   ├── controllerEntity.kt
+│   │   │   ├── GeometryMessageEntity.kt
+│   │   │   ├── PresetButtonMapJunction.kt
+│   │   │   ├── PublisherEntity.kt
+│   │   │   └── SubscriberEntity.kt
+│   │   └── relations/
+│   │       ├── ControllerWithButtonMaps.kt
+│   │       └── PresetWithButtonMaps.kt
+│   ├── remote/rosbridge/
+│   │   ├── RosbridgeClient.kt
+│   │   ├── RosbridgeWebSocketListener.kt
+│   │   └── dto/
+│   │       ├── RosActionDto.kt
+│   │       ├── RosMessageDto.kt
+│   │       ├── RosServiceDto.kt
+│   │       └── RosTopicDto.kt
+├── domain/
+│   ├── model/
+│   │   ├── AppAction.kt
+│   │   ├── AppConfiguration.kt
+│   │   ├── ButtonMap.kt
+│   │   ├── ButtonPreset.kt
+│   │   ├── Controller.kt
+│   │   ├── ControllerConfig.kt
+│   │   ├── ControllerPreset.kt
+│   │   ├── CustomProtocol.kt
+│   │   ├── JoystickMapping.kt
+│   │   ├── Publisher.kt
+│   │   ├── RosAction.kt
+│   │   ├── RosConnection.kt
+│   │   ├── RosID.kt
+│   │   ├── RosMessage.kt
+│   │   ├── RosProtocolType.kt
+│   │   ├── RosService.kt
+│   │   ├── RosTopic.kt
+│   │   └── Subscriber.kt
+│   ├── repository/
+│   │   ├── AppActionRepository.kt
+│   │   ├── ConfigurationRepository.kt
+│   │   ├── ControllerRepository.kt
+│   │   ├── ProtocolRepository.kt
+│   │   ├── PublisherRepository.kt
+│   │   ├── RosActionRepository.kt
+│   │   ├── RosActionRespsitory.kt
+│   │   ├── RosConnectionRepository.kt
+│   │   ├── RosMessageRepository.kt
+│   │   ├── RosServiceRepository.kt
+│   │   ├── RosTopicRepository.kt
+│   │   └── SubscriberRepository.kt
+│   └── usecase/
+├── presentation/
+│   ├── mapper/
+│   │   ├── ControllerUiMapper.kt
+│   │   ├── MessageUiMapper.kt
+│   │   ├── PublisherUiMapper.kt
+│   │   └── SubscriberUiMapper.kt
+│   ├── state/
+│   │   ├── ConnectionUiState.kt
+│   │   ├── ControllerUiState.kt
+│   │   ├── GeometryUiState.kt
+│   │   ├── ProtocolUiState.kt
+│   │   ├── PublisherUiState.kt
+│   │   ├── SettingUiState.kt
+│   │   └── SubscriberUiState.kt
+│   ├── ui/components/
+│   │   ├── ControllerButton.kt
+│   │   ├── MessageEditor.kt
+│   │   ├── MessageHistoryList.kt
+│   │   ├── RosConnectionCard.kt
+│   │   └── TopicSelector.kt
+│   ├── ui/navigation/
+│   │   ├── BackNavigationHandler.kt
+│   │   └── NavigationArgs.kt
+│   ├── ui/screens/connection/
+│   │   ├── ConnectionScreen.kt
+│   │   └── ConnectionViewModel.kt
+│   ├── ui/screens/controller/
+│   │   ├── ControllerConfigScreen.kt
+│   │   ├── ControllerOverviewScreen.kt
+│   │   ├── ControllerScreen.kt
+│   │   └── ControllerViewModel.kt
+│   ├── ui/screens/publisher/
+│   │   ├── EditPublisherDialog.kt
+│   │   ├── ProtocolViewModel.kt
+│   │   └── PublisherScreen.kt
+│   ├── ui/screens/settings/
+│   │   ├── SettingScreen.kt
+│   │   └── SettingsViewModel.kt
+│   ├── ui/screens/subscriber/
+│   │   ├── SubscriberScreen.kt
+│   │   ├── SubscriberViewModel.kt
+│   │   └── TopicListScreen.kt
+│   └── ui/theme/
+│       ├── Color.kt
+│       ├── Themes.kt
+│       └── Type.kt
+└── util/
+    └── SanitizeUtils.kt
+```
+
+## Key Features
+- **Custom Protocols:** Users can import custom message/service/action definitions and publish them to ROS 2 topics, with strict type and topic formatting to match ROS 2/rosbridge conventions. Packages are imported via adding them(package folder) to the /msgs/ folder in the assets folder.
+- **Controller Integration:** Gamepad/controller input is mapped to ROS 2 geometry messages, with quantization and deadzone logic for precise robot control.
+- **Manual & Automated Testing:** The app supports manual UI testing and ROS 2 topic monitoring, with no formal test suite but robust error handling and logging.
+- **Extensibility:** The architecture supports easy addition of new message types, protocols, and UI features, making it suitable for research, prototyping, and real-world robot deployments.
+
+## What the Project Does
+Ros2BridgeMobile bridges the gap between Android devices and ROS 2 robots. It allows users to:
+- Connect to a ROS 2 network via rosbridge (WebSocket protocol).
+- Advertise, publish, and subscribe to ROS 2 topics using both standard and custom message types.
+- Map controller/gamepad input to robot actions, enabling intuitive teleoperation.
+- Import and use custom protocols for advanced robot workflows.
+- Monitor and manage ROS 2 connections, topics, and messages directly from the mobile device.
+
+Developed for internal use at Dream Face Technologies in Denver Colorado.
+
+## Feature Table
+
+| Feature Name                       | Feature Description                                                                                  | Working | Under Production |
+|------------------------------------|-----------------------------------------------------------------------------------------------------|---------|------------------|
+| **Controller Screen**              |                                                                                                     |         |                  |
+| Controller Config Selection        | Dropdown to select, create, and manage controller configurations.                                   | x       |                  |
+| Add Config                         | Add a new controller configuration with a custom name.                                              | x       |                  |
+| Remove Config                      | Remove the selected controller configuration.                                                       | x       |                  |
+| Configure Button                   | Navigate to detailed configuration for the selected controller config.                              | x       |                  |
+| Controller Button Mapping          | View and assign AppActions to controller buttons.                                                   | x       |                  |
+| App Action Assignment              | Assign available AppActions to controller buttons via TopicSelector.                                | x       |                  |
+| Controller Preset Selection        | Dropdown to select, create, and manage controller presets (ABXY).                                   | x       |                  |
+| Add Preset                         | Add a new controller preset.                                                                       | x       |                  |
+| Remove Preset                      | Remove the selected controller preset.                                                             |         | x                |
+| Update Preset                      | Update the selected controller preset.                                                             |         | x                |
+| ABXY Button Assignment             | Assign AppActions to ABXY buttons using TopicSelector.                                             | x       |                  |
+| Export Config                      | Export the current controller configuration to a YAML file.                                        |         | x                |
+| Import Config                      | Import a controller configuration from a YAML file. (Currently broken, per your note)              |         | x                |
+| **Publisher Screen**               |                                                                                                     |         |                  |
+| Custom AppAction Management        | Create, edit, and delete custom AppActions for publishing.                                         | x       |                  |
+| Protocol Field Editing             | Edit protocol fields for custom messages/services/actions.                                          | x       |                  |
+| Publisher List                     | View and manage list of publishers.                                                                | x       |                  |
+| Publish Message                    | Send a message to a ROS 2 topic using selected publisher.                                          | x       |                  |
+| Edit Publisher Dialog              | Dialog for editing publisher details (topic, type, message, label).                                |         |                  |
+| **Subscriber Screen**              |                                                                                                     |         | x                |
+| Subscriber List                    | View and manage list of topic subscribers.                                                         | x       |                  |
+| Add Subscriber                     | Add a new subscriber to a topic.                                                                   |         | x                |
+| Remove Subscriber                  | Remove a subscriber from a topic.                                                                  |         | x                |
+| Topic List                         | View available ROS 2 topics and subscribe to them.                                                 |         | x                |
+| Message History                    | View message history for each subscriber.                                                          |         | x                |
+| Collapsible Message History List   | Expand/collapse message history for easier viewing.                                                |         | x                |
+| **Connection Screen**              |                                                                                                     |         |                  |
+| IP/Port Input                      | Input fields for ROS 2 host IP and port.                                                           | x       |                  |
+| Connect/Disconnect                 | Connect to or disconnect from ROS 2 network.                                                       | x       |                  |
+| Connection Status Display          | Show current connection status and error messages.                                                 |         | x                |
+| Clear IP/Port                      | Clear input fields for IP and port.                                                                | x       |                  |
+| **Settings Screen**                |                                                                                                     |         |                  |
+| Theme Selection                    | Select app theme (light, dark, system).                                                            | x       |                  |
+| Language Selection                 | Set app language via language code.                                                                |         | x                |
+| Notifications Toggle               | Enable or disable app notifications.                                                               |         | x                |
+| Reconnect Option                   | Option to reconnect to ROS 2 automatically.                                                        | x       |                  |
+
+# Description for all files in project directory
 ---
 
 ## (root)
@@ -337,7 +576,7 @@
 ### RosMessageDto.kt
 - **Path:** data/remote/rosbridge/dto
 - **Description:** Data Transfer Object for ROS messages, including topic, type, content, and metadata for network communication.
-- **Dependencies:** com.examples.testros2jsbridge.domain.model.RosId
+- **Dependencies:** com.examples.testros2jsbridge.domain.model.RosID
 
 ### RosServiceDto.kt
 - **Path:** data/remote/rosbridge/dto
